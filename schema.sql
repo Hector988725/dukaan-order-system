@@ -1,25 +1,41 @@
 -- ============================================================
--- DUKAAN ORDER SYSTEM - DATABASE SCHEMA
+-- MULTI-TENANT UPGRADE - NEW SCHEMA
 -- ============================================================
--- Yeh file Supabase ke SQL Editor mein paste karni hai.
--- Isse 4 tables banegi: stores, products, variants, orders
+-- Yeh schema purane single-store setup ko replace karta hai.
+-- Ab har dukaandar apna account bana sakta hai aur uski apni
+-- alag dukaan (store) hogi, apne URL slug ke saath.
+--
+-- IMPORTANT: Agar aapne pehle wala schema.sql already chalaya
+-- hai, toh pehle purane tables delete karein (neeche section 0),
+-- fir yeh poora file run karein.
 -- ============================================================
 
--- 1. STORES TABLE
--- Har dukaandar ki entry yahan hogi. "slug" unke store ka unique URL naam hai
--- jaise: yourapp.com/sharma-kirana  -> slug = "sharma-kirana"
+-- ============================================================
+-- 0. PURANE TABLES HATAYEIN (agar pehle se hain)
+-- ============================================================
+drop table if exists orders cascade;
+drop table if exists variants cascade;
+drop table if exists products cascade;
+drop table if exists stores cascade;
+
+-- ============================================================
+-- 1. STORES TABLE (ab user_id se linked - owner kaun hai)
+-- ============================================================
 create table stores (
   id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users(id) on delete cascade not null,
   slug text unique not null,
   name text not null,
+  business_type text default 'general',  -- 'kirana', 'hardware', 'medical', 'mobile', 'general'
   whatsapp_number text not null,
   upi_id text,
   address text,
   created_at timestamptz default now()
 );
 
+-- ============================================================
 -- 2. PRODUCTS TABLE
--- Har product ek store se juda hota hai (store_id se)
+-- ============================================================
 create table products (
   id uuid primary key default gen_random_uuid(),
   store_id uuid references stores(id) on delete cascade not null,
@@ -30,134 +46,117 @@ create table products (
   created_at timestamptz default now()
 );
 
+-- ============================================================
 -- 3. VARIANTS TABLE
--- Har product ke andar 1 ya zyada variants (alag rate/size/brand)
--- Yahi feature hai jisse "Chini Normal ₹42" aur "Chini Madhur Brand ₹52" alag-alag store hote hain
+-- ============================================================
 create table variants (
   id uuid primary key default gen_random_uuid(),
   product_id uuid references products(id) on delete cascade not null,
-  label text not null,        -- jaise "Normal", "Madhur Brand", "Basmati Premium"
-  unit text not null,          -- jaise "kg", "litre", "packet", "piece"
+  label text not null,
+  unit text not null,
   price numeric not null,
   stock int not null default 0,
   created_at timestamptz default now()
 );
 
+-- ============================================================
 -- 4. ORDERS TABLE
--- Har customer order yahan store hota hai
+-- ============================================================
 create table orders (
   id uuid primary key default gen_random_uuid(),
   store_id uuid references stores(id) on delete cascade not null,
-  order_number text not null,   -- jaise "ORD1042" - dikhane ke liye
+  order_number text not null,
   customer_name text not null,
   customer_phone text not null,
   address text not null,
   landmark text,
   pincode text not null,
-  payment_method text not null,  -- "COD" ya "UPI Paid"
-  items jsonb not null,           -- order ke saare items ek JSON array mein
+  payment_method text not null,
+  items jsonb not null,
   total numeric not null,
-  status text not null default 'new',  -- 'new' | 'preparing' | 'delivered'
+  status text not null default 'new',
   created_at timestamptz default now()
 );
 
 -- ============================================================
--- INDEXES - taaki data fast load ho
+-- INDEXES
 -- ============================================================
+create index idx_stores_user on stores(user_id);
+create index idx_stores_slug on stores(slug);
 create index idx_products_store on products(store_id);
 create index idx_variants_product on variants(product_id);
 create index idx_orders_store on orders(store_id);
 create index idx_orders_status on orders(status);
 
 -- ============================================================
--- ROW LEVEL SECURITY (RLS)
+-- ROW LEVEL SECURITY (RLS) - Ownership-based
 -- ============================================================
--- Yeh zaroori hai taaki:
--- - Customer sirf products dekh sake, orders bana sake
--- - Dukaandar apne hi store ka data dekh/badal sake
+-- Core idea:
+-- - Koi bhi (customer) STORE/PRODUCTS/VARIANTS dekh sakta hai (storefront ke liye)
+-- - Koi bhi ORDER bana sakta hai (customer order place karega)
+-- - Sirf STORE KA OWNER apne store ka data EDIT/DELETE kar sakta hai
+-- - Sirf STORE KA OWNER apne orders dekh/update kar sakta hai
+
 alter table stores enable row level security;
 alter table products enable row level security;
 alter table variants enable row level security;
 alter table orders enable row level security;
 
--- Sabko products/stores dekhne dein (public storefront ke liye)
-create policy "Public can view stores" on stores for select using (true);
-create policy "Public can view products" on products for select using (true);
-create policy "Public can view variants" on variants for select using (true);
+-- ---- STORES ----
+create policy "Anyone can view stores" on stores for select using (true);
+create policy "Owner can insert own store" on stores for insert with check (auth.uid() = user_id);
+create policy "Owner can update own store" on stores for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "Owner can delete own store" on stores for delete using (auth.uid() = user_id);
 
--- Sabko order banane dein (customer order place karega)
-create policy "Public can create orders" on orders for insert with check (true);
+-- ---- PRODUCTS ----
+create policy "Anyone can view products" on products for select using (true);
+create policy "Owner can insert products" on products for insert
+  with check (exists (select 1 from stores where stores.id = products.store_id and stores.user_id = auth.uid()));
+create policy "Owner can update products" on products for update
+  using (exists (select 1 from stores where stores.id = products.store_id and stores.user_id = auth.uid()));
+create policy "Owner can delete products" on products for delete
+  using (exists (select 1 from stores where stores.id = products.store_id and stores.user_id = auth.uid()));
 
--- Abhi demo ke liye dukaandar ko bhi public access se admin karne dein.
--- NOTE: Jab real multiple-dukaandar system banayenge, isse "authenticated"
--- users tak limit karna padega (login system ke saath) - abhi single-store
--- testing ke liye yeh simple rakha hai.
-create policy "Public can view orders" on orders for select using (true);
-create policy "Public can update orders" on orders for update using (true);
-create policy "Public can update variant stock" on variants for update using (true);
-create policy "Public can insert products" on products for insert with check (true);
-create policy "Public can insert variants" on variants for insert with check (true);
+-- ---- VARIANTS ----
+create policy "Anyone can view variants" on variants for select using (true);
+create policy "Owner can insert variants" on variants for insert
+  with check (exists (
+    select 1 from products join stores on stores.id = products.store_id
+    where products.id = variants.product_id and stores.user_id = auth.uid()
+  ));
+create policy "Owner can update variants" on variants for update
+  using (exists (
+    select 1 from products join stores on stores.id = products.store_id
+    where products.id = variants.product_id and stores.user_id = auth.uid()
+  ));
+create policy "Owner can delete variants" on variants for delete
+  using (exists (
+    select 1 from products join stores on stores.id = products.store_id
+    where products.id = variants.product_id and stores.user_id = auth.uid()
+  ));
+
+-- ---- ORDERS ----
+-- Customer (jo logged in nahi hai) order bana sake
+create policy "Anyone can create orders" on orders for insert with check (true);
+-- Sirf store owner apne orders dekh sake
+create policy "Owner can view own orders" on orders for select
+  using (exists (select 1 from stores where stores.id = orders.store_id and stores.user_id = auth.uid()));
+-- Sirf store owner order status update kar sake
+create policy "Owner can update own orders" on orders for update
+  using (exists (select 1 from stores where stores.id = orders.store_id and stores.user_id = auth.uid()));
 
 -- ============================================================
--- SAMPLE DATA (Demo Kirana Store)
+-- HELPER FUNCTION: Naya store banate waqt slug unique check karna
 -- ============================================================
-insert into stores (slug, name, whatsapp_number, upi_id, address)
-values ('sharma-kirana', 'Sharma Kirana Store', '919876543210', 'sharmakirana@upi', 'Bus Stand Road, Amānganj');
-
--- Products + Variants ko ek saath insert karne ke liye, hum store ka id nikalenge
-do $$
-declare
-  v_store_id uuid;
-  v_product_id uuid;
+create or replace function is_slug_available(check_slug text)
+returns boolean as $$
 begin
-  select id into v_store_id from stores where slug = 'sharma-kirana';
+  return not exists (select 1 from stores where slug = check_slug);
+end;
+$$ language plpgsql security definer;
 
-  -- Chini (Sugar)
-  insert into products (store_id, name, category, emoji, sort_order) values (v_store_id, 'Chini (Sugar)', 'Staples', '🧂', 1) returning id into v_product_id;
-  insert into variants (product_id, label, unit, price, stock) values
-    (v_product_id, 'Normal', 'kg', 42, 35),
-    (v_product_id, 'Madhur Brand', 'kg', 52, 12);
-
-  -- Chawal (Rice)
-  insert into products (store_id, name, category, emoji, sort_order) values (v_store_id, 'Chawal (Rice)', 'Rice & Grains', '🍚', 2) returning id into v_product_id;
-  insert into variants (product_id, label, unit, price, stock) values
-    (v_product_id, 'Sela Rice', 'kg', 68, 60),
-    (v_product_id, 'Basmati - Daily', 'kg', 95, 40),
-    (v_product_id, 'Basmati - Premium', 'kg', 140, 10);
-
-  -- Khaane ka Tel (Oil)
-  insert into products (store_id, name, category, emoji, sort_order) values (v_store_id, 'Khaane ka Tel (Oil)', 'Oil & Ghee', '🛢️', 3) returning id into v_product_id;
-  insert into variants (product_id, label, unit, price, stock) values
-    (v_product_id, 'Sarso Tel - 1 Litre Pouch', 'pouch', 165, 24),
-    (v_product_id, 'Sarso Tel - 5 Litre Tin', 'tin', 780, 8),
-    (v_product_id, 'Fortune Sunflower - 1 Litre', 'pouch', 195, 15);
-
-  -- Toor Dal
-  insert into products (store_id, name, category, emoji, sort_order) values (v_store_id, 'Toor Dal', 'Dal & Pulses', '🫘', 4) returning id into v_product_id;
-  insert into variants (product_id, label, unit, price, stock) values
-    (v_product_id, 'Normal', 'kg', 130, 24),
-    (v_product_id, 'Premium (Chamakti)', 'kg', 155, 16);
-
-  -- Atta (Wheat Flour)
-  insert into products (store_id, name, category, emoji, sort_order) values (v_store_id, 'Atta (Wheat Flour)', 'Rice & Grains', '🌾', 5) returning id into v_product_id;
-  insert into variants (product_id, label, unit, price, stock) values
-    (v_product_id, 'Local Chakki', 'kg', 32, 50),
-    (v_product_id, 'Aashirvaad - 10kg Bag', 'bag', 410, 9);
-
-  -- Lal Mirch Powder
-  insert into products (store_id, name, category, emoji, sort_order) values (v_store_id, 'Lal Mirch Powder', 'Spices', '🌶️', 6) returning id into v_product_id;
-  insert into variants (product_id, label, unit, price, stock) values
-    (v_product_id, 'Normal', 'kg', 220, 0),
-    (v_product_id, 'Kashmiri', 'kg', 320, 0);
-
-  -- Haldi Powder
-  insert into products (store_id, name, category, emoji, sort_order) values (v_store_id, 'Haldi Powder', 'Spices', '✨', 7) returning id into v_product_id;
-  insert into variants (product_id, label, unit, price, stock) values
-    (v_product_id, 'Normal', 'kg', 180, 12);
-
-  -- Chai Patti (Tea)
-  insert into products (store_id, name, category, emoji, sort_order) values (v_store_id, 'Chai Patti (Tea)', 'Beverages', '🍵', 8) returning id into v_product_id;
-  insert into variants (product_id, label, unit, price, stock) values
-    (v_product_id, 'Local - 250g Packet', 'packet', 85, 20),
-    (v_product_id, 'Tata Tea Gold - 1kg', 'packet', 460, 6);
-end $$;
+-- ============================================================
+-- NOTE: Demo/sample data is file mein nahi hai.
+-- Naya dukaandar signup karega toh uska store empty banega,
+-- aur woh khud Admin Panel se apne products add karega.
+-- ============================================================

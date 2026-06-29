@@ -40,7 +40,7 @@ export default function DashboardView({ store, products, orders, onRefresh }) {
   };
 
   return (
-    <div style={{ maxWidth: "480px", margin: "0 auto" }}>
+    <div style={{ maxWidth: "900px", margin: "0 auto" }}>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "10px", padding: "16px 18px 0" }}>
         <StatCard icon={<TrendingUp size={15} />} label="Aaj ki Sale" value={`₹${todaysSales}`} />
         <StatCard icon={<Bell size={15} />} label="Naye Orders" value={newOrderCount} highlight={newOrderCount > 0} />

@@ -85,7 +85,7 @@ export default function CustomerView({ store, products, onOrderPlaced }) {
   };
 
   return (
-    <div style={{ position: "relative", maxWidth: "480px", margin: "0 auto" }}>
+    <div style={{ position: "relative", maxWidth: "900px", margin: "0 auto" }}>
       {/* Search + categories */}
       <div style={{ padding: "16px 18px 0" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "10px", background: "white", border: "1px solid #E3DECF", borderRadius: "11px", padding: "10px 14px" }}>
@@ -381,7 +381,7 @@ function OrderConfirmedModal({ order, storeName, whatsapp, onClose }) {
 // ---------- Shared inline styles ----------
 const btnOutline = { border: "1px solid #1B4332", background: "white", color: "#1B4332", fontWeight: 700, fontSize: "12.5px", borderRadius: "8px", padding: "7px 0", cursor: "pointer", width: "100%" };
 const stepperBtn = { width: 26, height: 26, borderRadius: "6px", border: "none", background: "rgba(255,255,255,0.15)", color: "white", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" };
-const floatingCartStyle = { position: "fixed", bottom: "16px", left: "18px", right: "18px", maxWidth: "444px", margin: "0 auto", background: "#1B4332", color: "white", borderRadius: "12px", padding: "13px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", border: "none", cursor: "pointer", boxShadow: "0 8px 20px rgba(27,67,50,0.35)" };
+const floatingCartStyle = { position: "fixed", bottom: "16px", left: "18px", right: "18px", maxWidth: "500px", margin: "0 auto", background: "#1B4332", color: "white", borderRadius: "12px", padding: "13px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", border: "none", cursor: "pointer", boxShadow: "0 8px 20px rgba(27,67,50,0.35)" };
 const overlayBottomStyle = { position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 50 };
 const drawerHeaderStyle = { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 18px", borderBottom: "1px solid #E3DECF" };
 const closeBtnStyle = { border: "none", background: "transparent", cursor: "pointer", color: "#5C5747" };
