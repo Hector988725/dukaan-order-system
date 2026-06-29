@@ -8,7 +8,7 @@ import {
 import CustomerView from "./components/CustomerView";
 import DashboardView from "./components/DashboardView";
 import AdminPanel from "./components/AdminPanel";
-import { AuthGate } from "./components/AuthGate";
+import { AuthGate, StoreDetailsForm } from "./components/AuthGate";
 
 export default function App() {
   const slug = getSlugFromUrl();
@@ -134,7 +134,16 @@ function OwnerArea() {
     return (
       <div style={shellStyle}>
         <GlobalStyles />
-        <AuthGate onAuthed={() => loadStoreData()} />
+        <div style={{ maxWidth: "380px", margin: "60px auto", padding: "0 18px" }}>
+          <div style={{ textAlign: "center", marginBottom: "18px" }}>
+            <div style={{ width: 50, height: 50, borderRadius: "12px", background: "#D4A24C", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px" }}>
+              <Store size={24} color="#123026" />
+            </div>
+            <div style={{ fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: "17px" }}>Aapki Koi Dukaan Nahi Hai Abhi</div>
+            <div style={{ fontSize: "12.5px", color: "#8B8576", marginTop: "4px" }}>Neeche details bharkar apni dukaan banayein</div>
+          </div>
+          <StoreDetailsForm user={user} onDone={() => loadStoreData()} />
+        </div>
       </div>
     );
   }

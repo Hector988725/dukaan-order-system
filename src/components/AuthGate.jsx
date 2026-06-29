@@ -132,7 +132,7 @@ function SignupForm({ onAuthed }) {
   );
 }
 
-function StoreDetailsForm({ user, onDone }) {
+export function StoreDetailsForm({ user, onDone }) {
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [slugTouched, setSlugTouched] = useState(false);
