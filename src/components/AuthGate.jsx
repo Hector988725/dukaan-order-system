@@ -60,6 +60,9 @@ function LoginForm({ onAuthed }) {
     setLoading(true);
     try {
       const data = await signIn(email, password);
+      // Supabase ka onAuthStateChange listener khud user state update karega.
+      // Hum bas safety ke liye yahan se bhi trigger karte hain, thodi der baad,
+      // taaki agar listener slow ho toh bhi UI turant switch ho jaaye.
       onAuthed(data.user);
     } catch (e) {
       setError(e.message === "Invalid login credentials" ? "Email ya password galat hai." : e.message);

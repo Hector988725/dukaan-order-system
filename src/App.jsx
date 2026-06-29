@@ -3,7 +3,7 @@ import { Store, ShoppingCart, LayoutGrid, Loader2, AlertTriangle, ShieldCheck, L
 import { getSlugFromUrl } from "./lib/supabase";
 import {
   fetchStoreBySlug, fetchStoreByUserId, fetchProducts, fetchOrders,
-  subscribeToOrders, getCurrentUser, onAuthChange, signOut,
+  subscribeToOrders, onAuthChange, signOut,
 } from "./lib/api";
 import CustomerView from "./components/CustomerView";
 import DashboardView from "./components/DashboardView";
@@ -70,10 +70,16 @@ function OwnerArea() {
   const [orders, setOrders] = useState([]);
   const [view, setView] = useState("dashboard");
   const [loadingStore, setLoadingStore] = useState(false);
+  const authSettledRef = React.useRef(false);
 
   useEffect(() => {
-    getCurrentUser().then(setUser);
-    const unsubscribe = onAuthChange(setUser);
+    // onAuthChange fire hota hai turant (current session ke saath) jab subscribe hota hai,
+    // isliye sirf isी pe rely karte hain - yeh getCurrentUser() se zyada reliable hai
+    // kyunki yeh login/logout ke baad bhi turant fire hota hai, koi race condition nahi.
+    const unsubscribe = onAuthChange((u) => {
+      authSettledRef.current = true;
+      setUser(u);
+    });
     return unsubscribe;
   }, []);
 
