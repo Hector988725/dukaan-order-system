@@ -43,6 +43,12 @@ export async function fetchStoreBySlug(slug) {
     .eq("slug", slug)
     .single();
   if (error) throw error;
+  // Subscription check: agar expire ho gayi toh inactive mark karo
+  if (data && data.subscription_expires_at && new Date(data.subscription_expires_at) < new Date()) {
+    // Auto-deactivate (background mein)
+    supabase.from("stores").update({ is_active: false }).eq("id", data.id);
+    return { ...data, is_active: false };
+  }
   return data;
 }
 
@@ -94,21 +100,80 @@ export async function updateVariantStock(variantId, newStock) {
 }
 
 // ---- Product CRUD ----
-export async function createProduct(storeId, { name, category, emoji, sort_order }) {
+export async function createProduct(storeId, { name, category, emoji, image_url, sort_order }) {
   const { data, error } = await supabase
     .from("products")
-    .insert({ store_id: storeId, name, category, emoji: emoji || "📦", sort_order: sort_order || 0 })
+    .insert({ store_id: storeId, name, category, emoji: emoji || "📦", image_url: image_url || null, sort_order: sort_order || 0 })
     .select()
     .single();
   if (error) throw error;
   return data;
 }
 
-export async function updateProduct(productId, { name, category, emoji }) {
+export async function updateProduct(productId, { name, category, emoji, image_url }) {
   const { error } = await supabase
     .from("products")
-    .update({ name, category, emoji })
+    .update({ name, category, emoji, image_url: image_url !== undefined ? image_url : null })
     .eq("id", productId);
+  if (error) throw error;
+}
+
+// ---- Image Upload ----
+export async function uploadProductImage(file, storeId) {
+  const ext = file.name.split(".").pop();
+  const fileName = `${storeId}/${Date.now()}.${ext}`;
+  const { data, error } = await supabase.storage
+    .from("product-images")
+    .upload(fileName, file, { cacheControl: "3600", upsert: false });
+  if (error) throw error;
+  const { data: urlData } = supabase.storage.from("product-images").getPublicUrl(fileName);
+  return urlData.publicUrl;
+}
+
+// ---- Subscription Management ----
+export async function fetchSubscriptionStatus(storeId) {
+  const { data, error } = await supabase
+    .from("stores")
+    .select("is_active, subscription_expires_at, subscription_plan")
+    .eq("id", storeId)
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function renewSubscription(storeId, months = 1) {
+  // Subscription renew karna - current date se months add karo
+  const { data: current } = await supabase
+    .from("stores")
+    .select("subscription_expires_at")
+    .eq("id", storeId)
+    .single();
+
+  const currentExpiry = current?.subscription_expires_at
+    ? new Date(current.subscription_expires_at)
+    : new Date();
+
+  // Agar already expire ho gayi toh aaj se calculate karo
+  const baseDate = currentExpiry > new Date() ? currentExpiry : new Date();
+  const newExpiry = new Date(baseDate);
+  newExpiry.setMonth(newExpiry.getMonth() + months);
+
+  const { error } = await supabase
+    .from("stores")
+    .update({
+      is_active: true,
+      subscription_expires_at: newExpiry.toISOString(),
+    })
+    .eq("id", storeId);
+  if (error) throw error;
+  return newExpiry;
+}
+
+export async function deactivateStore(storeId) {
+  const { error } = await supabase
+    .from("stores")
+    .update({ is_active: false })
+    .eq("id", storeId);
   if (error) throw error;
 }
 

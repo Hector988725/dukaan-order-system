@@ -25,7 +25,7 @@ export default function CustomerView({ store, products, onOrderPlaced }) {
     .map(([variantId, qty]) => {
       const entry = variantIndex[variantId];
       if (!entry) return null;
-      return { ...entry.variant, productId: entry.product.id, productName: entry.product.name, emoji: entry.product.emoji, qty };
+      return { ...entry.variant, productId: entry.product.id, productName: entry.product.name, emoji: entry.product.emoji, image_url: entry.product.image_url || null, qty };
     })
     .filter(Boolean);
 
@@ -135,7 +135,10 @@ export default function CustomerView({ store, products, onOrderPlaced }) {
 
           return (
             <div key={p.id} className="ddemo-card ddemo-fade-in" style={{ background: "white", border: "1px solid #E3DECF", borderRadius: "13px", padding: "13px", display: "flex", flexDirection: "column", gap: "8px", opacity: outOfStock ? 0.6 : 1 }}>
-              <div style={{ fontSize: "30px", lineHeight: 1 }}>{p.emoji}</div>
+              {p.image_url
+                ? <img src={p.image_url} alt={p.name} style={{ width: "100%", height: "80px", objectFit: "cover", borderRadius: "8px" }} />
+                : <div style={{ fontSize: "30px", lineHeight: 1 }}>{p.emoji || "📦"}</div>
+              }
               <div>
                 <div style={{ fontWeight: 600, fontSize: "13px", lineHeight: 1.3 }}>{p.name}</div>
                 <div style={{ fontSize: "11.5px", color: "#8B8576", marginTop: "2px" }}>
@@ -259,7 +262,10 @@ function CartDrawer({ cartItems, cartTotal, onClose, onRemove, onCheckout }) {
           {cartItems.map((it) => (
             <div key={it.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid #E3DECF" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                <span style={{ fontSize: "22px" }}>{it.emoji}</span>
+                {it.image_url
+                  ? <img src={it.image_url} alt={it.productName} style={{ width: 36, height: 36, objectFit: "cover", borderRadius: "7px", flexShrink: 0 }} />
+                  : <span style={{ fontSize: "22px" }}>{it.emoji || "📦"}</span>
+                }
                 <div>
                   <div style={{ fontWeight: 600, fontSize: "13px" }}>{it.productName}</div>
                   <div style={{ fontSize: "11.5px", color: "#8B8576" }}>{it.label} · {it.qty} {it.unit} × ₹{it.price}</div>

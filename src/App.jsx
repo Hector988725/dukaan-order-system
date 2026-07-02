@@ -51,6 +51,26 @@ function CustomerStorefrontPage({ slug }) {
   if (loading) return <LoadingScreen text="Dukaan load ho rahi hai..." />;
   if (error || !store) return <ErrorScreen message={error || "Dukaan nahi mili."} />;
 
+  // Subscription check - inactive store
+  if (store.is_active === false) {
+    return (
+      <div style={shellStyle}>
+        <GlobalStyles />
+        <div style={{ background: "#1B4332", padding: "14px 24px", display: "flex", alignItems: "center", gap: "10px" }}>
+          <div style={{ width: 34, height: 34, borderRadius: "9px", background: "#D4A24C", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Store size={18} color="#123026" />
+          </div>
+          <div style={{ color: "white", fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: "15px" }}>{store.name}</div>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "12px", padding: "60px 24px", textAlign: "center" }}>
+          <div style={{ fontSize: "40px" }}>🔒</div>
+          <div style={{ fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: "18px", color: "#1A1A1A" }}>Yeh dukaan abhi available nahi hai</div>
+          <div style={{ fontSize: "13px", color: "#8B8576", maxWidth: "300px" }}>Is dukaan ka subscription khatam ho gaya hai. Dukaandar se sampark karein.</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={shellStyle}>
       <GlobalStyles />
