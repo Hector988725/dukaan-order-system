@@ -1,5 +1,5 @@
 -- ============================================================
--- MIGRATION: Subscription System + Image Support
+-- MIGRATION: Subscription System + Image Support + Razorpay
 -- Supabase SQL Editor mein paste karke Run karein
 -- ============================================================
 
@@ -7,10 +7,10 @@
 alter table stores
   add column if not exists is_active boolean default true,
   add column if not exists subscription_expires_at timestamptz default (now() + interval '30 days'),
-  add column if not exists subscription_plan text default 'monthly';
+  add column if not exists subscription_plan text default 'monthly',
+  add column if not exists razorpay_subscription_id text default null;
 
 -- 2. Products table mein image_url column add karein
--- (dukaandar khud photo upload kar sake ya ready icon use kare)
 alter table products
   add column if not exists image_url text default null;
 

@@ -261,3 +261,48 @@ export function subscribeToOrders(storeId, onNewOrder) {
 
   return () => supabase.removeChannel(channel);
 }
+
+// ============================================================
+// RAZORPAY SUBSCRIPTION
+// ============================================================
+export const RAZORPAY_KEY_ID = import.meta.env.VITE_RAZORPAY_KEY_ID || "";
+export const RAZORPAY_PLAN_ID = import.meta.env.VITE_RAZORPAY_PLAN_ID || "plan_T8uv8ubtqXG0JD";
+
+// Razorpay script load karna
+export function loadRazorpayScript() {
+  return new Promise((resolve) => {
+    if (window.Razorpay) { resolve(true); return; }
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+}
+
+// Subscription activate karna after payment
+export async function activateSubscription(storeId, razorpaySubscriptionId, months = 1) {
+  const newExpiry = new Date();
+  newExpiry.setMonth(newExpiry.getMonth() + months);
+
+  const { error } = await supabase
+    .from("stores")
+    .update({
+      is_active: true,
+      subscription_expires_at: newExpiry.toISOString(),
+      razorpay_subscription_id: razorpaySubscriptionId || null,
+    })
+    .eq("id", storeId);
+  if (error) throw error;
+  return newExpiry;
+}
+
+// Super admin ke liye - sab stores ki list
+export async function fetchAllStores() {
+  const { data, error } = await supabase
+    .from("stores")
+    .select("id, slug, name, is_active, subscription_expires_at, whatsapp_number, created_at")
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return data;
+}

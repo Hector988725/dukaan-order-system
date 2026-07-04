@@ -9,6 +9,7 @@ import CustomerView from "./components/CustomerView";
 import DashboardView from "./components/DashboardView";
 import AdminPanel from "./components/AdminPanel";
 import { AuthGate, StoreDetailsForm } from "./components/AuthGate";
+import RazorpaySubscription from "./components/RazorpaySubscription";
 
 export default function App() {
   const slug = getSlugFromUrl();
@@ -149,7 +150,7 @@ function OwnerArea() {
 
   if (loadingStore) return <LoadingScreen text="Dukaan load ho rahi hai..." />;
 
-  // User logged in hai but uski koi store nahi hai abhi (signup beech mein chhoda, ya naya user)
+  // User logged in hai but uski koi store nahi hai abhi
   if (!store) {
     return (
       <div style={shellStyle}>
@@ -164,6 +165,40 @@ function OwnerArea() {
           </div>
           <StoreDetailsForm user={user} onDone={() => loadStoreData()} />
         </div>
+      </div>
+    );
+  }
+
+  // Subscription expire ho gayi ya inactive hai - payment page dikhao
+  const isSubscriptionActive = store.is_active !== false &&
+    store.subscription_expires_at &&
+    new Date(store.subscription_expires_at) > new Date();
+
+  if (!isSubscriptionActive) {
+    return (
+      <div style={shellStyle}>
+        <GlobalStyles />
+        <div style={{ background: "#1B4332", padding: "14px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <div style={{ width: 34, height: 34, borderRadius: "9px", background: "#D4A24C", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Store size={18} color="#123026" />
+            </div>
+            <div style={{ color: "white", fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: "15px" }}>{store.name}</div>
+          </div>
+          <button onClick={signOut} style={{ background: "rgba(255,255,255,0.12)", border: "none", borderRadius: "8px", width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "white" }}>
+            <LogOut size={15} />
+          </button>
+        </div>
+        {store.subscription_expires_at && new Date(store.subscription_expires_at) < new Date() && (
+          <div style={{ background: "#FDECEA", padding: "10px 18px", textAlign: "center", fontSize: "12.5px", color: "#B3261E", fontWeight: 600 }}>
+            ⚠️ Aapki subscription expire ho gayi hai — neeche renew karein
+          </div>
+        )}
+        <RazorpaySubscription
+          store={store}
+          user={user}
+          onSuccess={() => loadStoreData()}
+        />
       </div>
     );
   }
