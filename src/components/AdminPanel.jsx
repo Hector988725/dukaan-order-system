@@ -4,7 +4,7 @@ import {
   updateStoreSettings,
   createProduct, updateProduct, deleteProduct,
   createVariant, updateVariant, deleteVariant,
-  uploadProductImage, renewSubscription, deactivateStore,
+  uploadProductImage, deactivateStore,
 } from "../lib/api";
 import { PRODUCT_ICONS, ICON_CATEGORIES, getIconsByCategory } from "../lib/icons";
 
@@ -44,11 +44,12 @@ function AdminContent({ store, products, onRefresh }) {
   );
 }
 
+import RazorpaySubscription from "./RazorpaySubscription";
+
 // ============================================================
-// SUBSCRIPTION PANEL
+// SUBSCRIPTION PANEL — Razorpay se real payment
 // ============================================================
 function SubscriptionPanel({ store, onRefresh }) {
-  const [renewing, setRenewing] = useState(false);
   const [deactivating, setDeactivating] = useState(false);
   const [msg, setMsg] = useState(null);
 
@@ -56,20 +57,6 @@ function SubscriptionPanel({ store, onRefresh }) {
   const expiry = store.subscription_expires_at ? new Date(store.subscription_expires_at) : null;
   const daysLeft = expiry ? Math.ceil((expiry - new Date()) / (1000 * 60 * 60 * 24)) : null;
   const isExpired = daysLeft !== null && daysLeft < 0;
-
-  const handleRenew = async (months) => {
-    setRenewing(true);
-    setMsg(null);
-    try {
-      const newExpiry = await renewSubscription(store.id, months);
-      setMsg({ type: "success", text: `Subscription renew ho gaya! Ab ${newExpiry.toLocaleDateString("en-IN")} tak active rahega.` });
-      onRefresh();
-    } catch (e) {
-      setMsg({ type: "error", text: "Renew nahi ho paaya: " + e.message });
-    } finally {
-      setRenewing(false);
-    }
-  };
 
   const handleDeactivate = async () => {
     if (!confirm("Kya aap is dukaan ko pause karna chahte hain? Customer ko 'Store unavailable' dikhega.")) return;
@@ -88,7 +75,11 @@ function SubscriptionPanel({ store, onRefresh }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
       {/* Status Card */}
-      <div style={{ background: isActive && !isExpired ? "#E7F0EA" : "#FDECEA", border: `1px solid ${isActive && !isExpired ? "#1B4332" : "#B3261E"}`, borderRadius: "12px", padding: "16px 18px" }}>
+      <div style={{
+        background: isActive && !isExpired ? "#E7F0EA" : "#FDECEA",
+        border: `1px solid ${isActive && !isExpired ? "#1B4332" : "#B3261E"}`,
+        borderRadius: "12px", padding: "16px 18px"
+      }}>
         <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
           <div style={{ width: 10, height: 10, borderRadius: "50%", background: isActive && !isExpired ? "#1B4332" : "#B3261E" }} />
           <div style={{ fontWeight: 700, fontSize: "14px", color: isActive && !isExpired ? "#1B4332" : "#B3261E" }}>
@@ -104,52 +95,27 @@ function SubscriptionPanel({ store, onRefresh }) {
         )}
       </div>
 
-      {/* Pricing Info */}
-      <div style={{ background: "white", border: "1px solid #E3DECF", borderRadius: "12px", padding: "16px 18px" }}>
-        <div style={{ fontWeight: 700, fontSize: "13px", marginBottom: "12px" }}>Subscription Renew Karein</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-          {[
-            { months: 1, label: "1 Mahina", price: "₹199" },
-            { months: 3, label: "3 Mahine", price: "₹550", note: "₹16 bachao" },
-            { months: 6, label: "6 Mahine", price: "₹1,000", note: "₹194 bachao" },
-            { months: 12, label: "12 Mahine (1 Saal)", price: "₹1,800", note: "₹588 bachao" },
-          ].map((plan) => (
-            <div key={plan.months} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", background: "#F7F5F0", borderRadius: "9px" }}>
-              <div>
-                <span style={{ fontWeight: 700, fontSize: "13px" }}>{plan.label}</span>
-                {plan.note && <span style={{ fontSize: "10.5px", color: "#1B4332", fontWeight: 600, marginLeft: "8px" }}>({plan.note})</span>}
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                <span style={{ fontWeight: 700, fontSize: "14px", color: "#1B4332" }}>{plan.price}</span>
-                <button
-                  onClick={() => handleRenew(plan.months)}
-                  disabled={renewing}
-                  className="ddemo-btn"
-                  style={{ background: "#1B4332", color: "white", border: "none", borderRadius: "7px", padding: "6px 12px", fontSize: "11.5px", fontWeight: 700, cursor: "pointer" }}
-                >
-                  {renewing ? "..." : "Select"}
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-        <div style={{ fontSize: "11px", color: "#8B8576", marginTop: "10px", fontStyle: "italic" }}>
-          Note: Yeh buttons abhi manual tracking ke liye hain. Payment UPI se alag se leni hogi.
-        </div>
-      </div>
-
       {msg && (
         <div style={{ padding: "10px 14px", borderRadius: "9px", background: msg.type === "success" ? "#E7F0EA" : "#FDECEA", color: msg.type === "success" ? "#1B4332" : "#B3261E", fontSize: "12.5px", fontWeight: 600 }}>
           {msg.text}
         </div>
       )}
 
-      {/* Deactivate */}
-      {isActive && (
+      {/* Razorpay Payment — real UPI payment */}
+      <RazorpaySubscription
+        store={store}
+        onSuccess={() => {
+          setMsg({ type: "success", text: "Payment successful! Dukaan active ho gayi." });
+          onRefresh();
+        }}
+      />
+
+      {/* Deactivate option */}
+      {isActive && !isExpired && (
         <button
           onClick={handleDeactivate}
           disabled={deactivating}
-          style={{ background: "white", border: "1px solid #B3261E", color: "#B3261E", borderRadius: "9px", padding: "10px 0", fontSize: "12.5px", fontWeight: 700, cursor: "pointer" }}
+          style={{ background: "white", border: "1px solid #B3261E", color: "#B3261E", borderRadius: "9px", padding: "10px 0", fontSize: "12.5px", fontWeight: 700, cursor: "pointer", marginTop: "4px" }}
         >
           {deactivating ? "Ho raha hai..." : "⏸️ Dukaan Pause Karein"}
         </button>
