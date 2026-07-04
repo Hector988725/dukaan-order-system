@@ -63,23 +63,8 @@ export default function RazorpaySubscription({ store, user, onSuccess }) {
           months: String(selected.months),
         },
         theme: { color: "#1B4332" },
-        // FIX 2: Sirf upi: true — baaki keys bilkul mat daalo
+        // Sirf upi: true — config block nahi, woh QR render rok deta hai
         method: { upi: true },
-        // FIX 3: config se UPI ko default/preferred banao
-        config: {
-          display: {
-            blocks: {
-              utib: {
-                name: "UPI",
-                instruments: [
-                  { method: "upi" },
-                ],
-              },
-            },
-            sequence: ["block.utib"],
-            preferences: { show_default_blocks: false },
-          },
-        },
         handler: async function (response) {
           // Payment ID verify hone ke baad hi activate karo
           if (!response.razorpay_payment_id) {
