@@ -25,7 +25,6 @@ export default function RazorpaySubscription({ store, user, onSuccess }) {
     setError(null);
 
     try {
-      // Razorpay script load karo
       const loaded = await loadRazorpayScript();
       if (!loaded) {
         setError("Payment system load nahi ho paaya. Internet check karein.");
@@ -33,35 +32,61 @@ export default function RazorpaySubscription({ store, user, onSuccess }) {
         return;
       }
 
-      // Razorpay Checkout options
+      // Contact number properly format karo
+      const rawNumber = store.whatsapp_number || "";
+      const contactNumber = rawNumber.startsWith("91")
+        ? "+" + rawNumber
+        : rawNumber.startsWith("+")
+        ? rawNumber
+        : "+91" + rawNumber;
+
+      // ============================================================
+      // FIX 1: subscription_id: null NAHI daalte — Razorpay confuse hota hai
+      // FIX 2: method object mein sirf upi: true daalte hain
+      //        false values daalne se QR render nahi hota (Razorpay bug)
+      // FIX 3: config.display se explicitly UPI prefer karwate hain
+      // ============================================================
       const options = {
         key: RAZORPAY_KEY_ID,
-        subscription_id: null, // Server-side subscription ID chahiye hoga production mein
-        amount: selected.amount * 100, // paise mein
+        amount: selected.amount * 100, // paise mein — subscription_id nahi, amount se one-time payment
         currency: "INR",
         name: "Dukaan Order System",
-        description: `${selected.label} Subscription — ${store.name}`,
-        image: "https://i.imgur.com/n5tjHFD.png",
+        description: `${selected.label} — ${store.name}`,
         prefill: {
           name: store.name,
-          contact: store.whatsapp_number?.replace("91", "") || "",
+          contact: contactNumber,
         },
         notes: {
           store_id: store.id,
           store_slug: store.slug,
           plan: selectedPlan,
-          months: selected.months,
+          months: String(selected.months),
         },
         theme: { color: "#1B4332" },
-        method: {
-          upi: true,
-          card: false,
-          netbanking: false,
-          wallet: false,
-          emi: false,
+        // FIX 2: Sirf upi: true — baaki keys bilkul mat daalo
+        method: { upi: true },
+        // FIX 3: config se UPI ko default/preferred banao
+        config: {
+          display: {
+            blocks: {
+              utib: {
+                name: "UPI",
+                instruments: [
+                  { method: "upi" },
+                ],
+              },
+            },
+            sequence: ["block.utib"],
+            preferences: { show_default_blocks: false },
+          },
         },
         handler: async function (response) {
-          // Payment successful
+          // Payment ID verify hone ke baad hi activate karo
+          if (!response.razorpay_payment_id) {
+            setError("Payment ID nahi mili. Support se sampark karein.");
+            setLoading(false);
+            return;
+          }
           try {
             await activateSubscription(
               store.id,
@@ -69,24 +94,26 @@ export default function RazorpaySubscription({ store, user, onSuccess }) {
               selected.months
             );
 
-            // WhatsApp confirmation message
             const expiry = new Date();
             expiry.setMonth(expiry.getMonth() + selected.months);
             const msg = encodeURIComponent(
               `✅ *Dukaan Order System — Payment Confirmed*\n\nDukaan: ${store.name}\nPlan: ${selected.label}\nAmount: ₹${selected.amount}\nPayment ID: ${response.razorpay_payment_id}\nValid Till: ${expiry.toLocaleDateString("en-IN")}\n\nAapki dukaan active ho gayi hai! 🎉`
             );
-            // WhatsApp pe confirmation bhejo (optional, customer click karega)
             window.open(`https://wa.me/${store.whatsapp_number}?text=${msg}`, "_blank");
-
             onSuccess?.();
           } catch (err) {
-            setError("Payment hua lekin activation mein problem aayi. Support se sampark karein. Payment ID: " + response.razorpay_payment_id);
+            setError(
+              "Payment hua lekin activation mein problem aayi. " +
+              "Payment ID note kar lein: " + response.razorpay_payment_id +
+              " — Support se sampark karein."
+            );
+            setLoading(false);
           }
         },
         modal: {
-          ondismiss: () => {
-            setLoading(false);
-          },
+          ondismiss: () => { setLoading(false); },
+          escape: true,
+          backdropclose: false,
         },
       };
 
