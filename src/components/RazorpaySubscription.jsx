@@ -32,6 +32,35 @@ export default function RazorpaySubscription({ store, user, onSuccess }) {
         return;
       }
 
+      // Step 1: Edge Function se server-side Razorpay order create karo
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+      const orderRes = await fetch(
+        `${supabaseUrl}/functions/v1/create-razorpay-order`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${supabaseKey}`,
+            "apikey": supabaseKey,
+          },
+          body: JSON.stringify({
+            amount: selected.amount,
+            currency: "INR",
+            store_id: store.id,
+            store_name: store.name,
+            months: selected.months,
+          }),
+        }
+      );
+
+      const orderData = await orderRes.json();
+
+      if (!orderRes.ok || orderData.error) {
+        throw new Error(orderData.error || "Order create nahi ho paaya");
+      }
+
       // Contact number properly format karo
       const rawNumber = store.whatsapp_number || "";
       const contactNumber = rawNumber.startsWith("91")
@@ -40,16 +69,13 @@ export default function RazorpaySubscription({ store, user, onSuccess }) {
         ? rawNumber
         : "+91" + rawNumber;
 
-      // ============================================================
-      // FIX 1: subscription_id: null NAHI daalte — Razorpay confuse hota hai
-      // FIX 2: method object mein sirf upi: true daalte hain
-      //        false values daalne se QR render nahi hota (Razorpay bug)
-      // FIX 3: config.display se explicitly UPI prefer karwate hain
-      // ============================================================
+      // Step 2: Razorpay checkout kholo server-side order_id se
+      // Ab QR properly generate hoga kyunki valid order_id hai
       const options = {
-        key: RAZORPAY_KEY_ID,
-        amount: selected.amount * 100, // paise mein — subscription_id nahi, amount se one-time payment
-        currency: "INR",
+        key: orderData.key_id,
+        order_id: orderData.order_id, // ← Server-side order ID — QR ke liye zaroori
+        amount: orderData.amount,
+        currency: orderData.currency,
         name: "Dukaan Order System",
         description: `${selected.label} — ${store.name}`,
         prefill: {
@@ -63,10 +89,7 @@ export default function RazorpaySubscription({ store, user, onSuccess }) {
           months: String(selected.months),
         },
         theme: { color: "#1B4332" },
-        // Sirf upi: true — config block nahi, woh QR render rok deta hai
-        method: { upi: true },
         handler: async function (response) {
-          // Payment ID verify hone ke baad hi activate karo
           if (!response.razorpay_payment_id) {
             setError("Payment ID nahi mili. Support se sampark karein.");
             setLoading(false);
@@ -78,7 +101,6 @@ export default function RazorpaySubscription({ store, user, onSuccess }) {
               response.razorpay_payment_id,
               selected.months
             );
-
             const expiry = new Date();
             expiry.setMonth(expiry.getMonth() + selected.months);
             const msg = encodeURIComponent(
@@ -89,8 +111,7 @@ export default function RazorpaySubscription({ store, user, onSuccess }) {
           } catch (err) {
             setError(
               "Payment hua lekin activation mein problem aayi. " +
-              "Payment ID note kar lein: " + response.razorpay_payment_id +
-              " — Support se sampark karein."
+              "Payment ID note kar lein: " + response.razorpay_payment_id
             );
             setLoading(false);
           }
