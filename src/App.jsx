@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Store, ShoppingCart, LayoutGrid, Loader2, AlertTriangle, ShieldCheck, LogOut } from "lucide-react";
-import { getSlugFromUrl } from "./lib/supabase";
+import { getSlugFromUrl, isSupabaseConfigured } from "./lib/supabase";
 import {
   fetchStoreBySlug, fetchStoreByUserId, fetchProducts, fetchOrders,
   subscribeToOrders, onAuthChange, signOut,
@@ -12,6 +12,19 @@ import { AuthGate, StoreDetailsForm } from "./components/AuthGate";
 import RazorpaySubscription from "./components/RazorpaySubscription";
 
 export default function App() {
+  // Deployment mein VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY set nahi hain —
+  // pehle ye poori app ko blank white page bana ke crash kar deta tha. Ab
+  // existing ErrorScreen component reuse karke ek clear, samajh aane wala
+  // message dikhate hain.
+  if (!isSupabaseConfigured) {
+    return (
+      <div style={shellStyle}>
+        <GlobalStyles />
+        <ErrorScreen message="Supabase configuration missing hai. Vercel Project Settings → Environment Variables mein VITE_SUPABASE_URL aur VITE_SUPABASE_ANON_KEY daalkar dobara deploy karein." />
+      </div>
+    );
+  }
+
   const slug = getSlugFromUrl();
 
   // Agar URL mein koi store slug hai (jaise /sharma-kirana), toh seedha customer storefront dikhao

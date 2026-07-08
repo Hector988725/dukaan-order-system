@@ -1,22 +1,32 @@
 import React, { useState } from "react";
 import { TrendingUp, Bell, Package, Receipt, MessageCircle, AlertCircle, Minus, Plus } from "lucide-react";
-import { updateOrderStatus, updateVariantStock } from "../lib/api";
+import { updateOrderStatus, updatePaymentStatus, updateVariantStock } from "../lib/api";
 
+// Order Status flow (5 stages): New → Accepted → Preparing → Out for Delivery → Delivered
 const statusMeta = {
-  new: { label: "Naya Order", color: "#B3261E", bg: "#FDECEA" },
-  preparing: { label: "Taiyar ho raha hai", color: "#9A6B00", bg: "#FFF4DB" },
-  delivered: { label: "Delivered", color: "#1B4332", bg: "#E7F0EA" },
+  New: { label: "Naya Order", color: "#B3261E", bg: "#FDECEA" },
+  Accepted: { label: "Accepted", color: "#9A6B00", bg: "#FFF4DB" },
+  Preparing: { label: "Taiyar ho raha hai", color: "#9A6B00", bg: "#FFF4DB" },
+  "Out for Delivery": { label: "Out for Delivery", color: "#1B4332", bg: "#E7F0EA" },
+  Delivered: { label: "Delivered", color: "#1B4332", bg: "#E7F0EA" },
 };
-const nextStatus = { new: "preparing", preparing: "delivered", delivered: null };
-const nextLabel = { new: "Order Accept karein", preparing: "Delivered Mark karein", delivered: null };
+const nextStatus = { New: "Accepted", Accepted: "Preparing", Preparing: "Out for Delivery", "Out for Delivery": "Delivered", Delivered: null };
+const nextLabel = { New: "Order Accept karein", Accepted: "Taiyar karna shuru karein", Preparing: "Out for Delivery Mark karein", "Out for Delivery": "Delivered Mark karein", Delivered: null };
+
+// Payment Status badge colors (payment_status order_status se alag track hota hai)
+const paymentStatusMeta = {
+  "Cash on Delivery": { color: "#5C5747", bg: "#F0EEE6" },
+  "Pending Verification": { color: "#9A6B00", bg: "#FFF4DB" },
+  "Payment Confirmed": { color: "#1B4332", bg: "#E7F0EA" },
+};
 
 export default function DashboardView({ store, products, orders, onRefresh }) {
   const [tab, setTab] = useState("orders");
-  const todaysSales = orders.filter((o) => o.status === "delivered").reduce((s, o) => s + Number(o.total), 0);
+  const todaysSales = orders.filter((o) => o.status === "Delivered").reduce((s, o) => s + Number(o.total), 0);
   const allVariants = products.flatMap((p) => p.variants);
   const lowStock = allVariants.filter((v) => v.stock > 0 && v.stock <= 10).length;
   const outOfStock = allVariants.filter((v) => v.stock === 0).length;
-  const newOrderCount = orders.filter((o) => o.status === "new").length;
+  const newOrderCount = orders.filter((o) => o.status === "New").length;
 
   const handleAdvance = async (order) => {
     const next = nextStatus[order.status];
@@ -26,6 +36,17 @@ export default function DashboardView({ store, products, orders, onRefresh }) {
       onRefresh();
     } catch (e) {
       alert("Status update nahi ho paaya: " + e.message);
+    }
+  };
+
+  // Dukaandar apne UPI app mein payment manually verify karke ye dabata hai —
+  // ye sirf payment_status badalta hai, order_status ko bilkul touch nahi karta.
+  const handlePaymentConfirm = async (order) => {
+    try {
+      await updatePaymentStatus(order.id, "Payment Confirmed");
+      onRefresh();
+    } catch (e) {
+      alert("Payment confirm nahi ho paaya: " + e.message);
     }
   };
 
@@ -66,7 +87,7 @@ export default function DashboardView({ store, products, orders, onRefresh }) {
           <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
             {orders.length === 0 && <EmptyState text="Abhi koi order nahi aaya hai." />}
             {orders.map((o) => (
-              <OrderCard key={o.id} order={o} onAdvance={() => handleAdvance(o)} />
+              <OrderCard key={o.id} order={o} onAdvance={() => handleAdvance(o)} onPaymentConfirm={() => handlePaymentConfirm(o)} />
             ))}
           </div>
         ) : (
@@ -96,8 +117,11 @@ function StatCard({ icon, label, value, highlight }) {
   );
 }
 
-function OrderCard({ order, onAdvance }) {
-  const meta = statusMeta[order.status];
+function OrderCard({ order, onAdvance, onPaymentConfirm }) {
+  const meta = statusMeta[order.status] || statusMeta.New;
+  const payMeta = paymentStatusMeta[order.payment_status] || paymentStatusMeta["Cash on Delivery"];
+  const needsPaymentVerification = order.payment_method === "UPI" && order.payment_status === "Pending Verification";
+
   return (
     <div className="ddemo-card" style={{ background: "white", border: "1px solid #E3DECF", borderRadius: "12px", padding: "14px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "8px" }}>
@@ -114,22 +138,41 @@ function OrderCard({ order, onAdvance }) {
         ))}
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "11.5px", color: "#8B8576", marginBottom: "10px", flexWrap: "wrap", gap: "4px" }}>
-        <span>📍 {order.address}{order.landmark ? ` (${order.landmark})` : ""} – {order.pincode}</span>
-        <span style={{ fontWeight: 700, color: "#1A1A1A" }}>₹{order.total} · {order.payment_method}</span>
+      <div style={{ fontSize: "11.5px", color: "#8B8576", marginBottom: "8px" }}>
+        📍 {order.address}{order.landmark ? ` (${order.landmark})` : ""} – {order.pincode}
+      </div>
+
+      {/* Payment Mode, Payment Status, Order Status — teeno alag-alag, clearly labelled */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "10px" }}>
+        <InfoPill label="Payment Mode" value={order.payment_method} />
+        <InfoPill label="Payment Status" value={order.payment_status} color={payMeta.color} bg={payMeta.bg} />
+        <InfoPill label="Order Status" value={order.status} color={meta.color} bg={meta.bg} />
+        <span style={{ marginLeft: "auto", fontWeight: 700, fontSize: "13px", color: "#1A1A1A" }}>₹{order.total}</span>
       </div>
 
       <div style={{ display: "flex", gap: "8px" }}>
         <a href={`https://wa.me/91${order.customer_phone}`} target="_blank" rel="noreferrer" style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", border: "1px solid #25D366", color: "#178C42", textDecoration: "none", fontSize: "12px", fontWeight: 700, borderRadius: "8px", padding: "8px 0" }}>
           <MessageCircle size={14} /> WhatsApp
         </a>
-        {nextLabel[order.status] && (
+        {needsPaymentVerification ? (
+          <button onClick={onPaymentConfirm} className="ddemo-btn" style={{ flex: 1.4, background: "#9A6B00", color: "white", border: "none", fontSize: "12px", fontWeight: 700, borderRadius: "8px", padding: "8px 0", cursor: "pointer" }}>
+            Payment Confirm Karein
+          </button>
+        ) : nextLabel[order.status] ? (
           <button onClick={onAdvance} className="ddemo-btn" style={{ flex: 1.4, background: "#1B4332", color: "white", border: "none", fontSize: "12px", fontWeight: 700, borderRadius: "8px", padding: "8px 0", cursor: "pointer" }}>
             {nextLabel[order.status]}
           </button>
-        )}
+        ) : null}
       </div>
     </div>
+  );
+}
+
+function InfoPill({ label, value, color = "#5C5747", bg = "#F0EEE6" }) {
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", background: bg, color, fontSize: "10px", fontWeight: 700, padding: "3px 8px", borderRadius: "999px" }}>
+      <span style={{ opacity: 0.75, fontWeight: 600 }}>{label}:</span> {value}
+    </span>
   );
 }
 

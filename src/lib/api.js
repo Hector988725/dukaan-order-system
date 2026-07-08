@@ -246,6 +246,16 @@ export async function updateOrderStatus(orderId, status) {
   if (error) throw error;
 }
 
+// Sirf payment_status update karta hai (order_status ko touch nahi karta) —
+// dukaandar apne UPI app mein payment manually verify karke ye call karta hai.
+export async function updatePaymentStatus(orderId, paymentStatus) {
+  const { error } = await supabase
+    .from("orders")
+    .update({ payment_status: paymentStatus })
+    .eq("id", orderId);
+  if (error) throw error;
+}
+
 // ============================================================
 // REALTIME - jab naya order aaye, dukaandar ko turant pata chal jaye
 // ============================================================

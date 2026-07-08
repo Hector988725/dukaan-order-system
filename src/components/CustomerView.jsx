@@ -1,6 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Search, ChevronRight, X, Check, MessageCircle, Plus, Minus, Trash2 } from "lucide-react";
 import { createOrder } from "../lib/api";
+
+const PENDING_UPI_KEY = "dukaan_pending_upi_checkout";
 
 export default function CustomerView({ store, products, onOrderPlaced }) {
   const [activeCategory, setActiveCategory] = useState("All");
@@ -11,6 +13,56 @@ export default function CustomerView({ store, products, onOrderPlaced }) {
   const [orderPlaced, setOrderPlaced] = useState(null);
   const [variantPicker, setVariantPicker] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [resumeCheckout, setResumeCheckout] = useState(null);
+
+  // UPI app khulne ke baad browser page reload/unload kar sakta hai, jisse
+  // saara React state (cart, checkoutOpen, form) reset ho jaata hai. Isliye
+  // agar pending UPI checkout mila (same store ke liye), to checkout modal
+  // ko seedha "Confirm" step par wapas khol dete hain.
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem(PENDING_UPI_KEY);
+      if (saved) {
+        const data = JSON.parse(saved);
+        if (data.storeId === store.id) {
+          setCart(data.cart || {});
+          setResumeCheckout(data.form);
+          setCartOpen(false);
+          setCheckoutOpen(true);
+        } else {
+          sessionStorage.removeItem(PENDING_UPI_KEY);
+        }
+      }
+    } catch {
+      sessionStorage.removeItem(PENDING_UPI_KEY);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Kai mobile browsers par upi:// link tap karne se page reload NAHI hota —
+  // browser bas tab ko background mein bhej deta hai aur UPI app se wapas
+  // aane par "visibilitychange" fire hota hai (page reload wale case ko
+  // upar wala useEffect already handle karta hai). Isliye yahan bhi wahi
+  // pending-UPI-checkout check karte hain, taaki dono cases (reload ho ya na
+  // ho) mein customer seedha confirmation mode mein wapas aaye — cart ya
+  // product list par nahi.
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState !== "visible") return;
+      try {
+        const saved = sessionStorage.getItem(PENDING_UPI_KEY);
+        if (!saved) return;
+        const data = JSON.parse(saved);
+        if (data.storeId !== store.id) return;
+        setResumeCheckout(data.form);
+        setCartOpen(false);
+        setCheckoutOpen(true);
+      } catch {}
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [store.id]);
 
   const categories = ["All", ...Array.from(new Set(products.map((p) => p.category)))];
   const filtered = products.filter(
@@ -18,16 +70,26 @@ export default function CustomerView({ store, products, onOrderPlaced }) {
   );
 
   // Flat lookup: variantId -> { product, variant }
-  const variantIndex = {};
-  products.forEach((p) => p.variants.forEach((v) => { variantIndex[v.id] = { product: p, variant: v }; }));
+  // useMemo lagaya hai taaki bade catalog/cart (20-100+ items) ke saath
+  // search typing ya category switch karne par har render pe recompute na
+  // ho — sirf products ya cart actually badalne par hi dobara banega.
+  // (Pehle ye har render pe forEach chalata tha, jo bade grocery store ke
+  // liye budget phones par typing lag kar sakta tha.)
+  const variantIndex = useMemo(() => {
+    const idx = {};
+    products.forEach((p) => p.variants.forEach((v) => { idx[v.id] = { product: p, variant: v }; }));
+    return idx;
+  }, [products]);
 
-  const cartItems = Object.entries(cart)
-    .map(([variantId, qty]) => {
-      const entry = variantIndex[variantId];
-      if (!entry) return null;
-      return { ...entry.variant, productId: entry.product.id, productName: entry.product.name, emoji: entry.product.emoji, image_url: entry.product.image_url || null, qty };
-    })
-    .filter(Boolean);
+  const cartItems = useMemo(() => {
+    return Object.entries(cart)
+      .map(([variantId, qty]) => {
+        const entry = variantIndex[variantId];
+        if (!entry) return null;
+        return { ...entry.variant, productId: entry.product.id, productName: entry.product.name, emoji: entry.product.emoji, image_url: entry.product.image_url || null, qty };
+      })
+      .filter(Boolean);
+  }, [cart, variantIndex]);
 
   const cartTotal = cartItems.reduce((sum, it) => sum + it.price * it.qty, 0);
   const cartCount = cartItems.reduce((sum, it) => sum + it.qty, 0);
@@ -58,6 +120,7 @@ export default function CustomerView({ store, products, onOrderPlaced }) {
     setSubmitting(true);
     try {
       const orderNumber = "ORD" + Math.floor(1000 + Math.random() * 9000);
+      const isUpi = form.payment === "UPI";
       const payload = {
         store_id: store.id,
         order_number: orderNumber,
@@ -66,12 +129,19 @@ export default function CustomerView({ store, products, onOrderPlaced }) {
         address: form.address,
         landmark: form.landmark || null,
         pincode: form.pincode,
-        payment_method: form.payment,
+        payment_method: isUpi ? "UPI" : "COD",
+        // Payment Status: COD ka matlab paisa delivery ke time milega (kabhi
+        // pending nahi hota). UPI ka matlab customer ne pay kiya dawa kiya
+        // hai lekin dukaandar ne apne UPI app mein verify nahi kiya — isliye
+        // "Pending Verification". Order Status hamesha "New" se shuru hota
+        // hai, chahe payment COD ho ya UPI.
+        payment_status: isUpi ? "Pending Verification" : "Cash on Delivery",
+        status: "New",
         items: cartItems.map((it) => ({ name: it.productName, variant: it.label, qty: it.qty, unit: it.unit, price: it.price })),
         total: cartTotal,
-        status: "new",
       };
       const saved = await createOrder(payload);
+      sessionStorage.removeItem(PENDING_UPI_KEY);
       setOrderPlaced(saved);
       setCart({});
       setCheckoutOpen(false);
@@ -86,6 +156,20 @@ export default function CustomerView({ store, products, onOrderPlaced }) {
 
   return (
     <div style={{ position: "relative", maxWidth: "900px", margin: "0 auto" }}>
+      {/* Zepto/Blinkit-style micro-animations: floating cart "bump" jab item
+          add/remove ho, aur add-button ka press-feedback. key={cartCount} par
+          floating cart button ko niche remount kiya gaya hai jisse animation
+          har baar count badalne par replay ho jaaye. */}
+      <style>{`
+        @keyframes ddemoCartBump {
+          0% { transform: scale(1); }
+          35% { transform: scale(1.06); }
+          100% { transform: scale(1); }
+        }
+        .ddemo-cart-bump { animation: ddemoCartBump 0.28s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        .ddemo-add-btn { transition: transform 0.12s ease; }
+        .ddemo-add-btn:active { transform: scale(0.92); }
+      `}</style>
       {/* Search + categories */}
       <div style={{ padding: "16px 18px 0" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "10px", background: "white", border: "1px solid #E3DECF", borderRadius: "11px", padding: "10px 14px" }}>
@@ -153,7 +237,7 @@ export default function CustomerView({ store, products, onOrderPlaced }) {
                 </div>
               ) : singleVariant ? (
                 qtyInCart === 0 ? (
-                  <button onClick={() => addToCart(onlyVariant.id)} className="ddemo-btn" style={btnOutline}>+ Add</button>
+                  <button onClick={() => addToCart(onlyVariant.id)} className="ddemo-btn ddemo-add-btn" style={btnOutline}>+ Add</button>
                 ) : (
                   <QtyStepper qty={qtyInCart} onInc={() => addToCart(onlyVariant.id)} onDec={() => decFromCart(onlyVariant.id)} />
                 )
@@ -172,7 +256,7 @@ export default function CustomerView({ store, products, onOrderPlaced }) {
       )}
 
       {cartCount > 0 && !cartOpen && (
-        <button onClick={() => setCartOpen(true)} className="ddemo-btn" style={floatingCartStyle}>
+        <button key={cartCount} onClick={() => setCartOpen(true)} className="ddemo-btn ddemo-cart-bump" style={floatingCartStyle}>
           <span style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: 700, fontSize: "13.5px" }}>
             🛒 {cartCount} item{cartCount > 1 ? "s" : ""}
           </span>
@@ -188,12 +272,12 @@ export default function CustomerView({ store, products, onOrderPlaced }) {
           cartTotal={cartTotal}
           onClose={() => setCartOpen(false)}
           onRemove={removeFromCart}
-          onCheckout={() => setCheckoutOpen(true)}
+          onCheckout={() => { setCartOpen(false); setCheckoutOpen(true); }}
         />
       )}
 
       {checkoutOpen && (
-        <CheckoutModal cartTotal={cartTotal} submitting={submitting} onClose={() => setCheckoutOpen(false)} onSubmit={placeOrder} />
+        <CheckoutModal store={store} cartTotal={cartTotal} submitting={submitting} resumeData={resumeCheckout} cart={cart} onClose={() => { setCheckoutOpen(false); sessionStorage.removeItem(PENDING_UPI_KEY); }} onSubmit={placeOrder} />
       )}
 
       {orderPlaced && (
@@ -206,9 +290,9 @@ export default function CustomerView({ store, products, onOrderPlaced }) {
 function QtyStepper({ qty, onInc, onDec }) {
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#1B4332", borderRadius: "8px", padding: "4px" }}>
-      <button onClick={onDec} className="ddemo-btn" style={stepperBtn}><Minus size={13} /></button>
+      <button onClick={onDec} className="ddemo-btn ddemo-add-btn" style={stepperBtn}><Minus size={13} /></button>
       <span style={{ color: "white", fontWeight: 700, fontSize: "13px" }}>{qty}</span>
-      <button onClick={onInc} className="ddemo-btn" style={stepperBtn}><Plus size={13} /></button>
+      <button onClick={onInc} className="ddemo-btn ddemo-add-btn" style={stepperBtn}><Plus size={13} /></button>
     </div>
   );
 }
@@ -237,7 +321,7 @@ function VariantPickerModal({ product, cart, addToCart, decFromCart, onClose }) 
                 {out ? (
                   <span style={{ fontSize: "11px", fontWeight: 700, color: "#B3261E" }}>Out of Stock</span>
                 ) : qty === 0 ? (
-                  <button onClick={() => addToCart(v.id)} className="ddemo-btn" style={{ ...btnOutline, padding: "7px 16px" }}>+ Add</button>
+                  <button onClick={() => addToCart(v.id)} className="ddemo-btn ddemo-add-btn" style={{ ...btnOutline, padding: "7px 16px" }}>+ Add</button>
                 ) : (
                   <QtyStepper qty={qty} onInc={() => addToCart(v.id)} onDec={() => decFromCart(v.id)} />
                 )}
@@ -291,21 +375,78 @@ function CartDrawer({ cartItems, cartTotal, onClose, onRemove, onCheckout }) {
   );
 }
 
-function CheckoutModal({ cartTotal, submitting, onClose, onSubmit }) {
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [address, setAddress] = useState("");
-  const [landmark, setLandmark] = useState("");
-  const [pincode, setPincode] = useState("");
-  const [payment, setPayment] = useState("COD");
+function CheckoutModal({ store, cartTotal, submitting, resumeData, cart, onClose, onSubmit }) {
+  const [name, setName] = useState(resumeData?.name || "");
+  const [phone, setPhone] = useState(resumeData?.phone || "");
+  const [address, setAddress] = useState(resumeData?.address || "");
+  const [landmark, setLandmark] = useState(resumeData?.landmark || "");
+  const [pincode, setPincode] = useState(resumeData?.pincode || "");
+  const [payment, setPayment] = useState(resumeData?.payment || "COD");
+  // UPI confirmation gate: jab tak customer "UPI se Pay Karein" par tap na
+  // kare, "Maine Payment Kar Diya" button disabled rehta hai — isse galti
+  // se, bina actually pay kiye, order confirm hone se bachta hai. Agar hum
+  // sessionStorage se resume ho rahe hain (resumeData maujood hai), matlab
+  // customer pehle hi UPI app khol chuka tha, isliye gate already khula
+  // rakhte hain.
+  const [upiOpened, setUpiOpened] = useState(!!resumeData);
   const valid = name.trim() && phone.trim().length >= 10 && address.trim() && pincode.trim().length === 6;
+
+  const upiId = store?.upi_id || "";
+  const upiLink = upiId
+    ? `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(store.name)}&am=${cartTotal}&cu=INR&tn=${encodeURIComponent("Order - " + store.name)}`
+    : "";
+  const qrImageUrl = upiLink
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(upiLink)}`
+    : "";
+
+  // UPI app khulne se pehle current form + cart ko sessionStorage mein save
+  // karte hain, taaki agar browser page reload/unload kare (jo custom
+  // "upi://" scheme navigate karne par aksar hota hai), to wapas aane par
+  // yehi "Maine Payment Kar Diya" step turant dikh sake — bina customer ko
+  // dobara form bharna pade.
+  const handleUpiAppOpen = () => {
+    // Customer ne "UPI se Pay Karein" dabaya — gate turant khol dete hain
+    // (chahe sessionStorage save kisi wajah se fail ho jaaye), taaki
+    // "Maine Payment Kar Diya" button turant enable ho jaaye.
+    setUpiOpened(true);
+    try {
+      sessionStorage.setItem(PENDING_UPI_KEY, JSON.stringify({
+        storeId: store.id,
+        cart,
+        form: { name, phone, address, landmark, pincode, payment: "UPI" },
+      }));
+    } catch {}
+  };
+
+  // Kai customer humara "UPI se Pay Karein" link tap karne ke bajaye QR ko
+  // kisi doosre phone/camera se seedha scan kar lete hain — is case mein
+  // upar wala handleUpiAppOpen kabhi trigger nahi hota. Isliye agar QR abhi
+  // dikh raha hai (payment attempt ho chuka maana ja sakta hai) aur customer
+  // top wala "X" dabaye, to hum modal ko poori tarah band nahi karte —
+  // seedha confirmation mode mein switch kar dete hain (QR hide, sirf
+  // enabled "Maine Payment Kar Diya" button). Dobara "X" dabane par hi
+  // modal asal mein band hoga.
+  const handleCloseClick = () => {
+    if (payment === "UPI" && upiId && !upiOpened) {
+      setUpiOpened(true);
+      try {
+        sessionStorage.setItem(PENDING_UPI_KEY, JSON.stringify({
+          storeId: store.id,
+          cart,
+          form: { name, phone, address, landmark, pincode, payment: "UPI" },
+        }));
+      } catch {}
+      return;
+    }
+    onClose();
+  };
 
   return (
     <div style={{ ...overlayBottomStyle, alignItems: "center" }}>
       <div style={{ background: "white", borderRadius: "14px", width: "100%", maxWidth: "360px", maxHeight: "90vh", overflowY: "auto", padding: "22px", margin: "20px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
           <div style={{ fontWeight: 700, fontSize: "16px", fontFamily: "'Fraunces', serif" }}>Delivery Details</div>
-          <button onClick={onClose} style={closeBtnStyle}><X size={18} /></button>
+          <button onClick={handleCloseClick} style={closeBtnStyle}><X size={18} /></button>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
           <Field label="Aapka Naam" value={name} onChange={setName} placeholder="jaise Ramesh Yadav" />
@@ -316,26 +457,67 @@ function CheckoutModal({ cartTotal, submitting, onClose, onSubmit }) {
             <div style={{ flex: 1 }}><Field label="Pin Code" value={pincode} onChange={(v) => setPincode(v.replace(/\D/g, "").slice(0, 6))} placeholder="471606" type="tel" /></div>
           </div>
 
-          <div style={{ fontSize: "12px", fontWeight: 600, color: "#5C5747", marginTop: "4px" }}>Payment Method</div>
-          <div style={{ display: "flex", gap: "8px" }}>
-            {["COD", "UPI"].map((p) => (
-              <button key={p} onClick={() => setPayment(p)} style={{ flex: 1, padding: "9px 0", borderRadius: "8px", border: payment === p ? "1.5px solid #1B4332" : "1px solid #E3DECF", background: payment === p ? "#E7F0EA" : "white", color: payment === p ? "#1B4332" : "#5C5747", fontWeight: 700, fontSize: "12.5px", cursor: "pointer" }}>
-                {p === "COD" ? "Cash on Delivery" : "UPI se Pay"}
-              </button>
-            ))}
-          </div>
+          {payment === "UPI" && upiOpened ? (
+            // Confirmation mode: customer "UPI se Pay Karein" pe tap kar chuka hai
+            // (ya UPI app se wapas resume hua hai) — ab QR/payment-selector dobara
+            // nahi dikhate, sirf confirmation message aur enabled button.
+            <div style={{ background: "#E7F0EA", borderRadius: "10px", padding: "16px", textAlign: "center" }}>
+              <div style={{ fontSize: "13px", fontWeight: 700, color: "#1B4332" }}>✓ UPI app khol diya gaya hai</div>
+              <div style={{ fontSize: "11.5px", color: "#5C5747", marginTop: "4px", lineHeight: 1.5 }}>
+                Payment complete karne ke baad neeche "Maine Payment Kar Diya" dabayein — dukaandar payment verify karke order confirm karega.
+              </div>
+            </div>
+          ) : (
+            <>
+              <div style={{ fontSize: "12px", fontWeight: 600, color: "#5C5747", marginTop: "4px" }}>Payment Method</div>
+              <div style={{ display: "flex", gap: "8px" }}>
+                {["COD", "UPI"].map((p) => (
+                  <button key={p} onClick={() => { setPayment(p); setUpiOpened(false); }} style={{ flex: 1, padding: "9px 0", borderRadius: "8px", border: payment === p ? "1.5px solid #1B4332" : "1px solid #E3DECF", background: payment === p ? "#E7F0EA" : "white", color: payment === p ? "#1B4332" : "#5C5747", fontWeight: 700, fontSize: "12.5px", cursor: "pointer" }}>
+                    {p === "COD" ? "Cash on Delivery" : "UPI se Pay"}
+                  </button>
+                ))}
+              </div>
+
+              {payment === "UPI" && (
+                <div style={{ background: "#F7F5F0", borderRadius: "10px", padding: "14px", textAlign: "center" }}>
+                  {qrImageUrl ? (
+                    <>
+                      <img src={qrImageUrl} alt="UPI QR Code" style={{ width: 140, height: 140, margin: "0 auto 8px", borderRadius: "8px" }} />
+                      <div style={{ fontSize: "12px", color: "#5C5747" }}>Scan karein ya UPI ID pe bhejein:</div>
+                      <div style={{ fontWeight: 700, fontSize: "13px", color: "#1B4332", marginTop: "2px" }}>{upiId}</div>
+
+                      {/* Mobile par tap karne se seedha GPay/PhonePe/Paytm/BHIM khulega — payment seedha
+                          dukaandar ki UPI ID par jaayega, koi Razorpay/third-party account involve nahi hai */}
+                      <a
+                        href={upiLink}
+                        onClick={handleUpiAppOpen}
+                        style={{ display: "block", marginTop: "10px", background: "#1B4332", color: "white", fontWeight: 700, fontSize: "12.5px", borderRadius: "8px", padding: "10px 0", textDecoration: "none" }}
+                      >
+                        UPI se Pay Karein
+                      </a>
+                    </>
+                  ) : (
+                    <div style={{ fontSize: "12px", color: "#B3261E" }}>Dukaan ne abhi UPI ID set nahi ki hai. Kripya COD chunein.</div>
+                  )}
+                  <div style={{ fontSize: "11px", color: "#8B8576", marginTop: "8px", lineHeight: 1.5 }}>
+                    Payment karne ke baad wapas is page par aakar "Maine Payment Kar Diya" dabayein — dukaandar payment verify karke order confirm karega.
+                  </div>
+                </div>
+              )}
+            </>
+          )}
 
           <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 0", borderTop: "1px solid #E3DECF", marginTop: "6px", fontWeight: 700, fontSize: "14px" }}>
             <span>Total Payable</span><span>₹{cartTotal}</span>
           </div>
 
           <button
-            disabled={!valid || submitting}
-            onClick={() => onSubmit({ name, phone, address, landmark, pincode, payment: payment === "COD" ? "COD" : "UPI Paid" })}
+            disabled={!valid || submitting || (payment === "UPI" && (!upiId || !upiOpened))}
+            onClick={() => onSubmit({ name, phone, address, landmark, pincode, payment })}
             className="ddemo-btn"
-            style={{ width: "100%", background: valid && !submitting ? "#1B4332" : "#D8D2BF", color: "white", fontWeight: 800, fontSize: "14px", border: "none", borderRadius: "10px", padding: "13px 0", cursor: valid && !submitting ? "pointer" : "not-allowed" }}
+            style={{ width: "100%", background: valid && !submitting && (payment !== "UPI" || upiOpened) ? "#1B4332" : "#D8D2BF", color: "white", fontWeight: 800, fontSize: "14px", border: "none", borderRadius: "10px", padding: "13px 0", cursor: valid && !submitting && (payment !== "UPI" || upiOpened) ? "pointer" : "not-allowed" }}
           >
-            {submitting ? "Order ja raha hai..." : "Confirm Order"}
+            {submitting ? "Order ja raha hai..." : payment === "UPI" ? "Maine Payment Kar Diya" : "Order Place Karein"}
           </button>
         </div>
       </div>
