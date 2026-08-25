@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Store, Mail, Lock, ArrowRight, Loader2 } from "lucide-react";
+import { Store, Mail, Lock, ArrowRight, Loader2, Eye, EyeOff } from "lucide-react";
 import { signUp, signIn, createStore, checkSlugAvailable } from "../lib/api";
 
 const BUSINESS_TYPES = [
@@ -235,10 +235,17 @@ export function StoreDetailsForm({ user, onDone }) {
 }
 
 function IconField({ icon, type = "text", value, onChange, placeholder }) {
+  const isPassword = type === "password";
+  const [show, setShow] = useState(false);
   return (
     <div style={{ display: "flex", alignItems: "center", gap: "8px", border: "1px solid #E3DECF", borderRadius: "8px", padding: "9px 11px" }}>
       <span style={{ color: "#8B8576" }}>{icon}</span>
-      <input type={type} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} style={{ border: "none", outline: "none", fontSize: "13px", width: "100%", fontFamily: "inherit" }} />
+      <input type={isPassword && show ? "text" : type} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} style={{ border: "none", outline: "none", fontSize: "13px", width: "100%", fontFamily: "inherit" }} />
+      {isPassword && (
+        <button type="button" onClick={() => setShow((s) => !s)} style={{ border: "none", background: "none", cursor: "pointer", color: "#8B8576", display: "flex", padding: 0 }} tabIndex={-1}>
+          {show ? <EyeOff size={15} /> : <Eye size={15} />}
+        </button>
+      )}
     </div>
   );
 }

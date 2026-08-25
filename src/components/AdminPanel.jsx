@@ -1,5 +1,5 @@
 import React, { useState, useRef } from "react";
-import { Settings, Package, Plus, Trash2, Edit2, X, Check, ChevronDown, ChevronUp, Save, Upload, Image, CreditCard, AlertCircle } from "lucide-react";
+import { Settings, Package, Plus, Trash2, Edit2, X, Check, ChevronDown, ChevronUp, Save, Upload, Image, CreditCard, AlertCircle, Store } from "lucide-react";
 import {
   updateStoreSettings,
   createProduct, updateProduct, deleteProduct,
@@ -132,6 +132,9 @@ function StoreSettingsForm({ store, onRefresh }) {
   const [whatsapp, setWhatsapp] = useState(store.whatsapp_number);
   const [upi, setUpi] = useState(store.upi_id || "");
   const [address, setAddress] = useState(store.address || "");
+  const [logoUrl, setLogoUrl] = useState(store.logo_url || "");
+  const [tagline, setTagline] = useState(store.tagline || "");
+  const [timings, setTimings] = useState(store.timings || "");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -139,7 +142,7 @@ function StoreSettingsForm({ store, onRefresh }) {
     setSaving(true);
     setSaved(false);
     try {
-      await updateStoreSettings(store.id, { name, whatsapp_number: whatsapp, upi_id: upi, address });
+      await updateStoreSettings(store.id, { name, whatsapp_number: whatsapp, upi_id: upi, address, logo_url: logoUrl || null, tagline: tagline || null, timings: timings || null });
       setSaved(true);
       onRefresh();
       setTimeout(() => setSaved(false), 2500);
@@ -152,13 +155,58 @@ function StoreSettingsForm({ store, onRefresh }) {
 
   return (
     <div style={{ background: "white", border: "1px solid #E3DECF", borderRadius: "12px", padding: "18px", display: "flex", flexDirection: "column", gap: "12px" }}>
+      <StoreLogoPicker currentLogo={logoUrl} storeId={store.id} onChange={setLogoUrl} />
       <Field label="Dukaan ka Naam" value={name} onChange={setName} />
+      <Field label="Ek Line Tagline (naam ke neeche dikhegi, optional)" value={tagline} onChange={setTagline} placeholder="jaise Sabse sasta kirana, ghar tak!" />
       <Field label="WhatsApp Number (91 ke saath, jaise 919876543210)" value={whatsapp} onChange={setWhatsapp} />
       <Field label="UPI ID (jaise dukaan@upi)" value={upi} onChange={setUpi} placeholder="abhi optional hai" />
       <Field label="Address" value={address} onChange={setAddress} textarea />
+      <Field label="Khulne-Band hone ka Time (customer ko dikhega, optional)" value={timings} onChange={setTimings} placeholder="jaise Roz subah 8 - raat 10 baje tak" textarea />
       <button onClick={handleSave} disabled={saving} className="ddemo-btn" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", background: saved ? "#1B4332" : "#D4A24C", color: saved ? "white" : "#123026", fontWeight: 800, fontSize: "13.5px", border: "none", borderRadius: "10px", padding: "12px 0", cursor: "pointer", marginTop: "6px" }}>
         {saved ? <><Check size={15} /> Save Ho Gaya</> : <><Save size={15} /> {saving ? "Save ho raha hai..." : "Changes Save Karein"}</>}
       </button>
+    </div>
+  );
+}
+
+function StoreLogoPicker({ currentLogo, storeId, onChange }) {
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef(null);
+
+  const handleUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) { alert("Logo 2MB se chhota hona chahiye."); return; }
+    setUploading(true);
+    try {
+      const url = await uploadProductImage(file, storeId);
+      onChange(url);
+    } catch (err) {
+      alert("Upload nahi ho paaya: " + err.message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: "12px", background: "#F7F5F0", borderRadius: "10px", padding: "12px" }}>
+      <div style={{ width: 52, height: 52, borderRadius: "10px", background: currentLogo ? "white" : "#D4A24C", border: "1px solid #E3DECF", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", flexShrink: 0 }}>
+        {currentLogo ? <img src={currentLogo} alt="Dukaan Logo" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <Store size={22} color="#123026" />}
+      </div>
+      <div style={{ flex: 1 }}>
+        <div style={{ fontSize: "11.5px", fontWeight: 600, color: "#5C5747", marginBottom: "4px" }}>Dukaan ka Logo</div>
+        <div style={{ display: "flex", gap: "8px" }}>
+          <button onClick={() => fileRef.current?.click()} disabled={uploading} className="ddemo-btn" style={{ fontSize: "11.5px", fontWeight: 700, border: "1px solid #1B4332", color: "#1B4332", background: "white", borderRadius: "7px", padding: "6px 10px", cursor: "pointer" }}>
+            {uploading ? "Upload ho raha hai..." : currentLogo ? "Logo Badlein" : "Logo Upload Karein"}
+          </button>
+          {currentLogo && (
+            <button onClick={() => onChange("")} className="ddemo-btn" style={{ fontSize: "11.5px", fontWeight: 700, border: "1px solid #E3DECF", color: "#B3261E", background: "white", borderRadius: "7px", padding: "6px 10px", cursor: "pointer" }}>
+              Hatayein
+            </button>
+          )}
+        </div>
+        <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleUpload} style={{ display: "none" }} />
+      </div>
     </div>
   );
 }

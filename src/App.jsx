@@ -89,6 +89,11 @@ function CustomerStorefrontPage({ slug }) {
     <div style={shellStyle}>
       <GlobalStyles />
       <StoreHeader store={store} />
+      {store.timings && (
+        <div style={{ background: "#EFE9D8", padding: "6px 24px", textAlign: "center", fontSize: "11.5px", color: "#5C5747", fontWeight: 600 }}>
+          🕒 {store.timings}
+        </div>
+      )}
       <CustomerView store={store} products={products} onOrderPlaced={() => load(true)} />
     </div>
   );
@@ -268,12 +273,12 @@ function StoreHeader({ store }) {
 function StoreHeaderBrand({ store }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-      <div style={{ width: 34, height: 34, borderRadius: "9px", background: "#D4A24C", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-        <Store size={18} color="#123026" strokeWidth={2.4} />
+      <div style={{ width: 34, height: 34, borderRadius: "9px", background: store.logo_url ? "white" : "#D4A24C", border: store.logo_url ? "1px solid rgba(255,255,255,0.3)" : "none", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden" }}>
+        {store.logo_url ? <img src={store.logo_url} alt={store.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <Store size={18} color="#123026" strokeWidth={2.4} />}
       </div>
       <div>
         <div style={{ color: "white", fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: "15px", lineHeight: 1.1 }}>{store.name}</div>
-        <div style={{ color: "rgba(255,255,255,0.6)", fontSize: "10.5px" }}>{store.address}</div>
+        <div style={{ color: "rgba(255,255,255,0.6)", fontSize: "10.5px" }}>{store.tagline || store.address}</div>
       </div>
     </div>
   );
@@ -315,6 +320,8 @@ function GlobalStyles() {
       .ddemo-stepper-btn { transition: background 0.15s ease, transform 0.1s ease; }
       .ddemo-stepper-btn:hover { background: #F0EEE6; }
       .ddemo-stepper-btn:active { transform: scale(0.92); }
+      .ddemo-spin { animation: ddemoSpin 0.8s linear infinite; }
+      @keyframes ddemoSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
       .ddemo-fade-in { animation: ddemoFadeIn 0.3s ease; }
       .spin { animation: spin 1s linear infinite; }
       @keyframes spin { to { transform: rotate(360deg); } }
