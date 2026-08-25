@@ -218,11 +218,18 @@ export default function CustomerView({ store, products, onOrderPlaced }) {
           const qtyInCart = singleVariant ? cart[onlyVariant.id] || 0 : 0;
 
           return (
-            <div key={p.id} className="ddemo-card ddemo-fade-in" style={{ background: "white", border: "1px solid #E3DECF", borderRadius: "13px", padding: "13px", display: "flex", flexDirection: "column", gap: "8px", opacity: outOfStock ? 0.6 : 1 }}>
-              {p.image_url
-                ? <img src={p.image_url} alt={p.name} style={{ width: "100%", height: "80px", objectFit: "cover", borderRadius: "8px" }} />
-                : <div style={{ fontSize: "30px", lineHeight: 1 }}>{p.emoji || "📦"}</div>
-              }
+            <div key={p.id} className="ddemo-card ddemo-fade-in" style={{ background: "white", border: "1px solid #E3DECF", borderRadius: "13px", padding: "0 0 13px", display: "flex", flexDirection: "column", gap: "8px", opacity: outOfStock ? 0.6 : 1, overflow: "hidden" }}>
+              <div style={{
+                width: "100%", height: "130px", flexShrink: 0,
+                background: p.image_url ? undefined : "linear-gradient(135deg, #F3ECDC 0%, #E9DFC0 100%)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}>
+                {p.image_url
+                  ? <img src={p.image_url} alt={p.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  : <span style={{ fontSize: "46px", lineHeight: 1 }}>{p.emoji || "📦"}</span>
+                }
+              </div>
+              <div style={{ padding: "0 13px", display: "flex", flexDirection: "column", gap: "8px", flex: 1 }}>
               <div>
                 <div style={{ fontWeight: 600, fontSize: "13px", lineHeight: 1.3 }}>{p.name}</div>
                 <div style={{ fontSize: "11.5px", color: "#8B8576", marginTop: "2px" }}>
@@ -246,6 +253,7 @@ export default function CustomerView({ store, products, onOrderPlaced }) {
                   Option Chunein <ChevronRight size={13} />
                 </button>
               )}
+              </div>
             </div>
           );
         })}
@@ -348,7 +356,7 @@ function CartDrawer({ cartItems, cartTotal, onClose, onRemove, onCheckout }) {
               <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                 {it.image_url
                   ? <img src={it.image_url} alt={it.productName} style={{ width: 36, height: 36, objectFit: "cover", borderRadius: "7px", flexShrink: 0 }} />
-                  : <span style={{ fontSize: "22px" }}>{it.emoji || "📦"}</span>
+                  : <span style={{ width: 36, height: 36, borderRadius: "7px", background: "linear-gradient(135deg, #F3ECDC 0%, #E9DFC0 100%)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "18px", flexShrink: 0 }}>{it.emoji || "📦"}</span>
                 }
                 <div>
                   <div style={{ fontWeight: 600, fontSize: "13px" }}>{it.productName}</div>
