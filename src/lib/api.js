@@ -207,10 +207,10 @@ export async function deleteVariant(variantId) {
 }
 
 // ---- Store Settings ----
-export async function updateStoreSettings(storeId, { name, whatsapp_number, upi_id, address }) {
+export async function updateStoreSettings(storeId, { name, whatsapp_number, upi_id, address, logo_url, tagline, timings }) {
   const { error } = await supabase
     .from("stores")
-    .update({ name, whatsapp_number, upi_id, address })
+    .update({ name, whatsapp_number, upi_id, address, logo_url, tagline, timings })
     .eq("id", storeId);
   if (error) throw error;
 }
