@@ -257,6 +257,37 @@ export async function updatePaymentStatus(orderId, paymentStatus) {
 }
 
 // ============================================================
+// CUSTOMERS — Guest checkout ke liye saved delivery details
+// (phone-number ke basis par, koi login/password nahi)
+// ============================================================
+
+// Store ke andar diye gaye phone number se pichli saved details dhoondhta hai.
+// Agar koi match nahi mila to null return karta hai (naya customer maana jaata hai).
+export async function fetchCustomerByPhone(storeId, phone) {
+  const { data, error } = await supabase
+    .from("customers")
+    .select("*")
+    .eq("store_id", storeId)
+    .eq("phone", phone)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+// Order place hone ke baad customer ki details save/update karta hai
+// (store_id + phone par unique, isliye dobara order karne par naya
+// duplicate record nahi banta, existing record hi update ho jaata hai).
+export async function upsertCustomerDetails(storeId, { phone, name, address, landmark, pincode }) {
+  const { error } = await supabase
+    .from("customers")
+    .upsert(
+      { store_id: storeId, phone, name, address, landmark: landmark || null, pincode, updated_at: new Date().toISOString() },
+      { onConflict: "store_id,phone" }
+    );
+  if (error) throw error;
+}
+
+// ============================================================
 // REALTIME - jab naya order aaye, dukaandar ko turant pata chal jaye
 // ============================================================
 export function subscribeToOrders(storeId, onNewOrder) {

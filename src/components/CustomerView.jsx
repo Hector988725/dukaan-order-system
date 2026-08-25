@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo } from "react";
-import { Search, ChevronRight, X, Check, MessageCircle, Plus, Minus, Trash2 } from "lucide-react";
-import { createOrder } from "../lib/api";
+import React, { useState, useEffect, useMemo, useRef } from "react";
+import { Search, ChevronRight, X, Check, MessageCircle, Plus, Minus, Trash2, Loader2 } from "lucide-react";
+import { createOrder, fetchCustomerByPhone, upsertCustomerDetails } from "../lib/api";
 
 const PENDING_UPI_KEY = "dukaan_pending_upi_checkout";
 
@@ -141,6 +141,21 @@ export default function CustomerView({ store, products, onOrderPlaced }) {
         total: cartTotal,
       };
       const saved = await createOrder(payload);
+      // Order safal hua — customer ki details save/update karte hain taaki
+      // agli baar isi phone number se order karne par khud-ba-khud bhar jaayein.
+      // Yeh best-effort hai: agar kisi wajah se fail bhi ho jaaye, order place
+      // ho chuka hai, isliye customer ko koi error nahi dikhate.
+      try {
+        await upsertCustomerDetails(store.id, {
+          phone: form.phone,
+          name: form.name,
+          address: form.address,
+          landmark: form.landmark,
+          pincode: form.pincode,
+        });
+      } catch (saveErr) {
+        console.warn("Customer details save nahi ho payi:", saveErr);
+      }
       sessionStorage.removeItem(PENDING_UPI_KEY);
       setOrderPlaced(saved);
       setCart({});
@@ -390,6 +405,41 @@ function CheckoutModal({ store, cartTotal, submitting, resumeData, cart, onClose
   const [landmark, setLandmark] = useState(resumeData?.landmark || "");
   const [pincode, setPincode] = useState(resumeData?.pincode || "");
   const [payment, setPayment] = useState(resumeData?.payment || "COD");
+  // Guest checkout: koi login/password nahi. Phone number 10 digit poora
+  // hote hi is store ke liye pehle se saved details (agar hain) dhoondh
+  // ke auto-fill kar dete hain. Customer chahe to inhe edit kar sakta hai.
+  const [lookupStatus, setLookupStatus] = useState(null); // null | "checking" | "found" | "new"
+  const lookedUpPhoneRef = useRef(resumeData?.phone || null);
+
+  useEffect(() => {
+    // UPI resume flow mein details already bharri hui hain isi checkout ke
+    // liye — dobara lookup karke overwrite nahi karte.
+    if (resumeData) return;
+    const digits = phone.replace(/\D/g, "");
+    if (digits.length !== 10) {
+      setLookupStatus(null);
+      return;
+    }
+    if (lookedUpPhoneRef.current === digits) return; // isi number ke liye already check ho chuka
+    let cancelled = false;
+    setLookupStatus("checking");
+    fetchCustomerByPhone(store.id, digits)
+      .then((customer) => {
+        if (cancelled) return;
+        lookedUpPhoneRef.current = digits;
+        if (customer) {
+          setName(customer.name || "");
+          setAddress(customer.address || "");
+          setLandmark(customer.landmark || "");
+          setPincode(customer.pincode || "");
+          setLookupStatus("found");
+        } else {
+          setLookupStatus("new");
+        }
+      })
+      .catch(() => { if (!cancelled) setLookupStatus(null); });
+    return () => { cancelled = true; };
+  }, [phone, resumeData, store.id]);
   // UPI confirmation gate: jab tak customer "UPI se Pay Karein" par tap na
   // kare, "Maine Payment Kar Diya" button disabled rehta hai — isse galti
   // se, bina actually pay kiye, order confirm hone se bachta hai. Agar hum
@@ -457,8 +507,18 @@ function CheckoutModal({ store, cartTotal, submitting, resumeData, cart, onClose
           <button onClick={handleCloseClick} style={closeBtnStyle}><X size={18} /></button>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+          <Field label="Mobile Number" value={phone} onChange={(v) => setPhone(v.replace(/\D/g, "").slice(0, 10))} placeholder="10 digit number" type="tel" />
+          {lookupStatus === "checking" && (
+            <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "11.5px", color: "#8B8576", marginTop: "-4px" }}>
+              <Loader2 size={12} className="ddemo-spin" /> Details check ho rahi hain...
+            </div>
+          )}
+          {lookupStatus === "found" && (
+            <div style={{ fontSize: "11.5px", color: "#1B4332", fontWeight: 600, marginTop: "-4px" }}>
+              ✓ Aapki pichli details mil gayi — zaroorat ho to edit kar lein
+            </div>
+          )}
           <Field label="Aapka Naam" value={name} onChange={setName} placeholder="jaise Ramesh Yadav" />
-          <Field label="Mobile Number" value={phone} onChange={setPhone} placeholder="10 digit number" type="tel" />
           <Field label="Ghar/Gali ka Pata" value={address} onChange={setAddress} placeholder="Makaan number, gali, mohalla" textarea />
           <div style={{ display: "flex", gap: "8px" }}>
             <div style={{ flex: 1.4 }}><Field label="Landmark (optional)" value={landmark} onChange={setLandmark} placeholder="jaise Shiv Mandir ke paas" /></div>
