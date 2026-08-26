@@ -1,14 +1,9 @@
 import React, { useState } from "react";
 import { Store, Mail, Lock, ArrowRight, Loader2, Eye, EyeOff } from "lucide-react";
 import { signUp, signIn, createStore, checkSlugAvailable } from "../lib/api";
+import { BUSINESS_TYPE_LIST } from "../lib/theme";
 
-const BUSINESS_TYPES = [
-  { id: "kirana", label: "Kirana / Grocery" },
-  { id: "hardware", label: "Hardware Shop" },
-  { id: "medical", label: "Medical Store" },
-  { id: "mobile", label: "Mobile/Computer Shop" },
-  { id: "general", label: "Koi Aur Business" },
-];
+const BUSINESS_TYPES = BUSINESS_TYPE_LIST;
 
 function slugify(text) {
   return text

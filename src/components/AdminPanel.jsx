@@ -1,8 +1,8 @@
 import React, { useState, useRef } from "react";
-import { Settings, Package, Plus, Trash2, Edit2, X, Check, ChevronDown, ChevronUp, Save, Upload, Image, CreditCard, AlertCircle, Store } from "lucide-react";
+import { Settings, Package, Plus, Trash2, Edit2, X, Check, ChevronDown, ChevronUp, Save, Upload, Image, CreditCard, AlertCircle, Store, Star, ArrowUp, ArrowDown } from "lucide-react";
 import {
   updateStoreSettings,
-  createProduct, updateProduct, deleteProduct,
+  createProduct, updateProduct, deleteProduct, updateProductFeatured, updateProductOrder,
   createVariant, updateVariant, deleteVariant,
   uploadProductImage, deactivateStore,
 } from "../lib/api";
@@ -217,11 +217,39 @@ function StoreLogoPicker({ currentLogo, storeId, onChange }) {
 function ProductManager({ store, products, onRefresh }) {
   const [adding, setAdding] = useState(false);
   const [expandedId, setExpandedId] = useState(null);
+  const [reordering, setReordering] = useState(false);
+
+  // Do products ke sort_order swap karke unka display sequence badalta hai
+  // (list already sort_order se sorted aati hai fetchProducts() se).
+  const moveProduct = async (index, direction) => {
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= products.length) return;
+    const a = products[index], b = products[targetIndex];
+    const aOrder = a.sort_order ?? index;
+    const bOrder = b.sort_order ?? targetIndex;
+    setReordering(true);
+    try {
+      // Agar dono ka sort_order kisi wajah se same hai (purane data mein
+      // aisa ho sakta hai), to unka index hi use kar lete hain taaki
+      // order badal jaaye.
+      const newAOrder = aOrder === bOrder ? targetIndex : bOrder;
+      const newBOrder = aOrder === bOrder ? index : aOrder;
+      await Promise.all([
+        updateProductOrder(a.id, newAOrder),
+        updateProductOrder(b.id, newBOrder),
+      ]);
+      onRefresh();
+    } catch (e) {
+      alert("Order badalte waqt error aaya: " + e.message);
+    } finally {
+      setReordering(false);
+    }
+  };
 
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
-        <div style={{ fontSize: "12px", color: "#8B8576" }}>{products.length} products</div>
+        <div style={{ fontSize: "12px", color: "#8B8576" }}>{products.length} products · ⭐ ya ↑↓ se apni dukaan saja sakte hain</div>
         <button onClick={() => setAdding(true)} className="ddemo-btn" style={{ display: "flex", alignItems: "center", gap: "6px", background: "#1B4332", color: "white", border: "none", borderRadius: "8px", padding: "8px 14px", fontSize: "12.5px", fontWeight: 700, cursor: "pointer" }}>
           <Plus size={14} /> Naya Product
         </button>
@@ -240,7 +268,7 @@ function ProductManager({ store, products, onRefresh }) {
       )}
 
       <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-        {products.map((p) => (
+        {products.map((p, idx) => (
           <ProductRow
             key={p.id}
             product={p}
@@ -248,6 +276,9 @@ function ProductManager({ store, products, onRefresh }) {
             expanded={expandedId === p.id}
             onToggle={() => setExpandedId(expandedId === p.id ? null : p.id)}
             onRefresh={onRefresh}
+            onMoveUp={idx > 0 ? () => moveProduct(idx, -1) : null}
+            onMoveDown={idx < products.length - 1 ? () => moveProduct(idx, 1) : null}
+            reordering={reordering}
           />
         ))}
       </div>
@@ -392,9 +423,10 @@ function NewProductForm({ storeId, onCancel, onSave }) {
 // ============================================================
 // PRODUCT ROW
 // ============================================================
-function ProductRow({ product, storeId, expanded, onToggle, onRefresh }) {
+function ProductRow({ product, storeId, expanded, onToggle, onRefresh, onMoveUp, onMoveDown, reordering }) {
   const [editing, setEditing] = useState(false);
   const [addingVariant, setAddingVariant] = useState(false);
+  const [togglingFeatured, setTogglingFeatured] = useState(false);
 
   const handleDeleteProduct = async () => {
     if (!confirm(`"${product.name}" ko delete karein?`)) return;
@@ -402,13 +434,26 @@ function ProductRow({ product, storeId, expanded, onToggle, onRefresh }) {
     catch (e) { alert("Delete nahi ho paaya: " + e.message); }
   };
 
+  const handleToggleFeatured = async (e) => {
+    e.stopPropagation();
+    setTogglingFeatured(true);
+    try { await updateProductFeatured(product.id, !product.featured); onRefresh(); }
+    catch (err) { alert("Featured toggle nahi ho paaya: " + err.message); }
+    finally { setTogglingFeatured(false); }
+  };
+
   // Display: photo > emoji
   const displayImage = product.image_url || null;
   const displayEmoji = product.emoji || "📦";
 
   return (
-    <div style={{ background: "white", border: "1px solid #E3DECF", borderRadius: "12px", overflow: "hidden" }}>
+    <div style={{ background: "white", border: product.featured ? "1.5px solid #D4A24C" : "1px solid #E3DECF", borderRadius: "12px", overflow: "hidden" }}>
       <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "12px 13px", cursor: "pointer" }} onClick={onToggle}>
+        {/* Reorder arrows — dukaandar apni marzi se products upar-neeche kar sakta hai */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "1px", flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
+          <button onClick={onMoveUp} disabled={!onMoveUp || reordering} style={{ ...arrowBtnStyle, opacity: onMoveUp ? 1 : 0.25 }}><ArrowUp size={12} /></button>
+          <button onClick={onMoveDown} disabled={!onMoveDown || reordering} style={{ ...arrowBtnStyle, opacity: onMoveDown ? 1 : 0.25 }}><ArrowDown size={12} /></button>
+        </div>
         {displayImage
           ? <img src={displayImage} alt={product.name} style={{ width: 36, height: 36, objectFit: "cover", borderRadius: "7px", flexShrink: 0 }} />
           : <span style={{ fontSize: "22px", flexShrink: 0 }}>{displayEmoji}</span>
@@ -417,6 +462,9 @@ function ProductRow({ product, storeId, expanded, onToggle, onRefresh }) {
           <div style={{ fontWeight: 700, fontSize: "13px" }}>{product.name}</div>
           <div style={{ fontSize: "10.5px", color: "#8B8576" }}>{product.category} · {product.variants.length} variant{product.variants.length !== 1 ? "s" : ""}</div>
         </div>
+        <button onClick={handleToggleFeatured} disabled={togglingFeatured} title="Customer ko badi photo ke saath dikhayein" style={{ ...iconBtnStyle, color: product.featured ? "#D4A24C" : "#B7AF9B" }}>
+          <Star size={15} fill={product.featured ? "#D4A24C" : "none"} />
+        </button>
         <button onClick={(e) => { e.stopPropagation(); setEditing(!editing); }} style={iconBtnStyle}><Edit2 size={14} /></button>
         <button onClick={(e) => { e.stopPropagation(); handleDeleteProduct(); }} style={{ ...iconBtnStyle, color: "#B3261E" }}><Trash2 size={14} /></button>
         {expanded ? <ChevronUp size={16} color="#8B8576" /> : <ChevronDown size={16} color="#8B8576" />}
@@ -583,3 +631,4 @@ function Field({ label, value, onChange, placeholder, textarea }) {
 
 const inputStyle = { width: "100%", border: "1px solid #E3DECF", borderRadius: "7px", padding: "8px 10px", fontSize: "12.5px", fontFamily: "inherit", outline: "none" };
 const iconBtnStyle = { width: 28, height: 28, borderRadius: "6px", border: "1px solid #E3DECF", background: "white", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#5C5747" };
+const arrowBtnStyle = { width: 18, height: 15, borderRadius: "3px", border: "none", background: "#F0EEE6", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#5C5747", padding: 0 };

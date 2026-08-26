@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { Search, ChevronRight, X, Check, MessageCircle, Plus, Minus, Trash2, Loader2 } from "lucide-react";
+import { Search, ChevronRight, X, Check, MessageCircle, Plus, Minus, Trash2, Loader2, Star } from "lucide-react";
 import { createOrder, fetchCustomerByPhone, upsertCustomerDetails } from "../lib/api";
+import { getTheme } from "../lib/theme";
 
 const PENDING_UPI_KEY = "dukaan_pending_upi_checkout";
 
 export default function CustomerView({ store, products, onOrderPlaced }) {
+  const theme = getTheme(store.business_type);
   const [activeCategory, setActiveCategory] = useState("All");
   const [search, setSearch] = useState("");
   const [cart, setCart] = useState({}); // variantId -> qty
@@ -204,8 +206,8 @@ export default function CustomerView({ store, products, onOrderPlaced }) {
               className="ddemo-btn"
               style={{
                 whiteSpace: "nowrap", padding: "7px 14px", borderRadius: "999px", fontSize: "12.5px", fontWeight: 600,
-                border: cat === activeCategory ? "1px solid #1B4332" : "1px solid #E3DECF",
-                background: cat === activeCategory ? "#1B4332" : "white",
+                border: cat === activeCategory ? `1px solid ${theme.primary}` : "1px solid #E3DECF",
+                background: cat === activeCategory ? theme.primary : "white",
                 color: cat === activeCategory ? "white" : "#5C5747",
                 cursor: "pointer", flexShrink: 0,
               }}
@@ -216,14 +218,19 @@ export default function CustomerView({ store, products, onOrderPlaced }) {
         </div>
       </div>
 
-      {/* Product grid */}
-      <div style={{ padding: "8px 18px 90px", display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: "12px" }}>
+      {/* Product grid — masonry-style: photo apna natural aspect ratio leta hai
+          (chhota/bada), aur "Featured" products bade/taller dikhte hain.
+          Ismein purana bug repeat nahi ho raha: photo + no-photo dono states
+          ab bhi ek jaisi "photo tile" design follow karte hain (gradient +
+          bada emoji), sirf height/aspect deliberately alag hai taaki grid
+          Pinterest jaisa saaf-sundar dikhe. */}
+      <div className="ddemo-masonry" style={{ padding: "8px 18px 90px" }}>
         {filtered.length === 0 && (
-          <div style={{ gridColumn: "1 / -1", textAlign: "center", padding: "40px 0", color: "#8B8576", fontSize: "13px" }}>
+          <div style={{ textAlign: "center", padding: "40px 0", color: "#8B8576", fontSize: "13px" }}>
             Koi product nahi mila.
           </div>
         )}
-        {filtered.map((p) => {
+        {filtered.map((p, idx) => {
           const totalStock = p.variants.reduce((s, v) => s + v.stock, 0);
           const outOfStock = totalStock <= 0;
           const prices = p.variants.map((v) => v.price);
@@ -232,19 +239,33 @@ export default function CustomerView({ store, products, onOrderPlaced }) {
           const onlyVariant = singleVariant ? p.variants[0] : null;
           const qtyInCart = singleVariant ? cart[onlyVariant.id] || 0 : 0;
 
+          // Photo hai to natural aspect-ratio leta hai (masonry variety khud
+          // ban jaati hai). Photo nahi hai to fallback tile ki height product
+          // index ke hisaab se 3 tiers mein deterministically vary hoti hai
+          // (taaki saare no-photo products ek jaisi boring height ke na dikhein).
+          const fallbackTiers = [120, 165, 145];
+          const fallbackHeight = fallbackTiers[idx % fallbackTiers.length];
+          const imageBoxStyle = p.image_url
+            ? { width: "100%", display: "block" }
+            : { width: "100%", height: p.featured ? 210 : fallbackHeight, display: "flex", alignItems: "center", justifyContent: "center" };
+
           return (
-            <div key={p.id} className="ddemo-card ddemo-fade-in" style={{ background: "white", border: "1px solid #E3DECF", borderRadius: "13px", padding: "0 0 13px", display: "flex", flexDirection: "column", gap: "8px", opacity: outOfStock ? 0.6 : 1, overflow: "hidden" }}>
+            <div key={p.id} className="ddemo-card ddemo-fade-in ddemo-masonry-item" style={{ position: "relative", background: "white", border: "1px solid #E3DECF", borderRadius: "13px", padding: "0 0 13px", opacity: outOfStock ? 0.6 : 1, overflow: "hidden" }}>
+              {p.featured && (
+                <div style={{ position: "absolute", top: "8px", left: "8px", zIndex: 1, display: "flex", alignItems: "center", gap: "3px", background: theme.accent, color: "#123026", fontSize: "10px", fontWeight: 800, padding: "3px 8px", borderRadius: "999px" }}>
+                  <Star size={10} fill="#123026" /> Featured
+                </div>
+              )}
               <div style={{
-                width: "100%", height: "130px", flexShrink: 0,
+                ...imageBoxStyle,
                 background: p.image_url ? undefined : "linear-gradient(135deg, #F3ECDC 0%, #E9DFC0 100%)",
-                display: "flex", alignItems: "center", justifyContent: "center",
               }}>
                 {p.image_url
-                  ? <img src={p.image_url} alt={p.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                  : <span style={{ fontSize: "46px", lineHeight: 1 }}>{p.emoji || "📦"}</span>
+                  ? <img src={p.image_url} alt={p.name} style={{ width: "100%", height: p.featured ? "260px" : "auto", objectFit: "cover", display: "block" }} />
+                  : <span style={{ fontSize: p.featured ? "60px" : "42px", lineHeight: 1 }}>{p.emoji || "📦"}</span>
                 }
               </div>
-              <div style={{ padding: "0 13px", display: "flex", flexDirection: "column", gap: "8px", flex: 1 }}>
+              <div style={{ padding: "8px 13px 0", display: "flex", flexDirection: "column", gap: "8px" }}>
               <div>
                 <div style={{ fontWeight: 600, fontSize: "13px", lineHeight: 1.3 }}>{p.name}</div>
                 <div style={{ fontSize: "11.5px", color: "#8B8576", marginTop: "2px" }}>
@@ -259,12 +280,12 @@ export default function CustomerView({ store, products, onOrderPlaced }) {
                 </div>
               ) : singleVariant ? (
                 qtyInCart === 0 ? (
-                  <button onClick={() => addToCart(onlyVariant.id)} className="ddemo-btn ddemo-add-btn" style={btnOutline}>+ Add</button>
+                  <button onClick={() => addToCart(onlyVariant.id)} className="ddemo-btn ddemo-add-btn" style={btnOutline(theme)}>+ Add</button>
                 ) : (
                   <QtyStepper qty={qtyInCart} onInc={() => addToCart(onlyVariant.id)} onDec={() => decFromCart(onlyVariant.id)} />
                 )
               ) : (
-                <button onClick={() => setVariantPicker(p)} className="ddemo-btn" style={{ ...btnOutline, display: "flex", alignItems: "center", justifyContent: "center", gap: "5px" }}>
+                <button onClick={() => setVariantPicker(p)} className="ddemo-btn" style={{ ...btnOutline(theme), display: "flex", alignItems: "center", justifyContent: "center", gap: "5px" }}>
                   Option Chunein <ChevronRight size={13} />
                 </button>
               )}
@@ -275,11 +296,11 @@ export default function CustomerView({ store, products, onOrderPlaced }) {
       </div>
 
       {variantPicker && (
-        <VariantPickerModal product={variantPicker} cart={cart} addToCart={addToCart} decFromCart={decFromCart} onClose={() => setVariantPicker(null)} />
+        <VariantPickerModal product={variantPicker} cart={cart} addToCart={addToCart} decFromCart={decFromCart} theme={theme} onClose={() => setVariantPicker(null)} />
       )}
 
       {cartCount > 0 && !cartOpen && (
-        <button key={cartCount} onClick={() => setCartOpen(true)} className="ddemo-btn ddemo-cart-bump" style={floatingCartStyle}>
+        <button key={cartCount} onClick={() => setCartOpen(true)} className="ddemo-btn ddemo-cart-bump" style={floatingCartStyle(theme)}>
           <span style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: 700, fontSize: "13.5px" }}>
             🛒 {cartCount} item{cartCount > 1 ? "s" : ""}
           </span>
@@ -320,7 +341,7 @@ function QtyStepper({ qty, onInc, onDec }) {
   );
 }
 
-function VariantPickerModal({ product, cart, addToCart, decFromCart, onClose }) {
+function VariantPickerModal({ product, cart, addToCart, decFromCart, theme, onClose }) {
   return (
     <div style={overlayBottomStyle}>
       <div style={{ background: "white", width: "100%", maxWidth: "480px", borderRadius: "16px 16px 0 0", maxHeight: "75%", display: "flex", flexDirection: "column", animation: "ddemoSlideUp 0.25s ease" }}>
@@ -344,7 +365,7 @@ function VariantPickerModal({ product, cart, addToCart, decFromCart, onClose }) 
                 {out ? (
                   <span style={{ fontSize: "11px", fontWeight: 700, color: "#B3261E" }}>Out of Stock</span>
                 ) : qty === 0 ? (
-                  <button onClick={() => addToCart(v.id)} className="ddemo-btn ddemo-add-btn" style={{ ...btnOutline, padding: "7px 16px" }}>+ Add</button>
+                  <button onClick={() => addToCart(v.id)} className="ddemo-btn ddemo-add-btn" style={{ ...btnOutline(theme), padding: "7px 16px" }}>+ Add</button>
                 ) : (
                   <QtyStepper qty={qty} onInc={() => addToCart(v.id)} onDec={() => decFromCart(v.id)} />
                 )}
@@ -399,6 +420,7 @@ function CartDrawer({ cartItems, cartTotal, onClose, onRemove, onCheckout }) {
 }
 
 function CheckoutModal({ store, cartTotal, submitting, resumeData, cart, onClose, onSubmit }) {
+  const theme = getTheme(store.business_type);
   const [name, setName] = useState(resumeData?.name || "");
   const [phone, setPhone] = useState(resumeData?.phone || "");
   const [address, setAddress] = useState(resumeData?.address || "");
@@ -540,7 +562,7 @@ function CheckoutModal({ store, cartTotal, submitting, resumeData, cart, onClose
               <div style={{ fontSize: "12px", fontWeight: 600, color: "#5C5747", marginTop: "4px" }}>Payment Method</div>
               <div style={{ display: "flex", gap: "8px" }}>
                 {["COD", "UPI"].map((p) => (
-                  <button key={p} onClick={() => { setPayment(p); setUpiOpened(false); }} style={{ flex: 1, padding: "9px 0", borderRadius: "8px", border: payment === p ? "1.5px solid #1B4332" : "1px solid #E3DECF", background: payment === p ? "#E7F0EA" : "white", color: payment === p ? "#1B4332" : "#5C5747", fontWeight: 700, fontSize: "12.5px", cursor: "pointer" }}>
+                  <button key={p} onClick={() => { setPayment(p); setUpiOpened(false); }} style={{ flex: 1, padding: "9px 0", borderRadius: "8px", border: payment === p ? `1.5px solid ${theme.primary}` : "1px solid #E3DECF", background: payment === p ? "#E7F0EA" : "white", color: payment === p ? theme.primary : "#5C5747", fontWeight: 700, fontSize: "12.5px", cursor: "pointer" }}>
                     {p === "COD" ? "Cash on Delivery" : "UPI se Pay"}
                   </button>
                 ))}
@@ -559,7 +581,7 @@ function CheckoutModal({ store, cartTotal, submitting, resumeData, cart, onClose
                       <a
                         href={upiLink}
                         onClick={handleUpiAppOpen}
-                        style={{ display: "block", marginTop: "10px", background: "#1B4332", color: "white", fontWeight: 700, fontSize: "12.5px", borderRadius: "8px", padding: "10px 0", textDecoration: "none" }}
+                        style={{ display: "block", marginTop: "10px", background: theme.primary, color: "white", fontWeight: 700, fontSize: "12.5px", borderRadius: "8px", padding: "10px 0", textDecoration: "none" }}
                       >
                         UPI se Pay Karein
                       </a>
@@ -583,7 +605,7 @@ function CheckoutModal({ store, cartTotal, submitting, resumeData, cart, onClose
             disabled={!valid || submitting || (payment === "UPI" && (!upiId || !upiOpened))}
             onClick={() => onSubmit({ name, phone, address, landmark, pincode, payment })}
             className="ddemo-btn"
-            style={{ width: "100%", background: valid && !submitting && (payment !== "UPI" || upiOpened) ? "#1B4332" : "#D8D2BF", color: "white", fontWeight: 800, fontSize: "14px", border: "none", borderRadius: "10px", padding: "13px 0", cursor: valid && !submitting && (payment !== "UPI" || upiOpened) ? "pointer" : "not-allowed" }}
+            style={{ width: "100%", background: valid && !submitting && (payment !== "UPI" || upiOpened) ? theme.primary : "#D8D2BF", color: "white", fontWeight: 800, fontSize: "14px", border: "none", borderRadius: "10px", padding: "13px 0", cursor: valid && !submitting && (payment !== "UPI" || upiOpened) ? "pointer" : "not-allowed" }}
           >
             {submitting ? "Order ja raha hai..." : payment === "UPI" ? "Maine Payment Kar Diya" : "Order Place Karein"}
           </button>
@@ -635,9 +657,9 @@ function OrderConfirmedModal({ order, storeName, whatsapp, onClose }) {
 }
 
 // ---------- Shared inline styles ----------
-const btnOutline = { border: "1px solid #1B4332", background: "white", color: "#1B4332", fontWeight: 700, fontSize: "12.5px", borderRadius: "8px", padding: "7px 0", cursor: "pointer", width: "100%" };
+const btnOutline = (theme) => ({ border: `1px solid ${theme.primary}`, background: "white", color: theme.primary, fontWeight: 700, fontSize: "12.5px", borderRadius: "8px", padding: "7px 0", cursor: "pointer", width: "100%" });
 const stepperBtn = { width: 26, height: 26, borderRadius: "6px", border: "none", background: "rgba(255,255,255,0.15)", color: "white", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" };
-const floatingCartStyle = { position: "fixed", bottom: "16px", left: "18px", right: "18px", maxWidth: "500px", margin: "0 auto", background: "#1B4332", color: "white", borderRadius: "12px", padding: "13px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", border: "none", cursor: "pointer", boxShadow: "0 8px 20px rgba(27,67,50,0.35)" };
+const floatingCartStyle = (theme) => ({ position: "fixed", bottom: "16px", left: "18px", right: "18px", maxWidth: "500px", margin: "0 auto", background: theme.primary, color: "white", borderRadius: "12px", padding: "13px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", border: "none", cursor: "pointer", boxShadow: "0 8px 20px rgba(0,0,0,0.3)" });
 const overlayBottomStyle = { position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 50 };
 const drawerHeaderStyle = { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 18px", borderBottom: "1px solid #E3DECF" };
 const closeBtnStyle = { border: "none", background: "transparent", cursor: "pointer", color: "#5C5747" };

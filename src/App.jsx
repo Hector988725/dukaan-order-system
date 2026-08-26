@@ -1,5 +1,10 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { Store, ShoppingCart, LayoutGrid, Loader2, AlertTriangle, ShieldCheck, LogOut } from "lucide-react";
+import { Store, ShoppingCart, LayoutGrid, Loader2, AlertTriangle, ShieldCheck, LogOut, Pill, Wrench, Smartphone, Shirt, BookOpen, Cake, Scissors, UtensilsCrossed, Footprints } from "lucide-react";
+import { getTheme } from "./lib/theme";
+
+// Business-type icon naam (theme.js mein string ke roop mein) ko
+// asli lucide component se map karta hai.
+const BUSINESS_ICONS = { Store, Pill, Wrench, Smartphone, Shirt, BookOpen, Cake, Scissors, UtensilsCrossed, Footprints };
 import { getSlugFromUrl, isSupabaseConfigured } from "./lib/supabase";
 import {
   fetchStoreBySlug, fetchStoreByUserId, fetchProducts, fetchOrders,
@@ -263,18 +268,21 @@ function OwnerArea() {
 // SHARED UI PIECES
 // ============================================================
 function StoreHeader({ store }) {
+  const theme = getTheme(store.business_type);
   return (
-    <div style={{ background: "#1B4332", padding: "14px 24px", display: "flex", alignItems: "center", gap: "10px" }}>
+    <div style={{ background: theme.primary, padding: "14px 24px", display: "flex", alignItems: "center", gap: "10px" }}>
       <StoreHeaderBrand store={store} />
     </div>
   );
 }
 
 function StoreHeaderBrand({ store }) {
+  const theme = getTheme(store.business_type);
+  const BizIcon = BUSINESS_ICONS[theme.icon] || Store;
   return (
     <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-      <div style={{ width: 34, height: 34, borderRadius: "9px", background: store.logo_url ? "white" : "#D4A24C", border: store.logo_url ? "1px solid rgba(255,255,255,0.3)" : "none", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden" }}>
-        {store.logo_url ? <img src={store.logo_url} alt={store.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <Store size={18} color="#123026" strokeWidth={2.4} />}
+      <div style={{ width: 34, height: 34, borderRadius: "9px", background: store.logo_url ? "white" : theme.accent, border: store.logo_url ? "1px solid rgba(255,255,255,0.3)" : "none", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden" }}>
+        {store.logo_url ? <img src={store.logo_url} alt={store.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <BizIcon size={18} color="#123026" strokeWidth={2.4} />}
       </div>
       <div>
         <div style={{ color: "white", fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: "15px", lineHeight: 1.1 }}>{store.name}</div>
@@ -322,6 +330,13 @@ function GlobalStyles() {
       .ddemo-stepper-btn:active { transform: scale(0.92); }
       .ddemo-spin { animation: ddemoSpin 0.8s linear infinite; }
       @keyframes ddemoSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+      /* Masonry product grid — Pinterest jaisa varied-size look. CSS multi-column
+         layout use kiya hai taaki har card apni natural image height ke hisaab
+         se fit ho jaaye, bina JS calculation ke. */
+      .ddemo-masonry { column-count: 2; column-gap: 12px; }
+      .ddemo-masonry-item { break-inside: avoid; margin-bottom: 12px; display: inline-block; width: 100%; }
+      @media (min-width: 640px) { .ddemo-masonry { column-count: 3; } }
+      @media (min-width: 900px) { .ddemo-masonry { column-count: 4; } }
       .ddemo-fade-in { animation: ddemoFadeIn 0.3s ease; }
       .spin { animation: spin 1s linear infinite; }
       @keyframes spin { to { transform: rotate(360deg); } }

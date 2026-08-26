@@ -118,6 +118,20 @@ export async function updateProduct(productId, { name, category, emoji, image_ur
   if (error) throw error;
 }
 
+// Yeh 2 functions jaan-bujh kar chhote/alag rakhe gaye hain — upar wala
+// updateProduct() poora record overwrite karta hai (name/category/emoji
+// bhi), isliye usse reuse karne par featured-toggle ya reorder karte waqt
+// galti se doosri fields corrupt ho sakti thi.
+export async function updateProductFeatured(productId, featured) {
+  const { error } = await supabase.from("products").update({ featured }).eq("id", productId);
+  if (error) throw error;
+}
+
+export async function updateProductOrder(productId, sortOrder) {
+  const { error } = await supabase.from("products").update({ sort_order: sortOrder }).eq("id", productId);
+  if (error) throw error;
+}
+
 // ---- Image Upload ----
 export async function uploadProductImage(file, storeId) {
   const ext = file.name.split(".").pop();
