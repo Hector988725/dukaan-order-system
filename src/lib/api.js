@@ -68,10 +68,33 @@ export async function checkSlugAvailable(slug) {
   return data;
 }
 
+const FOUNDING_MEMBER_LIMIT = 20;
+const FOUNDING_PRICE = 99;
+const REGULAR_PRICE = 199;
+
 export async function createStore(userId, { slug, name, business_type, whatsapp_number, upi_id, address }) {
+  // Pehli 20 dukaano ko founding-member price (₹99/month, hamesha ke
+  // liye lock) milta hai — yeh signup ke waqt hi decide ho jaata hai
+  // total existing (real) stores count karke, aur permanently store ho
+  // jaata hai. `is_test_store=true` wali dukaane (jaise owner ki apni
+  // testing ke liye banayi hui stores) is count mein shamil NAHI hoti —
+  // isliye asli 20 slots hamesha sirf real customers ke liye reserved
+  // rehte hain, chahe kitni bhi test stores bani ho.
+  const { count, error: countError } = await supabase
+    .from("stores")
+    .select("id", { count: "exact", head: true })
+    .or("is_test_store.is.null,is_test_store.eq.false");
+  if (countError) throw countError;
+
+  const isFoundingMember = (count || 0) < FOUNDING_MEMBER_LIMIT;
+
   const { data, error } = await supabase
     .from("stores")
-    .insert({ user_id: userId, slug, name, business_type, whatsapp_number, upi_id, address })
+    .insert({
+      user_id: userId, slug, name, business_type, whatsapp_number, upi_id, address,
+      founding_member: isFoundingMember,
+      subscription_base_price: isFoundingMember ? FOUNDING_PRICE : REGULAR_PRICE,
+    })
     .select()
     .single();
   if (error) throw error;
@@ -133,15 +156,55 @@ export async function updateProductOrder(productId, sortOrder) {
 }
 
 // ---- Image Upload ----
+// Har dukaan ka fixed storage quota hai (default 5GB) — isse zyada
+// upload nahi hone diya jaata, taaki platform ka storage-cost
+// unpredictable na badhe. Upload se pehle available space check
+// karta hai, aur success ke baad `storage_used_bytes` badhata hai.
 export async function uploadProductImage(file, storeId) {
+  const { data: store, error: storeErr } = await supabase
+    .from("stores")
+    .select("storage_used_bytes, storage_limit_bytes")
+    .eq("id", storeId)
+    .single();
+  if (storeErr) throw storeErr;
+
+  const used = store.storage_used_bytes || 0;
+  const limit = store.storage_limit_bytes || 5 * 1024 * 1024 * 1024;
+  if (used + file.size > limit) {
+    const usedGB = (used / (1024 * 1024 * 1024)).toFixed(2);
+    const limitGB = (limit / (1024 * 1024 * 1024)).toFixed(0);
+    throw new Error(`Aapki dukaan ka storage space (${limitGB}GB) bhar chuka hai (${usedGB}GB use ho chuka hai). Purani photos hata kar jagah banayein, ya zyada space ke liye humse sampark karein.`);
+  }
+
   const ext = file.name.split(".").pop();
   const fileName = `${storeId}/${Date.now()}.${ext}`;
   const { data, error } = await supabase.storage
     .from("product-images")
     .upload(fileName, file, { cacheControl: "3600", upsert: false });
   if (error) throw error;
+
+  // Best-effort: usage counter badha dete hain. Agar yeh fail bhi ho
+  // jaaye, photo already upload ho chuki hai, isliye user ko error
+  // nahi dikhate — sirf quota tracking thodi si off ho sakti hai.
+  try {
+    await supabase.from("stores").update({ storage_used_bytes: used + file.size }).eq("id", storeId);
+  } catch (trackErr) {
+    console.warn("Storage usage track nahi ho paayi:", trackErr);
+  }
+
   const { data: urlData } = supabase.storage.from("product-images").getPublicUrl(fileName);
   return urlData.publicUrl;
+}
+
+// Store settings screen mein storage usage dikhane ke liye
+export async function fetchStorageUsage(storeId) {
+  const { data, error } = await supabase
+    .from("stores")
+    .select("storage_used_bytes, storage_limit_bytes")
+    .eq("id", storeId)
+    .single();
+  if (error) throw error;
+  return data;
 }
 
 // ---- Subscription Management ----

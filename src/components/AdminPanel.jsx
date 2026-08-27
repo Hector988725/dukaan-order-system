@@ -6,7 +6,6 @@ import {
   createVariant, updateVariant, deleteVariant,
   uploadProductImage, deactivateStore,
 } from "../lib/api";
-import { PRODUCT_ICONS, ICON_CATEGORIES, getIconsByCategory, getRelevantIconCategories, getDefaultIconCategory } from "../lib/icons";
 
 export default function AdminPanel({ store, products, onRefresh }) {
   return <AdminContent store={store} products={products} onRefresh={onRefresh} />;
@@ -156,6 +155,7 @@ function StoreSettingsForm({ store, onRefresh }) {
   return (
     <div style={{ background: "white", border: "1px solid #E3DECF", borderRadius: "12px", padding: "18px", display: "flex", flexDirection: "column", gap: "12px" }}>
       <StoreLogoPicker currentLogo={logoUrl} storeId={store.id} onChange={setLogoUrl} />
+      <StorageUsageBar usedBytes={store.storage_used_bytes} limitBytes={store.storage_limit_bytes} />
       <Field label="Dukaan ka Naam" value={name} onChange={setName} />
       <Field label="Ek Line Tagline (naam ke neeche dikhegi, optional)" value={tagline} onChange={setTagline} placeholder="jaise Sabse sasta kirana, ghar tak!" />
       <Field label="WhatsApp Number (91 ke saath, jaise 919876543210)" value={whatsapp} onChange={setWhatsapp} />
@@ -165,6 +165,32 @@ function StoreSettingsForm({ store, onRefresh }) {
       <button onClick={handleSave} disabled={saving} className="ddemo-btn" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", background: saved ? "#1B4332" : "#D4A24C", color: saved ? "white" : "#123026", fontWeight: 800, fontSize: "13.5px", border: "none", borderRadius: "10px", padding: "12px 0", cursor: "pointer", marginTop: "6px" }}>
         {saved ? <><Check size={15} /> Save Ho Gaya</> : <><Save size={15} /> {saving ? "Save ho raha hai..." : "Changes Save Karein"}</>}
       </button>
+    </div>
+  );
+}
+
+function StorageUsageBar({ usedBytes, limitBytes }) {
+  const used = usedBytes || 0;
+  const limit = limitBytes || 5 * 1024 * 1024 * 1024;
+  const pct = Math.min(100, (used / limit) * 100);
+  const usedGB = (used / (1024 * 1024 * 1024)).toFixed(2);
+  const limitGB = (limit / (1024 * 1024 * 1024)).toFixed(0);
+  const isNearFull = pct >= 85;
+
+  return (
+    <div style={{ background: "#F7F5F0", borderRadius: "10px", padding: "12px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+        <div style={{ fontSize: "11.5px", fontWeight: 600, color: "#5C5747" }}>Photo Storage</div>
+        <div style={{ fontSize: "11px", fontWeight: 700, color: isNearFull ? "#B3261E" : "#5C5747" }}>{usedGB} GB / {limitGB} GB</div>
+      </div>
+      <div style={{ height: 7, borderRadius: "999px", background: "#E3DECF", overflow: "hidden" }}>
+        <div style={{ height: "100%", width: `${pct}%`, borderRadius: "999px", background: isNearFull ? "#B3261E" : "#1B4332", transition: "width 0.3s ease" }} />
+      </div>
+      {isNearFull && (
+        <div style={{ fontSize: "10.5px", color: "#B3261E", marginTop: "6px" }}>
+          Storage khatam hone wala hai — purani photos hatayein ya zyada space ke liye sampark karein.
+        </div>
+      )}
     </div>
   );
 }
@@ -289,21 +315,13 @@ function ProductManager({ store, products, onRefresh }) {
 }
 
 // ============================================================
-// IMAGE PICKER — Icon Library + Photo Upload
+// IMAGE PICKER — Photo Upload (sirf apni photo, "Ready Icons" hata diya
+// gaya — isse products asli/professional dikhte hain, aur galat business
+// type ki icons dikhne ka confusion bhi khatam ho jaata hai)
 // ============================================================
-function ImagePicker({ currentImage, currentEmoji, storeId, businessType, onChange, onEmojiChange }) {
-  const [mode, setMode] = useState("icons"); // 'icons' | 'upload'
-  const [activeCategory, setActiveCategory] = useState(getDefaultIconCategory(businessType));
-  const [showAllCategories, setShowAllCategories] = useState(false);
+function ImagePicker({ currentImage, storeId, onChange }) {
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef(null);
-
-  const icons = getIconsByCategory(activeCategory);
-  // Dukaan ke apne business type ke hisaab se sirf relevant tabs (jaise
-  // Kirana wale ko Hardware/Medical tabs se guzarna na pade). Zaroorat
-  // ho to "Aur Categories Dekhein" se poori list bhi khul sakti hai.
-  const relevantCategories = getRelevantIconCategories(businessType);
-  const visibleCategories = showAllCategories ? ICON_CATEGORIES : relevantCategories;
 
   const handleUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -314,7 +332,7 @@ function ImagePicker({ currentImage, currentEmoji, storeId, businessType, onChan
       const url = await uploadProductImage(file, storeId);
       onChange(url);
     } catch (err) {
-      alert("Upload nahi ho paaya: " + err.message);
+      alert(err.message || "Upload nahi ho paaya.");
     } finally {
       setUploading(false);
     }
@@ -322,80 +340,24 @@ function ImagePicker({ currentImage, currentEmoji, storeId, businessType, onChan
 
   return (
     <div style={{ background: "#F7F5F0", borderRadius: "10px", padding: "12px" }}>
-      <div style={{ fontSize: "11.5px", fontWeight: 600, color: "#5C5747", marginBottom: "8px" }}>Product ki Image Chunein</div>
-
-      {/* Mode toggle */}
-      <div style={{ display: "flex", gap: "6px", marginBottom: "10px" }}>
-        <button onClick={() => setMode("icons")} style={{ flex: 1, padding: "7px 0", borderRadius: "7px", fontSize: "12px", fontWeight: 700, cursor: "pointer", border: "none", background: mode === "icons" ? "#1B4332" : "white", color: mode === "icons" ? "white" : "#5C5747" }}>
-          🎨 Ready Icons
-        </button>
-        <button onClick={() => setMode("upload")} style={{ flex: 1, padding: "7px 0", borderRadius: "7px", fontSize: "12px", fontWeight: 700, cursor: "pointer", border: "none", background: mode === "upload" ? "#1B4332" : "white", color: mode === "upload" ? "white" : "#5C5747" }}>
-          📷 Khud Upload Karein
-        </button>
-      </div>
-
-      {mode === "icons" ? (
-        <div>
-          {/* Category filter — dukaan ke business type ke hisaab se sirf
-              relevant tabs, taaki clutter na ho */}
-          <div style={{ display: "flex", gap: "4px", overflowX: "auto", marginBottom: "8px", paddingBottom: "2px" }}>
-            {visibleCategories.map((cat) => (
-              <button key={cat.id} onClick={() => setActiveCategory(cat.id)} style={{
-                whiteSpace: "nowrap", padding: "5px 10px", borderRadius: "999px", fontSize: "11px", fontWeight: 600, cursor: "pointer", flexShrink: 0,
-                border: "none", background: activeCategory === cat.id ? "#1B4332" : "white", color: activeCategory === cat.id ? "white" : "#5C5747"
-              }}>{cat.label}</button>
-            ))}
-            {!showAllCategories && (
-              <button onClick={() => setShowAllCategories(true)} style={{
-                whiteSpace: "nowrap", padding: "5px 10px", borderRadius: "999px", fontSize: "11px", fontWeight: 600, cursor: "pointer", flexShrink: 0,
-                border: "1px dashed #B7AF9B", background: "white", color: "#8B8576",
-              }}>+ Aur</button>
-            )}
-          </div>
-
-          {/* Icon grid */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(52px, 1fr))", gap: "6px", maxHeight: "160px", overflowY: "auto" }}>
-            {icons.map((icon) => {
-              const isSelected = !currentImage && currentEmoji === icon.svg;
-              return (
-                <button
-                  key={icon.key}
-                  onClick={() => { onEmojiChange(icon.svg); onChange(null); }}
-                  title={icon.label}
-                  style={{
-                    padding: "6px 4px", borderRadius: "8px", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px",
-                    border: isSelected ? "2px solid #1B4332" : "1px solid #E3DECF",
-                    background: isSelected ? "#E7F0EA" : "white",
-                  }}
-                >
-                  <span style={{ fontSize: "20px" }}>{icon.svg}</span>
-                  <span style={{ fontSize: "8px", color: "#8B8576", textAlign: "center", lineHeight: 1.2, overflow: "hidden", maxWidth: "48px", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{icon.label}</span>
-                </button>
-              );
-            })}
-          </div>
+      <div style={{ fontSize: "11.5px", fontWeight: 600, color: "#5C5747", marginBottom: "8px" }}>Product ki Photo</div>
+      <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleUpload} style={{ display: "none" }} />
+      {currentImage ? (
+        <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px", background: "white", borderRadius: "9px", border: "1px solid #E3DECF" }}>
+          <img src={currentImage} alt="product" style={{ width: 48, height: 48, objectFit: "cover", borderRadius: "7px" }} />
+          <div style={{ flex: 1, fontSize: "11.5px", color: "#5C5747" }}>Photo upload ho gayi ✅</div>
+          <button onClick={() => onChange(null)} style={{ border: "none", background: "transparent", color: "#B3261E", cursor: "pointer", fontSize: "11px", fontWeight: 600 }}>Hatao</button>
         </div>
       ) : (
-        <div>
-          <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleUpload} style={{ display: "none" }} />
-          {currentImage ? (
-            <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px", background: "white", borderRadius: "9px", border: "1px solid #E3DECF" }}>
-              <img src={currentImage} alt="product" style={{ width: 48, height: 48, objectFit: "cover", borderRadius: "7px" }} />
-              <div style={{ flex: 1, fontSize: "11.5px", color: "#5C5747" }}>Photo upload ho gayi ✅</div>
-              <button onClick={() => { onChange(null); }} style={{ border: "none", background: "transparent", color: "#B3261E", cursor: "pointer", fontSize: "11px", fontWeight: 600 }}>Hatao</button>
-            </div>
-          ) : (
-            <button
-              onClick={() => fileRef.current?.click()}
-              disabled={uploading}
-              style={{ width: "100%", padding: "20px 0", border: "2px dashed #D4A24C", borderRadius: "9px", background: "white", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: "6px" }}
-            >
-              <Upload size={20} color="#D4A24C" />
-              <span style={{ fontSize: "12px", fontWeight: 600, color: "#5C5747" }}>{uploading ? "Upload ho raha hai..." : "Photo chunein (Max 2MB)"}</span>
-              <span style={{ fontSize: "10.5px", color: "#8B8576" }}>JPG, PNG, WebP</span>
-            </button>
-          )}
-        </div>
+        <button
+          onClick={() => fileRef.current?.click()}
+          disabled={uploading}
+          style={{ width: "100%", padding: "20px 0", border: "2px dashed #D4A24C", borderRadius: "9px", background: "white", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: "6px" }}
+        >
+          <Upload size={20} color="#D4A24C" />
+          <span style={{ fontSize: "12px", fontWeight: 600, color: "#5C5747" }}>{uploading ? "Upload ho raha hai..." : "Photo chunein (Max 2MB)"}</span>
+          <span style={{ fontSize: "10.5px", color: "#8B8576" }}>JPG, PNG, WebP</span>
+        </button>
       )}
     </div>
   );
@@ -415,7 +377,7 @@ function NewProductForm({ storeId, businessType, onCancel, onSave }) {
   return (
     <div style={{ background: "#F7F5F0", border: "1px solid #E3DECF", borderRadius: "12px", padding: "14px", marginBottom: "12px" }}>
       <div style={{ fontWeight: 700, fontSize: "13px", marginBottom: "10px" }}>Naya Product</div>
-      <ImagePicker currentImage={imageUrl} currentEmoji={emoji} storeId={storeId} businessType={businessType} onChange={setImageUrl} onEmojiChange={setEmoji} />
+      <ImagePicker currentImage={imageUrl} storeId={storeId} onChange={setImageUrl} />
       <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "10px" }}>
         <Field label="Product ka Naam" value={name} onChange={setName} placeholder="jaise Chini (Sugar)" />
         <Field label="Category" value={category} onChange={setCategory} placeholder="jaise Staples, Hardware, Medical" />
@@ -525,7 +487,7 @@ function EditProductForm({ product, storeId, businessType, onCancel, onSave }) {
 
   return (
     <div style={{ borderTop: "1px solid #E3DECF", padding: "12px 13px", background: "#F7F5F0" }}>
-      <ImagePicker currentImage={imageUrl} currentEmoji={emoji} storeId={storeId} businessType={businessType} onChange={setImageUrl} onEmojiChange={setEmoji} />
+      <ImagePicker currentImage={imageUrl} storeId={storeId} onChange={setImageUrl} />
       <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "10px" }}>
         <Field label="Product ka Naam" value={name} onChange={setName} />
         <Field label="Category" value={category} onChange={setCategory} />

@@ -11,11 +11,18 @@ export default function RazorpaySubscription({ store, user, onSuccess }) {
   const [error, setError] = useState(null);
   const [selectedPlan, setSelectedPlan] = useState("monthly");
 
+  // Base price dukaan ke signup ke waqt hi decide ho chuka tha
+  // (createStore() mein) — pehli 20 dukaano ko ₹99/month hamesha ke
+  // liye lock milta hai, uske baad ₹199/month. Multi-month bundles
+  // ka discount % wahi rakha hai jo original ₹199 pricing mein tha,
+  // taaki dono groups ko fair/consistent discount mile.
+  const basePrice = store.subscription_base_price || 199;
+  const discountPct = { quarterly: 48 / 597, halfyearly: 195 / 1194, yearly: 589 / 2388 };
   const plans = [
-    { id: "monthly", label: "1 Mahina", months: 1, amount: 199, popular: false },
-    { id: "quarterly", label: "3 Mahine", months: 3, amount: 549, saving: 48, popular: true },
-    { id: "halfyearly", label: "6 Mahine", months: 6, amount: 999, saving: 195, popular: false },
-    { id: "yearly", label: "1 Saal", months: 12, amount: 1799, saving: 589, popular: false },
+    { id: "monthly", label: "1 Mahina", months: 1, amount: basePrice, popular: false },
+    { id: "quarterly", label: "3 Mahine", months: 3, amount: Math.round(basePrice * 3 * (1 - discountPct.quarterly)), saving: Math.round(basePrice * 3 * discountPct.quarterly), popular: true },
+    { id: "halfyearly", label: "6 Mahine", months: 6, amount: Math.round(basePrice * 6 * (1 - discountPct.halfyearly)), saving: Math.round(basePrice * 6 * discountPct.halfyearly), popular: false },
+    { id: "yearly", label: "1 Saal", months: 12, amount: Math.round(basePrice * 12 * (1 - discountPct.yearly)), saving: Math.round(basePrice * 12 * discountPct.yearly), popular: false },
   ];
 
   const selected = plans.find((p) => p.id === selectedPlan);
@@ -148,6 +155,11 @@ export default function RazorpaySubscription({ store, user, onSuccess }) {
         <div style={{ fontSize: "12.5px", color: "#8B8576", marginTop: "4px" }}>
           {store.name} — UPI se pay karein, koi card nahi chahiye
         </div>
+        {store.founding_member && (
+          <div style={{ display: "inline-flex", alignItems: "center", gap: "5px", marginTop: "10px", background: "#FFF4DB", color: "#8A6A0F", fontSize: "11px", fontWeight: 800, padding: "5px 12px", borderRadius: "999px" }}>
+            ⭐ Founding Member — ₹{store.subscription_base_price || 99}/month hamesha ke liye lock
+          </div>
+        )}
       </div>
 
       {/* Plan selector */}
