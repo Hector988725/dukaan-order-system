@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { Search, ChevronRight, X, Check, MessageCircle, Plus, Minus, Trash2, Loader2, Star } from "lucide-react";
+import { Search, ChevronRight, X, Check, MessageCircle, Plus, Minus, Trash2, Loader2, Star, LayoutGrid } from "lucide-react";
 import { createOrder, fetchCustomerByPhone, upsertCustomerDetails } from "../lib/api";
 import { getTheme } from "../lib/theme";
 
@@ -198,23 +198,42 @@ export default function CustomerView({ store, products, onOrderPlaced }) {
             style={{ border: "none", outline: "none", fontSize: "13.5px", width: "100%", background: "transparent", fontFamily: "inherit" }}
           />
         </div>
-        <div style={{ display: "flex", gap: "8px", overflowX: "auto", padding: "14px 0 6px" }}>
-          {categories.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setActiveCategory(cat)}
-              className="ddemo-btn"
-              style={{
-                whiteSpace: "nowrap", padding: "7px 14px", borderRadius: "999px", fontSize: "12.5px", fontWeight: 600,
-                border: cat === activeCategory ? `1px solid ${theme.primary}` : "1px solid #E3DECF",
-                background: cat === activeCategory ? theme.primary : "white",
-                color: cat === activeCategory ? "white" : "#5C5747",
-                cursor: "pointer", flexShrink: 0,
-              }}
-            >
-              {cat}
-            </button>
-          ))}
+        {/* Category chips — Google Images ke "Gehu / Flour / Aashirwad" jaisa:
+            har chip ka apna gol thumbnail (product photo ya emoji) + naam
+            neeche, sirf plain text pill nahi. */}
+        <div style={{ display: "flex", gap: "10px", overflowX: "auto", padding: "14px 2px 6px" }}>
+          {categories.map((cat) => {
+            const active = cat === activeCategory;
+            const rep = cat === "All" ? null : products.find((p) => p.category === cat);
+            return (
+              <button
+                key={cat}
+                onClick={() => setActiveCategory(cat)}
+                className="ddemo-btn"
+                style={{
+                  display: "flex", flexDirection: "column", alignItems: "center", gap: "5px",
+                  padding: "7px 10px 8px", borderRadius: "14px", flexShrink: 0, cursor: "pointer",
+                  border: active ? `1.5px solid ${theme.primary}` : "1px solid #E3DECF",
+                  background: active ? "#F3ECDC" : "white",
+                }}
+              >
+                <div style={{
+                  width: 44, height: 44, borderRadius: "50%", overflow: "hidden", flexShrink: 0,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  background: rep?.image_url ? undefined : "linear-gradient(135deg, #F3ECDC 0%, #E9DFC0 100%)",
+                  border: active ? `2px solid ${theme.accent}` : "1px solid #E3DECF",
+                }}>
+                  {cat === "All"
+                    ? <LayoutGrid size={18} color={theme.primary} />
+                    : rep?.image_url
+                      ? <img src={rep.image_url} alt={cat} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      : <span style={{ fontSize: "20px" }}>{rep?.emoji || "🛒"}</span>
+                  }
+                </div>
+                <span style={{ fontSize: "11px", fontWeight: active ? 700 : 600, color: active ? theme.primary : "#5C5747", whiteSpace: "nowrap" }}>{cat}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
 

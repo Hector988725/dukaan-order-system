@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { Store, ShoppingCart, LayoutGrid, Loader2, AlertTriangle, ShieldCheck, LogOut, Pill, Wrench, Smartphone, Shirt, BookOpen, Cake, Scissors, UtensilsCrossed, Footprints } from "lucide-react";
-import { getTheme } from "./lib/theme";
+import { Store, ShoppingCart, LayoutGrid, Loader2, AlertTriangle, ShieldCheck, LogOut, Pill, Wrench, Smartphone, Shirt, BookOpen, Cake, Scissors, UtensilsCrossed, Footprints, Plus } from "lucide-react";
+import { getTheme, getHeaderBackground } from "./lib/theme";
 
 // Business-type icon naam (theme.js mein string ke roop mein) ko
 // asli lucide component se map karta hai.
@@ -270,7 +270,11 @@ function OwnerArea() {
 function StoreHeader({ store }) {
   const theme = getTheme(store.business_type);
   return (
-    <div style={{ background: theme.primary, padding: "14px 24px", display: "flex", alignItems: "center", gap: "10px" }}>
+    <div style={{
+      background: getHeaderBackground(theme),
+      backgroundImage: `${getHeaderBackground(theme)}, repeating-linear-gradient(135deg, rgba(255,255,255,0.05) 0px, rgba(255,255,255,0.05) 1px, transparent 1px, transparent 12px)`,
+      padding: "14px 24px", display: "flex", alignItems: "center", gap: "10px",
+    }}>
       <StoreHeaderBrand store={store} />
     </div>
   );
@@ -279,10 +283,25 @@ function StoreHeader({ store }) {
 function StoreHeaderBrand({ store }) {
   const theme = getTheme(store.business_type);
   const BizIcon = BUSINESS_ICONS[theme.icon] || Store;
+  const isCross = theme.badge === "cross";
   return (
     <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-      <div style={{ width: 34, height: 34, borderRadius: "9px", background: store.logo_url ? "white" : theme.accent, border: store.logo_url ? "1px solid rgba(255,255,255,0.3)" : "none", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden" }}>
-        {store.logo_url ? <img src={store.logo_url} alt={store.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <BizIcon size={18} color="#123026" strokeWidth={2.4} />}
+      <div style={{
+        width: 38, height: 38, borderRadius: "50%", flexShrink: 0, overflow: "hidden",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        background: store.logo_url ? "white" : isCross ? "white" : `linear-gradient(145deg, ${theme.accent}, ${theme.accentDark})`,
+        boxShadow: store.logo_url
+          ? "0 2px 6px rgba(0,0,0,0.25)"
+          : isCross
+            ? "0 2px 6px rgba(0,0,0,0.2), inset 0 1px 2px rgba(255,255,255,0.9)"
+            : "0 3px 8px rgba(0,0,0,0.35), inset 0 1px 1px rgba(255,255,255,0.45), inset 0 -2px 3px rgba(0,0,0,0.25)",
+      }}>
+        {store.logo_url
+          ? <img src={store.logo_url} alt={store.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          : isCross
+            ? <Plus size={20} color="#D62828" strokeWidth={3.5} />
+            : <BizIcon size={18} color="white" strokeWidth={2.4} style={{ filter: "drop-shadow(0 1px 1px rgba(0,0,0,0.3))" }} />
+        }
       </div>
       <div>
         <div style={{ color: "white", fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: "15px", lineHeight: 1.1 }}>{store.name}</div>
