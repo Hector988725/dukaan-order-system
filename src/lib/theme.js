@@ -112,6 +112,22 @@ export function getTheme(businessType) {
   return BUSINESS_THEMES[businessType] || BUSINESS_THEMES.general;
 }
 
+// ============================================================
+// SHOPPING MODE — har business type ka order-lene ka tareeka alag
+// ============================================================
+// "quick": grid se seedha "+Add" — Kirana/Medical/Hardware jaise
+//   high-volume, low-consideration items ke liye (60-70 items ek
+//   dukaan mein, customer jaldi-jaldi daalta hai, jaisa Blinkit/Zepto).
+// "gallery": card tap karte hi ek detail-screen khulti hai — photo
+//   carousel, description, phir variant/size choose karke Add. Kapde,
+//   Footwear, Mobile jaise items ke liye jinme dekh-samajh ke lena
+//   padta hai, jaisa Amazon/Flipkart.
+const GALLERY_MODE_TYPES = new Set(["clothing", "footwear", "mobile"]);
+
+export function getShoppingMode(businessType) {
+  return GALLERY_MODE_TYPES.has(businessType) ? "gallery" : "quick";
+}
+
 // Header ke liye ek subtle diagonal gradient — flat single color se
 // zyada rich/premium lagta hai, bina kisi image/asset ke.
 export function getHeaderBackground(theme) {
