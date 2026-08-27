@@ -6,7 +6,7 @@ import {
   createVariant, updateVariant, deleteVariant,
   uploadProductImage, deactivateStore,
 } from "../lib/api";
-import { PRODUCT_ICONS, ICON_CATEGORIES, getIconsByCategory } from "../lib/icons";
+import { PRODUCT_ICONS, ICON_CATEGORIES, getIconsByCategory, getRelevantIconCategories, getDefaultIconCategory } from "../lib/icons";
 
 export default function AdminPanel({ store, products, onRefresh }) {
   return <AdminContent store={store} products={products} onRefresh={onRefresh} />;
@@ -258,6 +258,7 @@ function ProductManager({ store, products, onRefresh }) {
       {adding && (
         <NewProductForm
           storeId={store.id}
+          businessType={store.business_type}
           onCancel={() => setAdding(false)}
           onSave={async (form) => {
             await createProduct(store.id, { ...form, sort_order: products.length + 1 });
@@ -273,6 +274,7 @@ function ProductManager({ store, products, onRefresh }) {
             key={p.id}
             product={p}
             storeId={store.id}
+            businessType={store.business_type}
             expanded={expandedId === p.id}
             onToggle={() => setExpandedId(expandedId === p.id ? null : p.id)}
             onRefresh={onRefresh}
@@ -289,13 +291,19 @@ function ProductManager({ store, products, onRefresh }) {
 // ============================================================
 // IMAGE PICKER — Icon Library + Photo Upload
 // ============================================================
-function ImagePicker({ currentImage, currentEmoji, storeId, onChange, onEmojiChange }) {
+function ImagePicker({ currentImage, currentEmoji, storeId, businessType, onChange, onEmojiChange }) {
   const [mode, setMode] = useState("icons"); // 'icons' | 'upload'
-  const [activeCategory, setActiveCategory] = useState("all");
+  const [activeCategory, setActiveCategory] = useState(getDefaultIconCategory(businessType));
+  const [showAllCategories, setShowAllCategories] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef(null);
 
   const icons = getIconsByCategory(activeCategory);
+  // Dukaan ke apne business type ke hisaab se sirf relevant tabs (jaise
+  // Kirana wale ko Hardware/Medical tabs se guzarna na pade). Zaroorat
+  // ho to "Aur Categories Dekhein" se poori list bhi khul sakti hai.
+  const relevantCategories = getRelevantIconCategories(businessType);
+  const visibleCategories = showAllCategories ? ICON_CATEGORIES : relevantCategories;
 
   const handleUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -328,14 +336,21 @@ function ImagePicker({ currentImage, currentEmoji, storeId, onChange, onEmojiCha
 
       {mode === "icons" ? (
         <div>
-          {/* Category filter */}
+          {/* Category filter — dukaan ke business type ke hisaab se sirf
+              relevant tabs, taaki clutter na ho */}
           <div style={{ display: "flex", gap: "4px", overflowX: "auto", marginBottom: "8px", paddingBottom: "2px" }}>
-            {ICON_CATEGORIES.map((cat) => (
+            {visibleCategories.map((cat) => (
               <button key={cat.id} onClick={() => setActiveCategory(cat.id)} style={{
                 whiteSpace: "nowrap", padding: "5px 10px", borderRadius: "999px", fontSize: "11px", fontWeight: 600, cursor: "pointer", flexShrink: 0,
                 border: "none", background: activeCategory === cat.id ? "#1B4332" : "white", color: activeCategory === cat.id ? "white" : "#5C5747"
               }}>{cat.label}</button>
             ))}
+            {!showAllCategories && (
+              <button onClick={() => setShowAllCategories(true)} style={{
+                whiteSpace: "nowrap", padding: "5px 10px", borderRadius: "999px", fontSize: "11px", fontWeight: 600, cursor: "pointer", flexShrink: 0,
+                border: "1px dashed #B7AF9B", background: "white", color: "#8B8576",
+              }}>+ Aur</button>
+            )}
           </div>
 
           {/* Icon grid */}
@@ -389,7 +404,7 @@ function ImagePicker({ currentImage, currentEmoji, storeId, onChange, onEmojiCha
 // ============================================================
 // NEW PRODUCT FORM
 // ============================================================
-function NewProductForm({ storeId, onCancel, onSave }) {
+function NewProductForm({ storeId, businessType, onCancel, onSave }) {
   const [name, setName] = useState("");
   const [category, setCategory] = useState("");
   const [emoji, setEmoji] = useState("📦");
@@ -400,7 +415,7 @@ function NewProductForm({ storeId, onCancel, onSave }) {
   return (
     <div style={{ background: "#F7F5F0", border: "1px solid #E3DECF", borderRadius: "12px", padding: "14px", marginBottom: "12px" }}>
       <div style={{ fontWeight: 700, fontSize: "13px", marginBottom: "10px" }}>Naya Product</div>
-      <ImagePicker currentImage={imageUrl} currentEmoji={emoji} storeId={storeId} onChange={setImageUrl} onEmojiChange={setEmoji} />
+      <ImagePicker currentImage={imageUrl} currentEmoji={emoji} storeId={storeId} businessType={businessType} onChange={setImageUrl} onEmojiChange={setEmoji} />
       <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "10px" }}>
         <Field label="Product ka Naam" value={name} onChange={setName} placeholder="jaise Chini (Sugar)" />
         <Field label="Category" value={category} onChange={setCategory} placeholder="jaise Staples, Hardware, Medical" />
@@ -423,7 +438,7 @@ function NewProductForm({ storeId, onCancel, onSave }) {
 // ============================================================
 // PRODUCT ROW
 // ============================================================
-function ProductRow({ product, storeId, expanded, onToggle, onRefresh, onMoveUp, onMoveDown, reordering }) {
+function ProductRow({ product, storeId, businessType, expanded, onToggle, onRefresh, onMoveUp, onMoveDown, reordering }) {
   const [editing, setEditing] = useState(false);
   const [addingVariant, setAddingVariant] = useState(false);
   const [togglingFeatured, setTogglingFeatured] = useState(false);
@@ -474,6 +489,7 @@ function ProductRow({ product, storeId, expanded, onToggle, onRefresh, onMoveUp,
         <EditProductForm
           product={product}
           storeId={storeId}
+          businessType={businessType}
           onCancel={() => setEditing(false)}
           onSave={async (form) => { await updateProduct(product.id, form); setEditing(false); onRefresh(); }}
         />
@@ -500,7 +516,7 @@ function ProductRow({ product, storeId, expanded, onToggle, onRefresh, onMoveUp,
   );
 }
 
-function EditProductForm({ product, storeId, onCancel, onSave }) {
+function EditProductForm({ product, storeId, businessType, onCancel, onSave }) {
   const [name, setName] = useState(product.name);
   const [category, setCategory] = useState(product.category);
   const [emoji, setEmoji] = useState(product.emoji || "📦");
@@ -509,7 +525,7 @@ function EditProductForm({ product, storeId, onCancel, onSave }) {
 
   return (
     <div style={{ borderTop: "1px solid #E3DECF", padding: "12px 13px", background: "#F7F5F0" }}>
-      <ImagePicker currentImage={imageUrl} currentEmoji={emoji} storeId={storeId} onChange={setImageUrl} onEmojiChange={setEmoji} />
+      <ImagePicker currentImage={imageUrl} currentEmoji={emoji} storeId={storeId} businessType={businessType} onChange={setImageUrl} onEmojiChange={setEmoji} />
       <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "10px" }}>
         <Field label="Product ka Naam" value={name} onChange={setName} />
         <Field label="Category" value={category} onChange={setCategory} />

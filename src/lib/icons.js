@@ -91,6 +91,42 @@ export const ICON_CATEGORIES = [
   { id: "other", label: "General", keys: ["gift","food","drink","stationery","toy","book","other"] },
 ];
 
+// Dukaan ke signup ke waqt chune gaye business_type (jo theme.js mein
+// defined hai) ko icon-category se map karta hai. Isse "Naya Product"
+// add karte waqt sirf usi dukaan ke kaam ki icons pehle dikhti hain —
+// ek kirana wale ko Hardware/Medical tabs se guzarna nahi padta.
+// Jin business types ke liye abhi dedicated icon set nahi hai
+// (stationery, bakery, salon, restaurant, footwear, general), unke
+// liye "General" catch-all use hota hai.
+export const BUSINESS_TYPE_ICON_MAP = {
+  kirana: "kirana",
+  hardware: "hardware",
+  medical: "medical",
+  mobile: "mobile",
+  clothing: "kapde",
+};
+
+// Store ke business_type ke hisaab se sirf relevant tabs return karta hai
+// (poori list nahi) — taaki icon-picker clutter-free rahe.
+export function getRelevantIconCategories(businessType) {
+  const mapped = BUSINESS_TYPE_ICON_MAP[businessType];
+  const allTab = ICON_CATEGORIES.find((c) => c.id === "all");
+  const otherTab = ICON_CATEGORIES.find((c) => c.id === "other");
+  if (!mapped) {
+    // Business type ka koi dedicated icon set nahi (jaise Bakery, Salon) —
+    // General + Sab hi dikhaate hain.
+    return [otherTab, allTab];
+  }
+  const ownTab = ICON_CATEGORIES.find((c) => c.id === mapped);
+  return [ownTab, allTab, otherTab];
+}
+
+// Default active tab — dukaan ke business type ka apna category, ya
+// General agar koi dedicated set nahi hai.
+export function getDefaultIconCategory(businessType) {
+  return BUSINESS_TYPE_ICON_MAP[businessType] || "other";
+}
+
 // Get icon by key
 export function getIcon(key) {
   return PRODUCT_ICONS[key] || PRODUCT_ICONS["other"];
