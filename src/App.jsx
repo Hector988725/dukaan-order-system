@@ -273,6 +273,8 @@ function OwnerArea() {
 // ============================================================
 function StoreHeader({ store }) {
   const theme = getTheme(store.business_type);
+  const BizIcon = BUSINESS_ICONS[theme.icon] || Store;
+  const isCross = theme.badge === "cross";
   return (
     <div style={{
       background: getHeaderBackground(theme),
@@ -280,39 +282,43 @@ function StoreHeader({ store }) {
       padding: "14px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px",
     }}>
       <StoreHeaderBrand store={store} />
-      {/* Dukaandar ka apna logo — business-type badge (jaise Medical ka
-          "+" sign) se bilkul alag jagah, right side mein. Isse dono
-          cheezein saath dikh sakti hain: apni pehchaan (logo) aur
-          business-type ka universal symbol (jaise pharmacy ka cross). */}
-      {store.logo_url && (
-        <div style={{ width: 36, height: 36, borderRadius: "9px", overflow: "hidden", flexShrink: 0, background: "white", border: "1px solid rgba(255,255,255,0.3)", boxShadow: "0 2px 6px rgba(0,0,0,0.25)" }}>
-          <img src={store.logo_url} alt={`${store.name} logo`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-        </div>
-      )}
+      {/* Business-type ka permanent symbol — hamesha yahan, right corner
+          mein, chhote badge ki tarah dikhta hai (jaise Medical ka "+").
+          Yeh kabhi hatta nahi, chahe dukaandar apna logo daale ya na daale —
+          customer ko turant business ka type pehchanne mein madad karta hai. */}
+      <div style={{
+        width: 34, height: 34, borderRadius: "50%", flexShrink: 0, overflow: "hidden",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        background: isCross ? "white" : `linear-gradient(145deg, ${theme.accent}, ${theme.accentDark})`,
+        boxShadow: isCross
+          ? "0 2px 6px rgba(0,0,0,0.2), inset 0 1px 2px rgba(255,255,255,0.9)"
+          : "0 3px 8px rgba(0,0,0,0.35), inset 0 1px 1px rgba(255,255,255,0.45), inset 0 -2px 3px rgba(0,0,0,0.25)",
+      }} title={theme.label}>
+        {isCross
+          ? <Plus size={18} color="#D62828" strokeWidth={3.5} />
+          : <BizIcon size={16} color="white" strokeWidth={2.4} style={{ filter: "drop-shadow(0 1px 1px rgba(0,0,0,0.3))" }} />
+        }
+      </div>
     </div>
   );
 }
 
 function StoreHeaderBrand({ store }) {
   const theme = getTheme(store.business_type);
-  const BizIcon = BUSINESS_ICONS[theme.icon] || Store;
-  const isCross = theme.badge === "cross";
   return (
     <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-      {/* Business-type ka badge — yeh permanent rahta hai, dukaandar ka
-          logo isse kabhi replace nahi karta (Medical ke liye "+" jaisa
-          zaroori identity symbol hamesha dikhna chahiye). */}
+      {/* Dukaan ka apna logo — primary identity, left mein (jahan pehle
+          nazar jaati hai). Logo na ho to neutral placeholder tile. */}
       <div style={{
-        width: 38, height: 38, borderRadius: "50%", flexShrink: 0, overflow: "hidden",
+        width: 38, height: 38, borderRadius: "9px", flexShrink: 0, overflow: "hidden",
         display: "flex", alignItems: "center", justifyContent: "center",
-        background: isCross ? "white" : `linear-gradient(145deg, ${theme.accent}, ${theme.accentDark})`,
-        boxShadow: isCross
-          ? "0 2px 6px rgba(0,0,0,0.2), inset 0 1px 2px rgba(255,255,255,0.9)"
-          : "0 3px 8px rgba(0,0,0,0.35), inset 0 1px 1px rgba(255,255,255,0.45), inset 0 -2px 3px rgba(0,0,0,0.25)",
+        background: "white",
+        border: "1px solid rgba(255,255,255,0.3)",
+        boxShadow: "0 2px 6px rgba(0,0,0,0.25)",
       }}>
-        {isCross
-          ? <Plus size={20} color="#D62828" strokeWidth={3.5} />
-          : <BizIcon size={18} color="white" strokeWidth={2.4} style={{ filter: "drop-shadow(0 1px 1px rgba(0,0,0,0.3))" }} />
+        {store.logo_url
+          ? <img src={store.logo_url} alt={`${store.name} logo`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          : <Store size={18} color={theme.primary} strokeWidth={2.2} />
         }
       </div>
 
