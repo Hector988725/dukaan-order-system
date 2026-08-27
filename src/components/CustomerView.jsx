@@ -344,7 +344,7 @@ export default function CustomerView({ store, products, onOrderPlaced }) {
       )}
 
       {orderPlaced && (
-        <OrderConfirmedModal order={orderPlaced} storeName={store.name} whatsapp={store.whatsapp_number} onClose={() => setOrderPlaced(null)} />
+        <OrderConfirmedModal order={orderPlaced} storeName={store.name} whatsapp={store.whatsapp_number} theme={theme} onClose={() => setOrderPlaced(null)} />
       )}
     </div>
   );
@@ -647,13 +647,40 @@ function Field({ label, value, onChange, placeholder, type = "text", textarea })
   );
 }
 
-function OrderConfirmedModal({ order, storeName, whatsapp, onClose }) {
+function OrderConfirmedModal({ order, storeName, whatsapp, theme, onClose }) {
   const waText = encodeURIComponent(`Namaste! Maine order ${order.order_number} place kiya hai (₹${order.total}). Kripya confirm karein.`);
+  // Confetti particles ka ek fixed set — random hone ki zaroorat nahi,
+  // yeh sirf ek baar (order place hote hi) chalta hai, isliye deterministic
+  // hone se render predictable rehta hai.
+  const confettiColors = [theme?.accent || "#D4A24C", "#1B4332", "#E0A93A", "#8B2635", theme?.primary || "#1B4332"];
+  const confetti = Array.from({ length: 14 }, (_, i) => ({
+    angle: (360 / 14) * i,
+    delay: (i % 4) * 0.05,
+    color: confettiColors[i % confettiColors.length],
+  }));
+
   return (
     <div style={{ ...overlayBottomStyle, alignItems: "center" }}>
       <div style={{ background: "white", borderRadius: "14px", width: "100%", maxWidth: "340px", padding: "26px 22px", textAlign: "center", margin: "20px" }}>
-        <div style={{ width: 54, height: 54, borderRadius: "50%", background: "#E7F0EA", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px" }}>
-          <Check size={26} color="#1B4332" strokeWidth={3} />
+        <div style={{ position: "relative", width: 54, height: 54, margin: "0 auto 14px" }}>
+          {/* Confetti — chhote rangeen tukde center se bahar ki taraf udte hain */}
+          {confetti.map((c, i) => (
+            <span
+              key={i}
+              className="ddemo-confetti-piece"
+              style={{
+                "--angle": `${c.angle}deg`,
+                "--delay": `${c.delay}s`,
+                background: c.color,
+              }}
+            />
+          ))}
+          {/* Checkmark circle — draw-in animation ke saath */}
+          <div style={{ width: 54, height: 54, borderRadius: "50%", background: "#E7F0EA", display: "flex", alignItems: "center", justifyContent: "center", position: "relative", zIndex: 1 }}>
+            <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
+              <path d="M5 13.5L10.5 19L21 7" stroke={theme?.primary || "#1B4332"} strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" className="ddemo-checkmark-path" />
+            </svg>
+          </div>
         </div>
         <div style={{ fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: "17px", marginBottom: "6px" }}>Order Place Ho Gaya!</div>
         <div style={{ fontSize: "12.5px", color: "#5C5747", marginBottom: "16px" }}>Order ID: <b>{order.order_number}</b></div>
@@ -667,7 +694,7 @@ function OrderConfirmedModal({ order, storeName, whatsapp, onClose }) {
           </div>
         </a>
 
-        <button onClick={onClose} className="ddemo-btn" style={{ width: "100%", background: "#1B4332", color: "white", fontWeight: 700, fontSize: "13.5px", border: "none", borderRadius: "9px", padding: "11px 0", cursor: "pointer" }}>
+        <button onClick={onClose} className="ddemo-btn" style={{ width: "100%", background: theme?.primary || "#1B4332", color: "white", fontWeight: 700, fontSize: "13.5px", border: "none", borderRadius: "9px", padding: "11px 0", cursor: "pointer" }}>
           Theek Hai
         </button>
       </div>

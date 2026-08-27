@@ -232,7 +232,11 @@ function OwnerArea() {
   return (
     <div style={shellStyle}>
       <GlobalStyles />
-      <div style={{ background: "#1B4332", padding: "14px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" }}>
+      <div style={{
+        background: getHeaderBackground(getTheme(store.business_type)),
+        backgroundImage: `${getHeaderBackground(getTheme(store.business_type))}, repeating-linear-gradient(135deg, rgba(255,255,255,0.05) 0px, rgba(255,255,255,0.05) 1px, transparent 1px, transparent 12px)`,
+        padding: "14px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", flexWrap: "wrap",
+      }}>
         <StoreHeaderBrand store={store} />
 
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
@@ -273,9 +277,18 @@ function StoreHeader({ store }) {
     <div style={{
       background: getHeaderBackground(theme),
       backgroundImage: `${getHeaderBackground(theme)}, repeating-linear-gradient(135deg, rgba(255,255,255,0.05) 0px, rgba(255,255,255,0.05) 1px, transparent 1px, transparent 12px)`,
-      padding: "14px 24px", display: "flex", alignItems: "center", gap: "10px",
+      padding: "14px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px",
     }}>
       <StoreHeaderBrand store={store} />
+      {/* Dukaandar ka apna logo — business-type badge (jaise Medical ka
+          "+" sign) se bilkul alag jagah, right side mein. Isse dono
+          cheezein saath dikh sakti hain: apni pehchaan (logo) aur
+          business-type ka universal symbol (jaise pharmacy ka cross). */}
+      {store.logo_url && (
+        <div style={{ width: 36, height: 36, borderRadius: "9px", overflow: "hidden", flexShrink: 0, background: "white", border: "1px solid rgba(255,255,255,0.3)", boxShadow: "0 2px 6px rgba(0,0,0,0.25)" }}>
+          <img src={store.logo_url} alt={`${store.name} logo`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+        </div>
+      )}
     </div>
   );
 }
@@ -286,23 +299,23 @@ function StoreHeaderBrand({ store }) {
   const isCross = theme.badge === "cross";
   return (
     <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+      {/* Business-type ka badge — yeh permanent rahta hai, dukaandar ka
+          logo isse kabhi replace nahi karta (Medical ke liye "+" jaisa
+          zaroori identity symbol hamesha dikhna chahiye). */}
       <div style={{
         width: 38, height: 38, borderRadius: "50%", flexShrink: 0, overflow: "hidden",
         display: "flex", alignItems: "center", justifyContent: "center",
-        background: store.logo_url ? "white" : isCross ? "white" : `linear-gradient(145deg, ${theme.accent}, ${theme.accentDark})`,
-        boxShadow: store.logo_url
-          ? "0 2px 6px rgba(0,0,0,0.25)"
-          : isCross
-            ? "0 2px 6px rgba(0,0,0,0.2), inset 0 1px 2px rgba(255,255,255,0.9)"
-            : "0 3px 8px rgba(0,0,0,0.35), inset 0 1px 1px rgba(255,255,255,0.45), inset 0 -2px 3px rgba(0,0,0,0.25)",
+        background: isCross ? "white" : `linear-gradient(145deg, ${theme.accent}, ${theme.accentDark})`,
+        boxShadow: isCross
+          ? "0 2px 6px rgba(0,0,0,0.2), inset 0 1px 2px rgba(255,255,255,0.9)"
+          : "0 3px 8px rgba(0,0,0,0.35), inset 0 1px 1px rgba(255,255,255,0.45), inset 0 -2px 3px rgba(0,0,0,0.25)",
       }}>
-        {store.logo_url
-          ? <img src={store.logo_url} alt={store.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-          : isCross
-            ? <Plus size={20} color="#D62828" strokeWidth={3.5} />
-            : <BizIcon size={18} color="white" strokeWidth={2.4} style={{ filter: "drop-shadow(0 1px 1px rgba(0,0,0,0.3))" }} />
+        {isCross
+          ? <Plus size={20} color="#D62828" strokeWidth={3.5} />
+          : <BizIcon size={18} color="white" strokeWidth={2.4} style={{ filter: "drop-shadow(0 1px 1px rgba(0,0,0,0.3))" }} />
         }
       </div>
+
       <div>
         <div style={{ color: "white", fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: "15px", lineHeight: 1.1 }}>{store.name}</div>
         <div style={{ color: "rgba(255,255,255,0.6)", fontSize: "10.5px" }}>{store.tagline || store.address}</div>
@@ -356,6 +369,26 @@ function GlobalStyles() {
       .ddemo-masonry-item { break-inside: avoid; margin-bottom: 12px; display: inline-block; width: 100%; }
       @media (min-width: 640px) { .ddemo-masonry { column-count: 3; } }
       @media (min-width: 900px) { .ddemo-masonry { column-count: 4; } }
+      /* Order success animation — checkmark "draw" hoti hai, confetti
+         center se bahar udta hai. Pure CSS/SVG hai, koi external
+         animation library ya network file load nahi chahiye. */
+      .ddemo-checkmark-path {
+        stroke-dasharray: 30;
+        stroke-dashoffset: 30;
+        animation: ddemoDrawCheck 0.45s ease-out 0.15s forwards;
+      }
+      @keyframes ddemoDrawCheck { to { stroke-dashoffset: 0; } }
+      .ddemo-confetti-piece {
+        position: absolute; top: 50%; left: 50%; width: 6px; height: 6px; border-radius: 2px;
+        transform: translate(-50%, -50%) rotate(var(--angle)) translateY(0) scale(0);
+        opacity: 0;
+        animation: ddemoConfettiBurst 0.7s ease-out var(--delay) forwards;
+      }
+      @keyframes ddemoConfettiBurst {
+        0% { transform: translate(-50%, -50%) rotate(var(--angle)) translateY(0) scale(0); opacity: 1; }
+        60% { opacity: 1; }
+        100% { transform: translate(-50%, -50%) rotate(var(--angle)) translateY(-38px) scale(1); opacity: 0; }
+      }
       .ddemo-fade-in { animation: ddemoFadeIn 0.3s ease; }
       .spin { animation: spin 1s linear infinite; }
       @keyframes spin { to { transform: rotate(360deg); } }
