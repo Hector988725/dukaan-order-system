@@ -327,14 +327,34 @@ export async function fetchOrders(storeId) {
   return data;
 }
 
+// Order place karta hai AUR stock atomically kam karta hai (ek hi
+// database transaction mein) — isse overselling kabhi nahi hoti,
+// chahe 2 customers same second mein last item order karein.
 export async function createOrder(orderPayload) {
-  const { data, error } = await supabase
-    .from("orders")
-    .insert(orderPayload)
-    .select()
-    .single();
-  if (error) throw error;
-  return data;
+  const { data, error } = await supabase.rpc("place_order", {
+    p_store_id: orderPayload.store_id,
+    p_order_number: orderPayload.order_number,
+    p_customer_name: orderPayload.customer_name,
+    p_customer_phone: orderPayload.customer_phone,
+    p_address: orderPayload.address,
+    p_landmark: orderPayload.landmark,
+    p_pincode: orderPayload.pincode,
+    p_payment_method: orderPayload.payment_method,
+    p_payment_status: orderPayload.payment_status,
+    p_status: orderPayload.status,
+    p_items: orderPayload.items,
+    p_total: orderPayload.total,
+  });
+  if (error) {
+    // Function ke andar se aane wale friendly error messages ko clean
+    // karke dikhate hain (Postgres inhe "STOCK_UNAVAILABLE: ..." jaise
+    // prefix ke saath deta hai).
+    const msg = error.message || "";
+    if (msg.includes("STOCK_UNAVAILABLE:")) throw new Error(msg.split("STOCK_UNAVAILABLE:")[1].trim());
+    if (msg.includes("VARIANT_MISSING:")) throw new Error(msg.split("VARIANT_MISSING:")[1].trim());
+    throw error;
+  }
+  return Array.isArray(data) ? data[0] : data;
 }
 
 export async function updateOrderStatus(orderId, status) {
