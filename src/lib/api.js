@@ -27,10 +27,26 @@ export async function getCurrentUser() {
 }
 
 export function onAuthChange(callback) {
-  const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-    callback(session?.user || null);
+  const { data } = supabase.auth.onAuthStateChange((event, session) => {
+    callback(session?.user || null, event);
   });
   return () => data.subscription.unsubscribe();
+}
+
+// Forgot-password flow: email pe ek reset-link bhejta hai. Link click
+// karne par Supabase khud user ko wapas isi site pe laata hai ek
+// special "PASSWORD_RECOVERY" auth-event ke saath, jo App.jsx sunta hai.
+export async function resetPasswordForEmail(email) {
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.origin,
+  });
+  if (error) throw error;
+}
+
+// Reset-link click karne ke baad naya password set karne ke liye.
+export async function updatePassword(newPassword) {
+  const { error } = await supabase.auth.updateUser({ password: newPassword });
+  if (error) throw error;
 }
 
 // ============================================================
@@ -123,20 +139,26 @@ export async function updateVariantStock(variantId, newStock) {
 }
 
 // ---- Product CRUD ----
-export async function createProduct(storeId, { name, category, emoji, image_url, sort_order }) {
+export async function createProduct(storeId, { name, category, emoji, image_url, image_urls, description, sort_order }) {
+  const photos = image_urls && image_urls.length > 0 ? image_urls : (image_url ? [image_url] : []);
   const { data, error } = await supabase
     .from("products")
-    .insert({ store_id: storeId, name, category, emoji: emoji || "📦", image_url: image_url || null, sort_order: sort_order || 0 })
+    .insert({
+      store_id: storeId, name, category, emoji: emoji || "📦",
+      image_url: photos[0] || null, image_urls: photos, description: description || null,
+      sort_order: sort_order || 0,
+    })
     .select()
     .single();
   if (error) throw error;
   return data;
 }
 
-export async function updateProduct(productId, { name, category, emoji, image_url }) {
+export async function updateProduct(productId, { name, category, emoji, image_url, image_urls, description }) {
+  const photos = image_urls && image_urls.length > 0 ? image_urls : (image_url ? [image_url] : []);
   const { error } = await supabase
     .from("products")
-    .update({ name, category, emoji, image_url: image_url !== undefined ? image_url : null })
+    .update({ name, category, emoji, image_url: photos[0] || null, image_urls: photos, description: description || null })
     .eq("id", productId);
   if (error) throw error;
 }
@@ -340,15 +362,13 @@ export async function updatePaymentStatus(orderId, paymentStatus) {
 
 // Store ke andar diye gaye phone number se pichli saved details dhoondhta hai.
 // Agar koi match nahi mila to null return karta hai (naya customer maana jaata hai).
+// Security note: yeh direct table select nahi karta (RLS se poori
+// table expose ho sakti thi) — ek security-definer RPC use karta hai
+// jo sirf EXACT phone-match wala ek record deta hai, kuch aur nahi.
 export async function fetchCustomerByPhone(storeId, phone) {
-  const { data, error } = await supabase
-    .from("customers")
-    .select("*")
-    .eq("store_id", storeId)
-    .eq("phone", phone)
-    .maybeSingle();
+  const { data, error } = await supabase.rpc("get_customer_by_phone", { p_store_id: storeId, p_phone: phone });
   if (error) throw error;
-  return data;
+  return data && data.length > 0 ? data[0] : null;
 }
 
 // Order place hone ke baad customer ki details save/update karta hai
