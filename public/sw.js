@@ -19,5 +19,13 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
+  // Sirf apni hi site ke GET requests ko touch karte hain (installability
+  // ke liye itna hi kaafi hai). Doosri site (jaise Supabase, Razorpay) ke
+  // requests ko bilkul chhoo bhi nahi rahe — unhe browser khud normally
+  // handle karega, isse cross-origin API calls (jaise payment) mein koi
+  // confusion/interference nahi hoga.
+  if (event.request.method !== "GET" || new URL(event.request.url).origin !== self.location.origin) {
+    return;
+  }
   event.respondWith(fetch(event.request));
 });
