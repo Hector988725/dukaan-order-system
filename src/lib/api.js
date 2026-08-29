@@ -110,6 +110,13 @@ export async function createStore(userId, { slug, name, business_type, whatsapp_
       user_id: userId, slug, name, business_type, whatsapp_number, upi_id, address,
       founding_member: isFoundingMember,
       subscription_base_price: isFoundingMember ? FOUNDING_PRICE : REGULAR_PRICE,
+      // Koi free trial nahi — signup hote hi store inactive rehta hai,
+      // dashboard turant payment screen dikhata hai. Pehle yahan koi
+      // is_active/subscription_expires_at nahi diya jaata tha, isliye
+      // table ka default (30-din free trial) apply ho jaata tha —
+      // ab explicitly override kar rahe hain taaki payment mandatory ho.
+      is_active: false,
+      subscription_expires_at: null,
     })
     .select()
     .single();

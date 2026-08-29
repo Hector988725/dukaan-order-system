@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Store, Mail, Lock, ArrowRight, Loader2, Eye, EyeOff } from "lucide-react";
-import { signUp, signIn, createStore, checkSlugAvailable } from "../lib/api";
+import { signUp, signIn, createStore, checkSlugAvailable, resetPasswordForEmail, updatePassword } from "../lib/api";
 import { BUSINESS_TYPE_LIST } from "../lib/theme";
 
 const BUSINESS_TYPES = BUSINESS_TYPE_LIST;
@@ -18,7 +18,7 @@ function slugify(text) {
 // LOGIN / SIGNUP CHOOSER
 // ============================================================
 export function AuthGate({ onAuthed }) {
-  const [mode, setMode] = useState("login"); // 'login' | 'signup'
+  const [mode, setMode] = useState("login"); // 'login' | 'signup' | 'forgot'
 
   return (
     <div style={{ maxWidth: "380px", margin: "60px auto", padding: "0 18px" }}>
@@ -30,21 +30,25 @@ export function AuthGate({ onAuthed }) {
         <div style={{ fontSize: "12.5px", color: "#8B8576", marginTop: "4px" }}>Apni dukaan online le jaayein</div>
       </div>
 
-      <div style={{ display: "flex", background: "white", borderRadius: "10px", border: "1px solid #E3DECF", padding: "4px", marginBottom: "18px" }}>
-        <button onClick={() => setMode("login")} style={{ flex: 1, padding: "9px 0", borderRadius: "7px", border: "none", fontWeight: 700, fontSize: "12.5px", cursor: "pointer", background: mode === "login" ? "#1B4332" : "transparent", color: mode === "login" ? "white" : "#5C5747" }}>
-          Login
-        </button>
-        <button onClick={() => setMode("signup")} style={{ flex: 1, padding: "9px 0", borderRadius: "7px", border: "none", fontWeight: 700, fontSize: "12.5px", cursor: "pointer", background: mode === "signup" ? "#1B4332" : "transparent", color: mode === "signup" ? "white" : "#5C5747" }}>
-          Naya Account
-        </button>
-      </div>
+      {mode !== "forgot" && (
+        <div style={{ display: "flex", background: "white", borderRadius: "10px", border: "1px solid #E3DECF", padding: "4px", marginBottom: "18px" }}>
+          <button onClick={() => setMode("login")} style={{ flex: 1, padding: "9px 0", borderRadius: "7px", border: "none", fontWeight: 700, fontSize: "12.5px", cursor: "pointer", background: mode === "login" ? "#1B4332" : "transparent", color: mode === "login" ? "white" : "#5C5747" }}>
+            Login
+          </button>
+          <button onClick={() => setMode("signup")} style={{ flex: 1, padding: "9px 0", borderRadius: "7px", border: "none", fontWeight: 700, fontSize: "12.5px", cursor: "pointer", background: mode === "signup" ? "#1B4332" : "transparent", color: mode === "signup" ? "white" : "#5C5747" }}>
+            Naya Account
+          </button>
+        </div>
+      )}
 
-      {mode === "login" ? <LoginForm onAuthed={onAuthed} /> : <SignupForm onAuthed={onAuthed} />}
+      {mode === "login" && <LoginForm onAuthed={onAuthed} onForgotPassword={() => setMode("forgot")} />}
+      {mode === "signup" && <SignupForm onAuthed={onAuthed} />}
+      {mode === "forgot" && <ForgotPasswordForm onBack={() => setMode("login")} />}
     </div>
   );
 }
 
-function LoginForm({ onAuthed }) {
+function LoginForm({ onAuthed, onForgotPassword }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -70,6 +74,9 @@ function LoginForm({ onAuthed }) {
     <div style={{ background: "white", border: "1px solid #E3DECF", borderRadius: "12px", padding: "18px", display: "flex", flexDirection: "column", gap: "10px" }}>
       <IconField icon={<Mail size={15} />} type="email" value={email} onChange={setEmail} placeholder="Email" />
       <IconField icon={<Lock size={15} />} type="password" value={password} onChange={setPassword} placeholder="Password" />
+      <button onClick={onForgotPassword} style={{ alignSelf: "flex-end", background: "none", border: "none", color: "#1B4332", fontSize: "11.5px", fontWeight: 600, cursor: "pointer", padding: 0, marginTop: "-4px" }}>
+        Password bhool gaye?
+      </button>
       {error && <div style={{ color: "#B3261E", fontSize: "12px" }}>{error}</div>}
       <button
         onClick={handleSubmit}
@@ -83,6 +90,120 @@ function LoginForm({ onAuthed }) {
   );
 }
 
+// Forgot-password: email daalte hi ek reset-link bhej deta hai.
+function ForgotPasswordForm({ onBack }) {
+  const [email, setEmail] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [sent, setSent] = useState(false);
+
+  const handleSend = async () => {
+    setError("");
+    setLoading(true);
+    try {
+      await resetPasswordForEmail(email);
+      setSent(true);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (sent) {
+    return (
+      <div style={{ background: "white", border: "1px solid #E3DECF", borderRadius: "12px", padding: "22px 18px", textAlign: "center" }}>
+        <div style={{ width: 46, height: 46, borderRadius: "50%", background: "#E7F0EA", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px" }}>
+          <Mail size={20} color="#1B4332" />
+        </div>
+        <div style={{ fontWeight: 700, fontSize: "14px", marginBottom: "6px" }}>Email bhej diya gaya hai</div>
+        <div style={{ fontSize: "12px", color: "#5C5747", lineHeight: 1.5, marginBottom: "16px" }}>
+          <b>{email}</b> pe ek reset-link bheja hai. Apna inbox (aur Spam folder bhi) check karein.
+        </div>
+        <button onClick={onBack} style={{ background: "none", border: "none", color: "#1B4332", fontSize: "12.5px", fontWeight: 700, cursor: "pointer" }}>← Login pe wapas jayein</button>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ background: "white", border: "1px solid #E3DECF", borderRadius: "12px", padding: "18px", display: "flex", flexDirection: "column", gap: "10px" }}>
+      <div style={{ fontWeight: 700, fontSize: "14px" }}>Password Reset Karein</div>
+      <div style={{ fontSize: "11.5px", color: "#8B8576", marginTop: "-6px" }}>Apna account wala email daalein, hum aapko reset-link bhej denge.</div>
+      <IconField icon={<Mail size={15} />} type="email" value={email} onChange={setEmail} placeholder="Email" />
+      {error && <div style={{ color: "#B3261E", fontSize: "12px" }}>{error}</div>}
+      <button
+        onClick={handleSend}
+        disabled={!email || loading}
+        className="ddemo-btn"
+        style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", background: email ? "#1B4332" : "#D8D2BF", color: "white", fontWeight: 700, fontSize: "13.5px", border: "none", borderRadius: "9px", padding: "12px 0", cursor: email ? "pointer" : "not-allowed" }}
+      >
+        {loading ? <Loader2 size={15} className="spin" /> : "Reset Link Bhejein"}
+      </button>
+      <button onClick={onBack} style={{ background: "none", border: "none", color: "#5C5747", fontSize: "12px", cursor: "pointer" }}>← Login pe wapas jayein</button>
+    </div>
+  );
+}
+
+// Reset-link click karne ke baad yeh screen khulti hai (App.jsx isse
+// PASSWORD_RECOVERY auth-event detect karke dikhata hai).
+export function ResetPasswordScreen({ onDone }) {
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [done, setDone] = useState(false);
+
+  const handleSubmit = async () => {
+    setError("");
+    if (password.length < 6) { setError("Password kam se kam 6 letters ka hona chahiye."); return; }
+    if (password !== confirm) { setError("Dono password match nahi kar rahe."); return; }
+    setLoading(true);
+    try {
+      await updatePassword(password);
+      setDone(true);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={{ maxWidth: "380px", margin: "60px auto", padding: "0 18px" }}>
+      <div style={{ textAlign: "center", marginBottom: "20px" }}>
+        <div style={{ width: 50, height: 50, borderRadius: "12px", background: "#D4A24C", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px" }}>
+          <Lock size={22} color="#123026" />
+        </div>
+        <div style={{ fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: "18px" }}>Naya Password Set Karein</div>
+      </div>
+      <div style={{ background: "white", border: "1px solid #E3DECF", borderRadius: "12px", padding: "18px", display: "flex", flexDirection: "column", gap: "10px" }}>
+        {done ? (
+          <>
+            <div style={{ fontSize: "13px", color: "#1B4332", fontWeight: 600, textAlign: "center" }}>✓ Password badal diya gaya hai!</div>
+            <button onClick={onDone} className="ddemo-btn" style={{ background: "#1B4332", color: "white", fontWeight: 700, fontSize: "13.5px", border: "none", borderRadius: "9px", padding: "12px 0", cursor: "pointer" }}>
+              Aage Badhein
+            </button>
+          </>
+        ) : (
+          <>
+            <IconField icon={<Lock size={15} />} type="password" value={password} onChange={setPassword} placeholder="Naya Password (kam se kam 6 letters)" />
+            <IconField icon={<Lock size={15} />} type="password" value={confirm} onChange={setConfirm} placeholder="Naya Password Dobara Likhein" />
+            {error && <div style={{ color: "#B3261E", fontSize: "12px" }}>{error}</div>}
+            <button
+              onClick={handleSubmit}
+              disabled={!password || !confirm || loading}
+              className="ddemo-btn"
+              style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", background: password && confirm ? "#1B4332" : "#D8D2BF", color: "white", fontWeight: 700, fontSize: "13.5px", border: "none", borderRadius: "9px", padding: "12px 0", cursor: password && confirm ? "pointer" : "not-allowed" }}
+            >
+              {loading ? <Loader2 size={15} className="spin" /> : "Password Set Karein"}
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function SignupForm({ onAuthed }) {
   const [step, setStep] = useState(1); // 1: account, 2: store details
   const [email, setEmail] = useState("");
@@ -90,6 +211,7 @@ function SignupForm({ onAuthed }) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [user, setUser] = useState(null);
+  const [needsConfirmation, setNeedsConfirmation] = useState(false);
 
   const handleCreateAccount = async () => {
     setError("");
@@ -97,6 +219,13 @@ function SignupForm({ onAuthed }) {
     setLoading(true);
     try {
       const data = await signUp(email, password);
+      // Agar Supabase project mein "Confirm email" ON hai, to yahan
+      // session nahi milta jab tak user apna email verify na kar le —
+      // isi wajah se fake/galat email se turant aage nahi badha ja sakta.
+      if (!data.session) {
+        setNeedsConfirmation(true);
+        return;
+      }
       setUser(data.user);
       setStep(2);
     } catch (e) {
@@ -105,6 +234,20 @@ function SignupForm({ onAuthed }) {
       setLoading(false);
     }
   };
+
+  if (needsConfirmation) {
+    return (
+      <div style={{ background: "white", border: "1px solid #E3DECF", borderRadius: "12px", padding: "22px 18px", textAlign: "center" }}>
+        <div style={{ width: 46, height: 46, borderRadius: "50%", background: "#E7F0EA", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px" }}>
+          <Mail size={20} color="#1B4332" />
+        </div>
+        <div style={{ fontWeight: 700, fontSize: "14px", marginBottom: "6px" }}>Email Verify Karein</div>
+        <div style={{ fontSize: "12px", color: "#5C5747", lineHeight: 1.5 }}>
+          <b>{email}</b> pe ek confirmation link bheja hai. Link pe click karke apna account verify karein, phir login kar sakte hain.
+        </div>
+      </div>
+    );
+  }
 
   if (step === 2 && user) {
     return <StoreDetailsForm user={user} onDone={onAuthed} />;
@@ -143,8 +286,14 @@ export function StoreDetailsForm({ user, onDone }) {
     if (!slugTouched) setSlug(slugify(v));
   };
 
+  const RESERVED_SLUGS = new Set(["superadmin", "signup", "login", "create-store", "admin", "api", "order"]);
+
   const handleSlugBlur = async () => {
     if (!slug) return;
+    if (RESERVED_SLUGS.has(slug)) {
+      setSlugStatus("taken");
+      return;
+    }
     setSlugStatus("checking");
     try {
       const available = await checkSlugAvailable(slug);
@@ -154,12 +303,18 @@ export function StoreDetailsForm({ user, onDone }) {
     }
   };
 
-  const valid = name.trim() && slug.trim() && whatsapp.trim().length >= 10 && slugStatus !== "taken";
+  const valid = name.trim() && slug.trim() && whatsapp.trim().length >= 10 && slugStatus !== "taken" && !RESERVED_SLUGS.has(slug);
 
   const handleSubmit = async () => {
     setError("");
     setLoading(true);
     try {
+      if (RESERVED_SLUGS.has(slug)) {
+        setSlugStatus("taken");
+        setError("Yeh link naam use nahi kar sakte, doosra try karein.");
+        setLoading(false);
+        return;
+      }
       const available = await checkSlugAvailable(slug);
       if (!available) {
         setSlugStatus("taken");

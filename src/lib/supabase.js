@@ -24,6 +24,6 @@ export const supabase = createClient(
 // Agar URL mein kuch nahi hai (sirf homepage), toh null return hota hai
 export function getSlugFromUrl() {
   const path = window.location.pathname.replace(/^\/+|\/+$/g, ""); // leading/trailing slashes hatao
-  if (!path || path === "" || path === "signup" || path === "login" || path === "create-store") return null;
+  if (!path || path === "" || path === "signup" || path === "login" || path === "create-store" || path === "superadmin") return null;
   return path;
 }

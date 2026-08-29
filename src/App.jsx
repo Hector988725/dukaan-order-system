@@ -13,8 +13,9 @@ import {
 import CustomerView from "./components/CustomerView";
 import DashboardView from "./components/DashboardView";
 import AdminPanel from "./components/AdminPanel";
-import { AuthGate, StoreDetailsForm } from "./components/AuthGate";
+import { AuthGate, StoreDetailsForm, ResetPasswordScreen } from "./components/AuthGate";
 import RazorpaySubscription from "./components/RazorpaySubscription";
+import SuperAdminApp from "./superadmin/SuperAdminApp";
 
 export default function App() {
   // Deployment mein VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY set nahi hain —
@@ -26,6 +27,16 @@ export default function App() {
       <div style={shellStyle}>
         <GlobalStyles />
         <ErrorScreen message="Supabase configuration missing hai. Vercel Project Settings → Environment Variables mein VITE_SUPABASE_URL aur VITE_SUPABASE_ANON_KEY daalkar dobara deploy karein." />
+      </div>
+    );
+  }
+
+  const path = window.location.pathname.replace(/^\/+|\/+$/g, "");
+  if (path === "superadmin") {
+    return (
+      <div style={shellStyle}>
+        <GlobalStyles />
+        <SuperAdminApp />
       </div>
     );
   }
@@ -109,6 +120,7 @@ function CustomerStorefrontPage({ slug }) {
 // ============================================================
 function OwnerArea() {
   const [user, setUser] = useState(undefined); // undefined = checking, null = not logged in
+  const [authEvent, setAuthEvent] = useState(null);
   const [store, setStore] = useState(null);
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
@@ -120,9 +132,10 @@ function OwnerArea() {
     // onAuthChange fire hota hai turant (current session ke saath) jab subscribe hota hai,
     // isliye sirf isी pe rely karte hain - yeh getCurrentUser() se zyada reliable hai
     // kyunki yeh login/logout ke baad bhi turant fire hota hai, koi race condition nahi.
-    const unsubscribe = onAuthChange((u) => {
+    const unsubscribe = onAuthChange((u, event) => {
       authSettledRef.current = true;
       setUser(u);
+      setAuthEvent(event);
     });
     return unsubscribe;
   }, []);
@@ -161,6 +174,17 @@ function OwnerArea() {
   }, [store]);
 
   if (user === undefined) return <LoadingScreen text="Check ho raha hai..." />;
+
+  // Password-reset link se aaya hai — dashboard mein seedha na jaane dein,
+  // pehle naya password set karwayein.
+  if (authEvent === "PASSWORD_RECOVERY") {
+    return (
+      <div style={shellStyle}>
+        <GlobalStyles />
+        <ResetPasswordScreen onDone={() => setAuthEvent(null)} />
+      </div>
+    );
+  }
 
   if (!user) {
     return (

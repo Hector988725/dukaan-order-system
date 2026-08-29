@@ -62,17 +62,14 @@ export async function fetchDashboardStats() {
 // STORES MANAGEMENT
 // ============================================================
 export async function fetchAllStoresAdmin() {
-  // Use view for full details
-  const { data, error } = await supabase
-    .from("store_details_admin")
-    .select("*")
-    .order("created_at", { ascending: false });
+  // Security note: yeh direct view-select nahi karta (view auth.users
+  // ke saath join karke owner emails leak kar sakta tha) — ek
+  // security-definer RPC use karta hai jo sirf super admin ko hi data
+  // deta hai, poori tarah verify karke.
+  const { data, error } = await supabase.rpc("get_admin_stores");
   if (error) {
-    // Fallback if view not available
-    const { data: basic } = await supabase
-      .from("stores")
-      .select("*")
-      .order("created_at", { ascending: false });
+    console.warn("get_admin_stores RPC fail hua, fallback try kar rahe hain:", error);
+    const { data: basic } = await supabase.from("stores").select("*").order("created_at", { ascending: false });
     return basic || [];
   }
   return data || [];
