@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Search, ChevronRight, X, Check, MessageCircle, Plus, Minus, Trash2, Loader2, Star, LayoutGrid } from "lucide-react";
 import { createOrder, fetchCustomerByPhone, upsertCustomerDetails } from "../lib/api";
-import { getTheme } from "../lib/theme";
+import { getTheme, getShoppingMode } from "../lib/theme";
 
 const PENDING_UPI_KEY = "dukaan_pending_upi_checkout";
 
 export default function CustomerView({ store, products, onOrderPlaced }) {
   const theme = getTheme(store.business_type);
+  const isGalleryMode = getShoppingMode(store.business_type) === "gallery";
+  const [detailProduct, setDetailProduct] = useState(null);
   const [activeCategory, setActiveCategory] = useState("All");
   const [search, setSearch] = useState("");
   const [cart, setCart] = useState({}); // variantId -> qty
@@ -139,7 +141,7 @@ export default function CustomerView({ store, products, onOrderPlaced }) {
         // hai, chahe payment COD ho ya UPI.
         payment_status: isUpi ? "Pending Verification" : "Cash on Delivery",
         status: "New",
-        items: cartItems.map((it) => ({ name: it.productName, variant: it.label, qty: it.qty, unit: it.unit, price: it.price })),
+        items: cartItems.map((it) => ({ variant_id: it.id, name: it.productName, variant: it.label, qty: it.qty, unit: it.unit, price: it.price })),
         total: cartTotal,
       };
       const saved = await createOrder(payload);
@@ -269,7 +271,12 @@ export default function CustomerView({ store, products, onOrderPlaced }) {
             : { width: "100%", height: p.featured ? 210 : fallbackHeight, display: "flex", alignItems: "center", justifyContent: "center" };
 
           return (
-            <div key={p.id} className="ddemo-card ddemo-fade-in ddemo-masonry-item" style={{ position: "relative", background: "white", border: "1px solid #E3DECF", borderRadius: "13px", padding: "0 0 13px", opacity: outOfStock ? 0.6 : 1, overflow: "hidden" }}>
+            <div
+              key={p.id}
+              className="ddemo-card ddemo-fade-in ddemo-masonry-item"
+              style={{ position: "relative", background: "white", border: "1px solid #E3DECF", borderRadius: "13px", padding: "0 0 13px", opacity: outOfStock ? 0.6 : 1, overflow: "hidden", cursor: isGalleryMode ? "pointer" : "default" }}
+              onClick={isGalleryMode ? () => setDetailProduct(p) : undefined}
+            >
               {p.featured && (
                 <div style={{ position: "absolute", top: "8px", left: "8px", zIndex: 1, display: "flex", alignItems: "center", gap: "3px", background: theme.accent, color: "#123026", fontSize: "10px", fontWeight: 800, padding: "3px 8px", borderRadius: "999px" }}>
                   <Star size={10} fill="#123026" /> Featured
@@ -293,7 +300,21 @@ export default function CustomerView({ store, products, onOrderPlaced }) {
                 </div>
               </div>
 
-              {outOfStock ? (
+              {isGalleryMode ? (
+                // Gallery-mode (Kapde/Footwear/Mobile jaise types) mein
+                // seedha grid se Add nahi hota — pehle photo/description/
+                // size dekhna zaroori hai, isliye poora card hi "Dekhein"
+                // ka kaam karta hai (onClick upar poore card pe hai).
+                outOfStock ? (
+                  <div style={{ fontSize: "11px", fontWeight: 700, color: "#B3261E", background: "#FDECEA", borderRadius: "7px", padding: "6px 0", textAlign: "center" }}>
+                    Stock Khatam
+                  </div>
+                ) : (
+                  <div style={{ fontSize: "11.5px", fontWeight: 700, color: theme.primary, display: "flex", alignItems: "center", gap: "4px" }}>
+                    Dekhein <ChevronRight size={13} />
+                  </div>
+                )
+              ) : outOfStock ? (
                 <div style={{ fontSize: "11px", fontWeight: 700, color: "#B3261E", background: "#FDECEA", borderRadius: "7px", padding: "6px 0", textAlign: "center" }}>
                   Stock Khatam
                 </div>
@@ -316,6 +337,10 @@ export default function CustomerView({ store, products, onOrderPlaced }) {
 
       {variantPicker && (
         <VariantPickerModal product={variantPicker} cart={cart} addToCart={addToCart} decFromCart={decFromCart} theme={theme} onClose={() => setVariantPicker(null)} />
+      )}
+
+      {detailProduct && (
+        <ProductDetailModal product={detailProduct} cart={cart} addToCart={addToCart} decFromCart={decFromCart} theme={theme} onClose={() => setDetailProduct(null)} />
       )}
 
       {cartCount > 0 && !cartOpen && (
@@ -356,6 +381,86 @@ function QtyStepper({ qty, onInc, onDec }) {
       <button onClick={onDec} className="ddemo-btn ddemo-add-btn" style={stepperBtn}><Minus size={13} /></button>
       <span style={{ color: "white", fontWeight: 700, fontSize: "13px" }}>{qty}</span>
       <button onClick={onInc} className="ddemo-btn ddemo-add-btn" style={stepperBtn}><Plus size={13} /></button>
+    </div>
+  );
+}
+
+// Gallery-mode products (Kapde/Footwear/Mobile) ke liye — Amazon/Flipkart
+// jaisa detail-screen: photo carousel, description, phir size/variant
+// choose karke Add. Quick-mode products isse kabhi nahi khulte.
+function ProductDetailModal({ product, cart, addToCart, decFromCart, theme, onClose }) {
+  const [activePhoto, setActivePhoto] = useState(0);
+  const photos = product.image_urls && product.image_urls.length > 0
+    ? product.image_urls
+    : (product.image_url ? [product.image_url] : []);
+
+  return (
+    <div style={{ ...overlayBottomStyle, alignItems: "flex-end" }}>
+      <div style={{ background: "white", borderRadius: "16px 16px 0 0", width: "100%", maxWidth: "480px", maxHeight: "88vh", overflowY: "auto", margin: "0 auto" }}>
+        <div style={{ position: "relative", background: "#F3ECDC" }}>
+          {photos.length > 0 ? (
+            <img src={photos[activePhoto]} alt={product.name} style={{ width: "100%", height: "280px", objectFit: "cover", display: "block" }} />
+          ) : (
+            <div style={{ width: "100%", height: "220px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <span style={{ fontSize: "64px" }}>{product.emoji || "📦"}</span>
+            </div>
+          )}
+          {photos.length > 1 && (
+            <div style={{ position: "absolute", bottom: "10px", left: 0, right: 0, display: "flex", justifyContent: "center", gap: "6px" }}>
+              {photos.map((_, i) => (
+                <button key={i} onClick={() => setActivePhoto(i)} style={{ width: i === activePhoto ? 16 : 6, height: 6, borderRadius: "999px", border: "none", padding: 0, cursor: "pointer", background: i === activePhoto ? "white" : "rgba(255,255,255,0.55)", transition: "width 0.2s ease" }} />
+              ))}
+            </div>
+          )}
+          <button onClick={onClose} style={{ position: "absolute", top: "10px", right: "10px", width: 30, height: 30, borderRadius: "50%", background: "rgba(0,0,0,0.5)", border: "none", color: "white", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+            <X size={16} />
+          </button>
+          {photos.length > 1 && (
+            <div style={{ position: "absolute", top: "10px", left: "10px", background: "rgba(0,0,0,0.5)", color: "white", fontSize: "10.5px", fontWeight: 700, padding: "3px 8px", borderRadius: "999px" }}>
+              {activePhoto + 1}/{photos.length}
+            </div>
+          )}
+          {/* Thumbnail strip — tap karke photo switch karein */}
+          {photos.length > 1 && (
+            <div style={{ display: "flex", gap: "6px", padding: "8px 12px", overflowX: "auto", background: "white" }}>
+              {photos.map((url, i) => (
+                <button key={i} onClick={() => setActivePhoto(i)} style={{ padding: 0, border: i === activePhoto ? `2px solid ${theme.primary}` : "1px solid #E3DECF", borderRadius: "7px", overflow: "hidden", width: 44, height: 44, flexShrink: 0, cursor: "pointer" }}>
+                  <img src={url} alt={`thumb-${i}`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div style={{ padding: "16px" }}>
+          <div style={{ fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: "18px" }}>{product.name}</div>
+          {product.description && (
+            <div style={{ fontSize: "12.5px", color: "#5C5747", marginTop: "8px", lineHeight: 1.55 }}>{product.description}</div>
+          )}
+
+          <div style={{ marginTop: "16px", display: "flex", flexDirection: "column", gap: "8px" }}>
+            {product.variants.map((v) => {
+              const qty = cart[v.id] || 0;
+              const out = v.stock <= 0;
+              return (
+                <div key={v.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", padding: "11px 13px", border: "1px solid #E3DECF", borderRadius: "10px" }}>
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: "13.5px" }}>{v.label}</div>
+                    <div style={{ fontSize: "11.5px", color: "#8B8576" }}>₹{v.price} / {v.unit}</div>
+                  </div>
+                  {out ? (
+                    <span style={{ fontSize: "11px", fontWeight: 700, color: "#B3261E" }}>Stock Khatam</span>
+                  ) : qty === 0 ? (
+                    <button onClick={() => addToCart(v.id)} className="ddemo-btn ddemo-add-btn" style={{ ...btnOutline(theme), width: "auto", padding: "7px 18px" }}>+ Add</button>
+                  ) : (
+                    <QtyStepper qty={qty} onInc={() => addToCart(v.id)} onDec={() => decFromCart(v.id)} />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

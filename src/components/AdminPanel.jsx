@@ -44,6 +44,7 @@ function AdminContent({ store, products, onRefresh }) {
 }
 
 import RazorpaySubscription from "./RazorpaySubscription";
+import { getShoppingMode } from "../lib/theme";
 
 // ============================================================
 // SUBSCRIPTION PANEL — Razorpay se real payment
@@ -369,30 +370,93 @@ function ImagePicker({ currentImage, storeId, onChange }) {
 function NewProductForm({ storeId, businessType, onCancel, onSave }) {
   const [name, setName] = useState("");
   const [category, setCategory] = useState("");
+  const [description, setDescription] = useState("");
   const [emoji, setEmoji] = useState("📦");
   const [imageUrl, setImageUrl] = useState(null);
+  const [images, setImages] = useState([]);
   const [saving, setSaving] = useState(false);
   const valid = name.trim() && category.trim();
+  const isGallery = getShoppingMode(businessType) === "gallery";
+
+  const handleSave = async () => {
+    setSaving(true);
+    await onSave({ name, category, emoji, description, image_url: isGallery ? undefined : imageUrl, image_urls: isGallery ? images : undefined });
+    setSaving(false);
+  };
 
   return (
     <div style={{ background: "#F7F5F0", border: "1px solid #E3DECF", borderRadius: "12px", padding: "14px", marginBottom: "12px" }}>
       <div style={{ fontWeight: 700, fontSize: "13px", marginBottom: "10px" }}>Naya Product</div>
-      <ImagePicker currentImage={imageUrl} storeId={storeId} onChange={setImageUrl} />
+      {isGallery
+        ? <MultiImagePicker images={images} storeId={storeId} onChange={setImages} />
+        : <ImagePicker currentImage={imageUrl} storeId={storeId} onChange={setImageUrl} />
+      }
       <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "10px" }}>
         <Field label="Product ka Naam" value={name} onChange={setName} placeholder="jaise Chini (Sugar)" />
         <Field label="Category" value={category} onChange={setCategory} placeholder="jaise Staples, Hardware, Medical" />
+        <Field label="Description (optional)" value={description} onChange={setDescription} placeholder={isGallery ? "jaise Cotton, Size M-XL available" : "koi khaas jaankari (optional)"} textarea />
       </div>
       <div style={{ display: "flex", gap: "8px", marginTop: "12px" }}>
         <button onClick={onCancel} style={{ flex: 1, background: "white", border: "1px solid #E3DECF", borderRadius: "8px", padding: "9px 0", fontSize: "12.5px", fontWeight: 700, color: "#5C5747", cursor: "pointer" }}>Cancel</button>
         <button
           disabled={!valid || saving}
-          onClick={async () => { setSaving(true); await onSave({ name, category, emoji, image_url: imageUrl }); setSaving(false); }}
+          onClick={handleSave}
           className="ddemo-btn"
           style={{ flex: 1, background: valid ? "#1B4332" : "#D8D2BF", color: "white", border: "none", borderRadius: "8px", padding: "9px 0", fontSize: "12.5px", fontWeight: 700, cursor: valid ? "pointer" : "not-allowed" }}
         >
           {saving ? "Add ho raha hai..." : "Add Karein"}
         </button>
       </div>
+    </div>
+  );
+}
+
+function MultiImagePicker({ images, storeId, onChange }) {
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef(null);
+  const MAX_PHOTOS = 4;
+
+  const handleUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (images.length >= MAX_PHOTOS) { alert(`Zyada se zyada ${MAX_PHOTOS} photos daal sakte hain.`); return; }
+    if (file.size > 2 * 1024 * 1024) { alert("Photo 2MB se chhoti honi chahiye."); return; }
+    setUploading(true);
+    try {
+      const url = await uploadProductImage(file, storeId);
+      onChange([...images, url]);
+    } catch (err) {
+      alert(err.message || "Upload nahi ho paaya.");
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
+  const removeAt = (idx) => onChange(images.filter((_, i) => i !== idx));
+
+  return (
+    <div style={{ background: "#F7F5F0", borderRadius: "10px", padding: "12px" }}>
+      <div style={{ fontSize: "11.5px", fontWeight: 600, color: "#5C5747", marginBottom: "8px" }}>
+        Product ki Photos ({images.length}/{MAX_PHOTOS}) — pehli photo customer ko sabse pehle dikhegi
+      </div>
+      <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+        {images.map((url, idx) => (
+          <div key={idx} style={{ position: "relative", width: 64, height: 64 }}>
+            <img src={url} alt={`photo-${idx}`} style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "8px", border: idx === 0 ? "2px solid #D4A24C" : "1px solid #E3DECF" }} />
+            <button onClick={() => removeAt(idx)} style={{ position: "absolute", top: -6, right: -6, width: 20, height: 20, borderRadius: "50%", background: "#B3261E", color: "white", border: "2px solid white", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>
+              <X size={11} />
+            </button>
+          </div>
+        ))}
+        {images.length < MAX_PHOTOS && (
+          <button onClick={() => fileRef.current?.click()} disabled={uploading} style={{ width: 64, height: 64, borderRadius: "8px", border: "2px dashed #D4A24C", background: "white", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Plus size={20} color="#D4A24C" />
+          </button>
+        )}
+      </div>
+      {uploading && <div style={{ fontSize: "10.5px", color: "#8B8576", marginTop: "6px" }}>Upload ho raha hai...</div>}
+      <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleUpload} style={{ display: "none" }} />
     </div>
   );
 }
@@ -481,20 +545,33 @@ function ProductRow({ product, storeId, businessType, expanded, onToggle, onRefr
 function EditProductForm({ product, storeId, businessType, onCancel, onSave }) {
   const [name, setName] = useState(product.name);
   const [category, setCategory] = useState(product.category);
+  const [description, setDescription] = useState(product.description || "");
   const [emoji, setEmoji] = useState(product.emoji || "📦");
   const [imageUrl, setImageUrl] = useState(product.image_url || null);
+  const [images, setImages] = useState(product.image_urls && product.image_urls.length > 0 ? product.image_urls : (product.image_url ? [product.image_url] : []));
   const [saving, setSaving] = useState(false);
+  const isGallery = getShoppingMode(businessType) === "gallery";
+
+  const handleSave = async () => {
+    setSaving(true);
+    await onSave({ name, category, emoji, description, image_url: isGallery ? undefined : imageUrl, image_urls: isGallery ? images : undefined });
+    setSaving(false);
+  };
 
   return (
     <div style={{ borderTop: "1px solid #E3DECF", padding: "12px 13px", background: "#F7F5F0" }}>
-      <ImagePicker currentImage={imageUrl} storeId={storeId} onChange={setImageUrl} />
+      {isGallery
+        ? <MultiImagePicker images={images} storeId={storeId} onChange={setImages} />
+        : <ImagePicker currentImage={imageUrl} storeId={storeId} onChange={setImageUrl} />
+      }
       <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "10px" }}>
         <Field label="Product ka Naam" value={name} onChange={setName} />
         <Field label="Category" value={category} onChange={setCategory} />
+        <Field label="Description (optional)" value={description} onChange={setDescription} textarea />
       </div>
       <div style={{ display: "flex", gap: "8px", marginTop: "10px" }}>
         <button onClick={onCancel} style={{ flex: 1, background: "white", border: "1px solid #E3DECF", borderRadius: "8px", padding: "9px 0", fontSize: "12.5px", fontWeight: 700, color: "#5C5747", cursor: "pointer" }}>Cancel</button>
-        <button disabled={saving} onClick={async () => { setSaving(true); await onSave({ name, category, emoji, image_url: imageUrl }); setSaving(false); }} className="ddemo-btn" style={{ flex: 1, background: "#1B4332", color: "white", border: "none", borderRadius: "8px", padding: "9px 0", fontSize: "12.5px", fontWeight: 700, cursor: "pointer" }}>
+        <button disabled={saving} onClick={handleSave} className="ddemo-btn" style={{ flex: 1, background: "#1B4332", color: "white", border: "none", borderRadius: "8px", padding: "9px 0", fontSize: "12.5px", fontWeight: 700, cursor: "pointer" }}>
           {saving ? "Save ho raha hai..." : "Save Karein"}
         </button>
       </div>
@@ -542,6 +619,19 @@ function EditVariantForm({ variant, onCancel, onSave }) {
   const [price, setPrice] = useState(String(variant.price));
   const [stock, setStock] = useState(String(variant.stock));
   const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState("");
+
+  const handleSave = async () => {
+    setFormError("");
+    const priceNum = Number(price);
+    const stockNum = Number(stock);
+    if (!label.trim() || !unit.trim()) { setFormError("Naam aur Unit khaali nahi ho sakte."); return; }
+    if (price === "" || isNaN(priceNum) || priceNum <= 0) { setFormError("Price ek valid number hona chahiye, 0 se zyada."); return; }
+    if (stock === "" || isNaN(stockNum) || stockNum < 0) { setFormError("Stock ek valid number hona chahiye (0 ya usse zyada)."); return; }
+    setSaving(true);
+    await onSave({ label, unit, price: priceNum, stock: stockNum });
+    setSaving(false);
+  };
 
   return (
     <div style={{ background: "white", border: "1px solid #E3DECF", borderRadius: "8px", padding: "10px", margin: "6px 0" }}>
@@ -553,9 +643,10 @@ function EditVariantForm({ variant, onCancel, onSave }) {
           <div style={{ flex: 1 }}><Field label="Stock" value={stock} onChange={(v) => setStock(v.replace(/\D/g, ""))} /></div>
         </div>
       </div>
+      {formError && <div style={{ color: "#B3261E", fontSize: "11px", marginTop: "6px" }}>{formError}</div>}
       <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
         <button onClick={onCancel} style={{ flex: 1, background: "#F7F5F0", border: "1px solid #E3DECF", borderRadius: "7px", padding: "7px 0", fontSize: "11.5px", fontWeight: 700, color: "#5C5747", cursor: "pointer" }}>Cancel</button>
-        <button disabled={saving} onClick={async () => { setSaving(true); await onSave({ label, unit, price: Number(price), stock: Number(stock) }); setSaving(false); }} className="ddemo-btn" style={{ flex: 1, background: "#1B4332", color: "white", border: "none", borderRadius: "7px", padding: "7px 0", fontSize: "11.5px", fontWeight: 700, cursor: "pointer" }}>
+        <button disabled={saving} onClick={handleSave} className="ddemo-btn" style={{ flex: 1, background: "#1B4332", color: "white", border: "none", borderRadius: "7px", padding: "7px 0", fontSize: "11.5px", fontWeight: 700, cursor: "pointer" }}>
           {saving ? "..." : "Save"}
         </button>
       </div>
@@ -569,7 +660,19 @@ function NewVariantForm({ onCancel, onSave }) {
   const [price, setPrice] = useState("");
   const [stock, setStock] = useState("0");
   const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState("");
   const valid = label.trim() && unit.trim() && price;
+
+  const handleSave = async () => {
+    setFormError("");
+    const priceNum = Number(price);
+    const stockNum = Number(stock);
+    if (price === "" || isNaN(priceNum) || priceNum <= 0) { setFormError("Price ek valid number hona chahiye, 0 se zyada."); return; }
+    if (stock !== "" && (isNaN(stockNum) || stockNum < 0)) { setFormError("Stock ek valid number hona chahiye (0 ya usse zyada)."); return; }
+    setSaving(true);
+    await onSave({ label, unit, price: priceNum, stock: stock === "" ? 0 : stockNum });
+    setSaving(false);
+  };
 
   return (
     <div style={{ background: "white", border: "1px solid #1B4332", borderRadius: "8px", padding: "10px", marginTop: "8px" }}>
@@ -581,9 +684,10 @@ function NewVariantForm({ onCancel, onSave }) {
           <div style={{ flex: 1 }}><Field label="Stock" value={stock} onChange={(v) => setStock(v.replace(/\D/g, ""))} /></div>
         </div>
       </div>
+      {formError && <div style={{ color: "#B3261E", fontSize: "11px", marginTop: "6px" }}>{formError}</div>}
       <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
         <button onClick={onCancel} style={{ flex: 1, background: "#F7F5F0", border: "1px solid #E3DECF", borderRadius: "7px", padding: "7px 0", fontSize: "11.5px", fontWeight: 700, color: "#5C5747", cursor: "pointer" }}>Cancel</button>
-        <button disabled={!valid || saving} onClick={async () => { setSaving(true); await onSave({ label, unit, price: Number(price), stock: Number(stock) }); setSaving(false); }} className="ddemo-btn" style={{ flex: 1, background: valid ? "#1B4332" : "#D8D2BF", color: "white", border: "none", borderRadius: "7px", padding: "7px 0", fontSize: "11.5px", fontWeight: 700, cursor: valid ? "pointer" : "not-allowed" }}>
+        <button disabled={!valid || saving} onClick={handleSave} className="ddemo-btn" style={{ flex: 1, background: valid ? "#1B4332" : "#D8D2BF", color: "white", border: "none", borderRadius: "7px", padding: "7px 0", fontSize: "11.5px", fontWeight: 700, cursor: valid ? "pointer" : "not-allowed" }}>
           {saving ? "..." : "Add Karein"}
         </button>
       </div>
