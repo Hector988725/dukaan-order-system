@@ -78,6 +78,39 @@ function CustomerStorefrontPage({ slug }) {
 
   useEffect(() => { load(); }, [load]);
 
+  // Har dukaan ka apna alag "installable app" banate hain — agar customer
+  // is store ke page se "Add to Home Screen" kare, to icon tap karne par
+  // seedha ISI dukaan pe khulna chahiye (generic login page pe nahi), aur
+  // dukaan ke apne business-type color mein status-bar bhi dikhe.
+  useEffect(() => {
+    if (!store) return;
+    const theme = getTheme(store.business_type);
+    const manifest = {
+      name: store.name,
+      short_name: store.name.slice(0, 12),
+      start_url: window.location.pathname,
+      scope: window.location.pathname,
+      display: "standalone",
+      background_color: "#F7F5F0",
+      theme_color: theme.primary,
+      icons: [
+        { src: "/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
+        { src: "/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
+        { src: "/icon-maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+      ],
+    };
+    const blobUrl = URL.createObjectURL(new Blob([JSON.stringify(manifest)], { type: "application/json" }));
+    let link = document.querySelector('link[rel="manifest"]');
+    if (!link) { link = document.createElement("link"); link.rel = "manifest"; document.head.appendChild(link); }
+    link.href = blobUrl;
+
+    let themeMeta = document.querySelector('meta[name="theme-color"]');
+    if (!themeMeta) { themeMeta = document.createElement("meta"); themeMeta.name = "theme-color"; document.head.appendChild(themeMeta); }
+    themeMeta.content = theme.primary;
+
+    return () => URL.revokeObjectURL(blobUrl);
+  }, [store]);
+
   if (loading) return <LoadingScreen text="Dukaan load ho rahi hai..." />;
   if (error || !store) return <ErrorScreen message={error || "Dukaan nahi mili."} />;
 
