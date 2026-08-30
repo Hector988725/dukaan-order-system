@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { Store, ShoppingCart, LayoutGrid, Loader2, AlertTriangle, ShieldCheck, LogOut, Pill, Wrench, Smartphone, Shirt, BookOpen, Cake, Scissors, UtensilsCrossed, Footprints, Plus } from "lucide-react";
+import { Store, ShoppingCart, LayoutGrid, Loader2, AlertTriangle, ShieldCheck, LogOut, Pill, Wrench, Smartphone, Shirt, BookOpen, Cake, Scissors, UtensilsCrossed, Footprints, Plus, BookText } from "lucide-react";
 import { getTheme, getHeaderBackground } from "./lib/theme";
 
 // Business-type icon naam (theme.js mein string ke roop mein) ko
@@ -13,6 +13,8 @@ import {
 import CustomerView from "./components/CustomerView";
 import DashboardView from "./components/DashboardView";
 import AdminPanel from "./components/AdminPanel";
+import KhataPanel from "./components/KhataPanel";
+import CustomerKhataButton from "./components/CustomerKhata";
 import { AuthGate, StoreDetailsForm, ResetPasswordScreen } from "./components/AuthGate";
 import RazorpaySubscription from "./components/RazorpaySubscription";
 import SuperAdminApp from "./superadmin/SuperAdminApp";
@@ -284,10 +286,13 @@ function OwnerArea() {
 
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           <div className="ddemo-toggle-track">
-            <div className="ddemo-toggle-bg" style={{ left: `calc(${["dashboard", "admin"].indexOf(view)} * 50% + 4px)`, width: "calc(50% - 4px)" }} />
+            <div className="ddemo-toggle-bg" style={{ left: `calc(${["dashboard", "khata", "admin"].indexOf(view)} * 33.333% + 4px)`, width: "calc(33.333% - 5px)" }} />
             <button className={`ddemo-toggle-btn ${view === "dashboard" ? "active" : ""}`} onClick={() => setView("dashboard")}>
               <LayoutGrid size={13} /> Orders
               {newOrderCount > 0 && <span style={{ background: "#B3261E", color: "white", fontSize: "10px", fontWeight: 700, borderRadius: "999px", padding: "1px 6px" }}>{newOrderCount}</span>}
+            </button>
+            <button className={`ddemo-toggle-btn ${view === "khata" ? "active" : ""}`} onClick={() => setView("khata")}>
+              <BookText size={13} /> Khata
             </button>
             <button className={`ddemo-toggle-btn ${view === "admin" ? "active" : ""}`} onClick={() => setView("admin")}>
               <ShieldCheck size={13} /> Admin
@@ -306,6 +311,7 @@ function OwnerArea() {
       </div>
 
       {view === "dashboard" && <DashboardView store={store} products={products} orders={orders} onRefresh={silentRefresh} />}
+      {view === "khata" && <div style={{ padding: "16px 0 40px" }}><KhataPanel store={store} /></div>}
       {view === "admin" && <AdminPanel store={store} products={products} onRefresh={silentRefresh} />}
     </div>
   );
@@ -325,22 +331,25 @@ function StoreHeader({ store }) {
       padding: "14px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px",
     }}>
       <StoreHeaderBrand store={store} />
-      {/* Business-type ka permanent symbol — hamesha yahan, right corner
-          mein, chhote badge ki tarah dikhta hai (jaise Medical ka "+").
-          Yeh kabhi hatta nahi, chahe dukaandar apna logo daale ya na daale —
-          customer ko turant business ka type pehchanne mein madad karta hai. */}
-      <div style={{
-        width: 34, height: 34, borderRadius: "50%", flexShrink: 0, overflow: "hidden",
-        display: "flex", alignItems: "center", justifyContent: "center",
-        background: isCross ? "white" : `linear-gradient(145deg, ${theme.accent}, ${theme.accentDark})`,
-        boxShadow: isCross
-          ? "0 2px 6px rgba(0,0,0,0.2), inset 0 1px 2px rgba(255,255,255,0.9)"
-          : "0 3px 8px rgba(0,0,0,0.35), inset 0 1px 1px rgba(255,255,255,0.45), inset 0 -2px 3px rgba(0,0,0,0.25)",
-      }} title={theme.label}>
-        {isCross
-          ? <Plus size={18} color="#D62828" strokeWidth={3.5} />
-          : <BizIcon size={16} color="white" strokeWidth={2.4} style={{ filter: "drop-shadow(0 1px 1px rgba(0,0,0,0.3))" }} />
-        }
+      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+        <CustomerKhataButton store={store} />
+        {/* Business-type ka permanent symbol — hamesha yahan, right corner
+            mein, chhote badge ki tarah dikhta hai (jaise Medical ka "+").
+            Yeh kabhi hatta nahi, chahe dukaandar apna logo daale ya na daale —
+            customer ko turant business ka type pehchanne mein madad karta hai. */}
+        <div style={{
+          width: 34, height: 34, borderRadius: "50%", flexShrink: 0, overflow: "hidden",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          background: isCross ? "white" : `linear-gradient(145deg, ${theme.accent}, ${theme.accentDark})`,
+          boxShadow: isCross
+            ? "0 2px 6px rgba(0,0,0,0.2), inset 0 1px 2px rgba(255,255,255,0.9)"
+            : "0 3px 8px rgba(0,0,0,0.35), inset 0 1px 1px rgba(255,255,255,0.45), inset 0 -2px 3px rgba(0,0,0,0.25)",
+        }} title={theme.label}>
+          {isCross
+            ? <Plus size={18} color="#D62828" strokeWidth={3.5} />
+            : <BizIcon size={16} color="white" strokeWidth={2.4} style={{ filter: "drop-shadow(0 1px 1px rgba(0,0,0,0.3))" }} />
+          }
+        </div>
       </div>
     </div>
   );
