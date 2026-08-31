@@ -1,5 +1,5 @@
 import React, { useState, useRef } from "react";
-import { Settings, Package, Plus, Trash2, Edit2, X, Check, ChevronDown, ChevronUp, Save, Upload, Image, CreditCard, AlertCircle, Store, Star, ArrowUp, ArrowDown, Bike } from "lucide-react";
+import { Settings, Package, Plus, Trash2, Edit2, X, Check, ChevronDown, ChevronUp, Save, Upload, Image, CreditCard, AlertCircle, Store, Star, ArrowUp, ArrowDown, Bike, ScanLine, FileSpreadsheet } from "lucide-react";
 import {
   updateStoreSettings,
   createProduct, updateProduct, deleteProduct, updateProductFeatured, updateProductOrder,
@@ -7,6 +7,8 @@ import {
   uploadProductImage, deactivateStore,
 } from "../lib/api";
 import DeliveryBoyManager from "./DeliveryBoyManager";
+import CsvBulkUploadModal from "./CsvBulkUpload";
+import BarcodeScannerModal from "./BarcodeScanner";
 
 export default function AdminPanel({ store, products, onRefresh }) {
   return <AdminContent store={store} products={products} onRefresh={onRefresh} />;
@@ -248,6 +250,11 @@ function ProductManager({ store, products, onRefresh }) {
   const [adding, setAdding] = useState(false);
   const [expandedId, setExpandedId] = useState(null);
   const [reordering, setReordering] = useState(false);
+  const [showCsvUpload, setShowCsvUpload] = useState(false);
+  const [showBarcodeScan, setShowBarcodeScan] = useState(false);
+  const [barcodeNotFoundPrefill, setBarcodeNotFoundPrefill] = useState(null);
+  const [autoOpenVariantFor, setAutoOpenVariantFor] = useState(null);
+  const [scanMessage, setScanMessage] = useState(null);
 
   // Do products ke sort_order swap karke unka display sequence badalta hai
   // (list already sort_order se sorted aati hai fetchProducts() se).
@@ -276,27 +283,84 @@ function ProductManager({ store, products, onRefresh }) {
     }
   };
 
+  // Barcode scan hone par: agar match mila to us product ko seedha expand
+  // kar dete hain (dukaandar edit kar sake, jaise stock badhana). Agar
+  // match nahi mila, "Naya Product" form khul jaata hai barcode field
+  // already bhara hua (naya variant save karte waqt use ho jaayega).
+  const handleBarcodeFound = (match) => {
+    setShowBarcodeScan(false);
+    setExpandedId(match.product_id);
+    setScanMessage({ type: "found", text: `"${match.product_name}" mil gaya — stock: ${match.variant_stock}` });
+    setTimeout(() => setScanMessage(null), 4000);
+  };
+  const handleBarcodeNotFound = (barcode) => {
+    setShowBarcodeScan(false);
+    setBarcodeNotFoundPrefill(barcode);
+    setAdding(true);
+  };
+
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px", flexWrap: "wrap", gap: "8px" }}>
         <div style={{ fontSize: "12px", color: "#8B8576" }}>{products.length} products · ⭐ ya ↑↓ se apni dukaan saja sakte hain</div>
-        <button onClick={() => setAdding(true)} className="ddemo-btn" style={{ display: "flex", alignItems: "center", gap: "6px", background: "#1B4332", color: "white", border: "none", borderRadius: "8px", padding: "8px 14px", fontSize: "12.5px", fontWeight: 700, cursor: "pointer" }}>
-          <Plus size={14} /> Naya Product
-        </button>
+        <div style={{ display: "flex", gap: "6px" }}>
+          <button onClick={() => setShowBarcodeScan(true)} className="ddemo-btn" style={{ display: "flex", alignItems: "center", gap: "5px", background: "white", border: "1px solid #1B4332", color: "#1B4332", borderRadius: "8px", padding: "8px 11px", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}>
+            <ScanLine size={13} /> Scan
+          </button>
+          <button onClick={() => setShowCsvUpload(true)} className="ddemo-btn" style={{ display: "flex", alignItems: "center", gap: "5px", background: "white", border: "1px solid #1B4332", color: "#1B4332", borderRadius: "8px", padding: "8px 11px", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}>
+            <FileSpreadsheet size={13} /> CSV
+          </button>
+          <button onClick={() => setAdding(true)} className="ddemo-btn" style={{ display: "flex", alignItems: "center", gap: "6px", background: "#1B4332", color: "white", border: "none", borderRadius: "8px", padding: "8px 14px", fontSize: "12.5px", fontWeight: 700, cursor: "pointer" }}>
+            <Plus size={14} /> Naya Product
+          </button>
+        </div>
       </div>
+
+      {scanMessage && (
+        <div style={{ background: "#E7F0EA", color: "#1B4332", borderRadius: "8px", padding: "9px 12px", fontSize: "12px", fontWeight: 600, marginBottom: "12px" }}>
+          ✓ {scanMessage.text}
+        </div>
+      )}
 
       {adding && (
         <NewProductForm
           storeId={store.id}
           businessType={store.business_type}
-          onCancel={() => setAdding(false)}
+          prefillBarcode={barcodeNotFoundPrefill}
+          onCancel={() => { setAdding(false); setBarcodeNotFoundPrefill(null); }}
           onSave={async (form) => {
-            await createProduct(store.id, { ...form, sort_order: products.length + 1 });
+            const newProduct = await createProduct(store.id, { ...form, sort_order: products.length + 1 });
             setAdding(false);
+            if (barcodeNotFoundPrefill) {
+              // Naya product ban gaya barcode-scan se — usko turant expand
+              // karke variant-add form khol dete hain, barcode already bhara
+              // hua, taaki dukaandar ko dobara scan/type na karna pade.
+              setExpandedId(newProduct.id);
+              setAutoOpenVariantFor({ productId: newProduct.id, barcode: barcodeNotFoundPrefill });
+            }
+            setBarcodeNotFoundPrefill(null);
             onRefresh();
           }}
         />
       )}
+
+      {showCsvUpload && (
+        <CsvBulkUploadModal
+          store={store}
+          onClose={() => setShowCsvUpload(false)}
+          onDone={() => { setShowCsvUpload(false); onRefresh(); }}
+        />
+      )}
+
+      {showBarcodeScan && (
+        <BarcodeScannerModal
+          store={store}
+          onClose={() => setShowBarcodeScan(false)}
+          onFound={handleBarcodeFound}
+          onNotFound={handleBarcodeNotFound}
+        />
+      )}
+
 
       <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
         {products.map((p, idx) => (
@@ -311,6 +375,8 @@ function ProductManager({ store, products, onRefresh }) {
             onMoveUp={idx > 0 ? () => moveProduct(idx, -1) : null}
             onMoveDown={idx < products.length - 1 ? () => moveProduct(idx, 1) : null}
             reordering={reordering}
+            autoOpenVariantBarcode={autoOpenVariantFor?.productId === p.id ? autoOpenVariantFor.barcode : null}
+            onAutoOpenConsumed={() => setAutoOpenVariantFor(null)}
           />
         ))}
       </div>
@@ -370,7 +436,7 @@ function ImagePicker({ currentImage, storeId, onChange }) {
 // ============================================================
 // NEW PRODUCT FORM
 // ============================================================
-function NewProductForm({ storeId, businessType, onCancel, onSave }) {
+function NewProductForm({ storeId, businessType, onCancel, onSave, prefillBarcode }) {
   const [name, setName] = useState("");
   const [category, setCategory] = useState("");
   const [description, setDescription] = useState("");
@@ -390,6 +456,11 @@ function NewProductForm({ storeId, businessType, onCancel, onSave }) {
   return (
     <div style={{ background: "#F7F5F0", border: "1px solid #E3DECF", borderRadius: "12px", padding: "14px", marginBottom: "12px" }}>
       <div style={{ fontWeight: 700, fontSize: "13px", marginBottom: "10px" }}>Naya Product</div>
+      {prefillBarcode && (
+        <div style={{ fontSize: "11px", color: "#1B4332", fontWeight: 600, marginBottom: "10px", background: "#E7F0EA", padding: "8px 10px", borderRadius: "7px" }}>
+          🔍 Barcode <b>{prefillBarcode}</b> kisi existing product se match nahi hua. Naam/category bharein — save karte hi is barcode ke saath ek variant bhi turant add karne ka option milega.
+        </div>
+      )}
       {isGallery
         ? <MultiImagePicker images={images} storeId={storeId} onChange={setImages} />
         : <ImagePicker currentImage={imageUrl} storeId={storeId} onChange={setImageUrl} />
@@ -467,9 +538,9 @@ function MultiImagePicker({ images, storeId, onChange }) {
 // ============================================================
 // PRODUCT ROW
 // ============================================================
-function ProductRow({ product, storeId, businessType, expanded, onToggle, onRefresh, onMoveUp, onMoveDown, reordering }) {
+function ProductRow({ product, storeId, businessType, expanded, onToggle, onRefresh, onMoveUp, onMoveDown, reordering, autoOpenVariantBarcode, onAutoOpenConsumed }) {
   const [editing, setEditing] = useState(false);
-  const [addingVariant, setAddingVariant] = useState(false);
+  const [addingVariant, setAddingVariant] = useState(!!autoOpenVariantBarcode);
   const [togglingFeatured, setTogglingFeatured] = useState(false);
 
   const handleDeleteProduct = async () => {
@@ -531,8 +602,9 @@ function ProductRow({ product, storeId, businessType, expanded, onToggle, onRefr
           ))}
           {addingVariant ? (
             <NewVariantForm
-              onCancel={() => setAddingVariant(false)}
-              onSave={async (form) => { await createVariant(product.id, form); setAddingVariant(false); onRefresh(); }}
+              prefillBarcode={autoOpenVariantBarcode}
+              onCancel={() => { setAddingVariant(false); onAutoOpenConsumed?.(); }}
+              onSave={async (form) => { await createVariant(product.id, form); setAddingVariant(false); onAutoOpenConsumed?.(); onRefresh(); }}
             />
           ) : (
             <button onClick={() => setAddingVariant(true)} className="ddemo-btn" style={{ display: "flex", alignItems: "center", gap: "6px", background: "white", border: "1px dashed #1B4332", color: "#1B4332", borderRadius: "8px", padding: "8px 12px", fontSize: "12px", fontWeight: 700, cursor: "pointer", marginTop: "6px" }}>
@@ -621,6 +693,7 @@ function EditVariantForm({ variant, onCancel, onSave }) {
   const [unit, setUnit] = useState(variant.unit);
   const [price, setPrice] = useState(String(variant.price));
   const [stock, setStock] = useState(String(variant.stock));
+  const [barcode, setBarcode] = useState(variant.barcode || "");
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
 
@@ -632,7 +705,7 @@ function EditVariantForm({ variant, onCancel, onSave }) {
     if (price === "" || isNaN(priceNum) || priceNum <= 0) { setFormError("Price ek valid number hona chahiye, 0 se zyada."); return; }
     if (stock === "" || isNaN(stockNum) || stockNum < 0) { setFormError("Stock ek valid number hona chahiye (0 ya usse zyada)."); return; }
     setSaving(true);
-    await onSave({ label, unit, price: priceNum, stock: stockNum });
+    await onSave({ label, unit, price: priceNum, stock: stockNum, barcode: barcode.trim() || null });
     setSaving(false);
   };
 
@@ -645,6 +718,7 @@ function EditVariantForm({ variant, onCancel, onSave }) {
           <div style={{ flex: 1 }}><Field label="Price (₹)" value={price} onChange={(v) => setPrice(v.replace(/[^\d.]/g, ""))} /></div>
           <div style={{ flex: 1 }}><Field label="Stock" value={stock} onChange={(v) => setStock(v.replace(/\D/g, ""))} /></div>
         </div>
+        <Field label="Barcode (optional)" value={barcode} onChange={setBarcode} placeholder="jaise 8901234567890" />
       </div>
       {formError && <div style={{ color: "#B3261E", fontSize: "11px", marginTop: "6px" }}>{formError}</div>}
       <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
@@ -657,11 +731,12 @@ function EditVariantForm({ variant, onCancel, onSave }) {
   );
 }
 
-function NewVariantForm({ onCancel, onSave }) {
+function NewVariantForm({ onCancel, onSave, prefillBarcode }) {
   const [label, setLabel] = useState("");
   const [unit, setUnit] = useState("kg");
   const [price, setPrice] = useState("");
   const [stock, setStock] = useState("0");
+  const [barcode, setBarcode] = useState(prefillBarcode || "");
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
   const valid = label.trim() && unit.trim() && price;
@@ -673,12 +748,17 @@ function NewVariantForm({ onCancel, onSave }) {
     if (price === "" || isNaN(priceNum) || priceNum <= 0) { setFormError("Price ek valid number hona chahiye, 0 se zyada."); return; }
     if (stock !== "" && (isNaN(stockNum) || stockNum < 0)) { setFormError("Stock ek valid number hona chahiye (0 ya usse zyada)."); return; }
     setSaving(true);
-    await onSave({ label, unit, price: priceNum, stock: stock === "" ? 0 : stockNum });
+    await onSave({ label, unit, price: priceNum, stock: stock === "" ? 0 : stockNum, barcode: barcode.trim() || null });
     setSaving(false);
   };
 
   return (
     <div style={{ background: "white", border: "1px solid #1B4332", borderRadius: "8px", padding: "10px", marginTop: "8px" }}>
+      {prefillBarcode && (
+        <div style={{ fontSize: "11px", color: "#1B4332", fontWeight: 600, marginBottom: "8px", background: "#E7F0EA", padding: "6px 9px", borderRadius: "6px" }}>
+          ✓ Scan kiya hua barcode ({prefillBarcode}) is variant mein daal diya gaya hai
+        </div>
+      )}
       <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
         <Field label="Naam/Brand" value={label} onChange={setLabel} placeholder="jaise Normal, Premium, 1kg" />
         <div style={{ display: "flex", gap: "6px" }}>
@@ -686,6 +766,7 @@ function NewVariantForm({ onCancel, onSave }) {
           <div style={{ flex: 1 }}><Field label="Price (₹)" value={price} onChange={(v) => setPrice(v.replace(/[^\d.]/g, ""))} /></div>
           <div style={{ flex: 1 }}><Field label="Stock" value={stock} onChange={(v) => setStock(v.replace(/\D/g, ""))} /></div>
         </div>
+        <Field label="Barcode (optional)" value={barcode} onChange={setBarcode} placeholder="jaise 8901234567890" />
       </div>
       {formError && <div style={{ color: "#B3261E", fontSize: "11px", marginTop: "6px" }}>{formError}</div>}
       <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>

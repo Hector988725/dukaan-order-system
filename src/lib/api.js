@@ -289,20 +289,20 @@ export async function deleteProduct(productId) {
 }
 
 // ---- Variant CRUD ----
-export async function createVariant(productId, { label, unit, price, stock }) {
+export async function createVariant(productId, { label, unit, price, stock, barcode }) {
   const { data, error } = await supabase
     .from("variants")
-    .insert({ product_id: productId, label, unit, price, stock: stock || 0 })
+    .insert({ product_id: productId, label, unit, price, stock: stock || 0, barcode: barcode || null })
     .select()
     .single();
   if (error) throw error;
   return data;
 }
 
-export async function updateVariant(variantId, { label, unit, price, stock }) {
+export async function updateVariant(variantId, { label, unit, price, stock, barcode }) {
   const { error } = await supabase
     .from("variants")
-    .update({ label, unit, price, stock })
+    .update({ label, unit, price, stock, barcode: barcode || null })
     .eq("id", variantId);
   if (error) throw error;
 }
@@ -410,6 +410,68 @@ export async function upsertCustomerDetails(storeId, { phone, name, address, lan
       { onConflict: "store_id,phone" }
     );
   if (error) throw error;
+}
+
+// ============================================================
+// BARCODE — sirf apni dukaan ke products mein dhoondhta hai
+// ============================================================
+export async function findVariantByBarcode(storeId, barcode) {
+  const { data, error } = await supabase.rpc("find_variant_by_barcode", { p_store_id: storeId, p_barcode: barcode });
+  if (error) throw error;
+  const row = Array.isArray(data) ? data[0] : data;
+  return row || null;
+}
+
+// ============================================================
+// CSV BULK UPLOAD — existing createProduct/createVariant hi reuse
+// karta hai (ek-ek row ke liye), taaki wahi validation/behavior chale
+// jo manual add mein hai. Har row ka result (success/fail) return karta
+// hai taaki UI mein dikhaya ja sake ki kaunsi lines fail hui.
+//
+// Expected CSV rows (grouped by product_name+category — same product
+// ki multiple rows alag-alag variants ban jaati hain):
+// product_name, category, variant_label, unit, price, stock, description, barcode
+// ============================================================
+export async function bulkImportProducts(storeId, rows) {
+  const results = [];
+  // Same product (name+category match) ki rows ek saath group karte
+  // hain, taaki ek hi product multiple variants ke saath bane, alag-alag
+  // duplicate products na ban jaayein.
+  const productGroups = new Map();
+  rows.forEach((row, idx) => {
+    const key = `${row.product_name.trim().toLowerCase()}|||${row.category.trim().toLowerCase()}`;
+    if (!productGroups.has(key)) productGroups.set(key, { row, variantRows: [] });
+    productGroups.get(key).variantRows.push({ ...row, _rowIndex: idx });
+  });
+
+  for (const { row, variantRows } of productGroups.values()) {
+    try {
+      const product = await createProduct(storeId, {
+        name: row.product_name.trim(),
+        category: row.category.trim(),
+        description: row.description || null,
+        emoji: row.emoji || "📦",
+        sort_order: 0,
+      });
+      for (const vr of variantRows) {
+        try {
+          await createVariant(product.id, {
+            label: vr.variant_label?.trim() || "Standard",
+            unit: vr.unit?.trim() || "piece",
+            price: Number(vr.price),
+            stock: Number(vr.stock) || 0,
+            barcode: vr.barcode?.trim() || null,
+          });
+          results.push({ rowIndex: vr._rowIndex, success: true, product: row.product_name });
+        } catch (vErr) {
+          results.push({ rowIndex: vr._rowIndex, success: false, product: row.product_name, error: vErr.message });
+        }
+      }
+    } catch (pErr) {
+      variantRows.forEach((vr) => results.push({ rowIndex: vr._rowIndex, success: false, product: row.product_name, error: pErr.message }));
+    }
+  }
+  return results;
 }
 
 // ============================================================
