@@ -351,6 +351,7 @@ export async function createOrder(orderPayload) {
     p_status: orderPayload.status,
     p_items: orderPayload.items,
     p_total: orderPayload.total,
+    p_order_type: orderPayload.order_type || "Delivery",
   });
   if (error) {
     // Function ke andar se aane wale friendly error messages ko clean
@@ -409,6 +410,66 @@ export async function upsertCustomerDetails(storeId, { phone, name, address, lan
       { onConflict: "store_id,phone" }
     );
   if (error) throw error;
+}
+
+// ============================================================
+// DELIVERY BOYS — dukaandar apna delivery staff khud manage karta hai
+// (hum delivery boy provide nahi karte, sirf management tool dete hain)
+// ============================================================
+export async function fetchDeliveryBoys(storeId) {
+  const { data, error } = await supabase
+    .from("delivery_boys")
+    .select("*")
+    .eq("store_id", storeId)
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function createDeliveryBoy(storeId, { name, phone, photo_url }) {
+  const { data, error } = await supabase
+    .from("delivery_boys")
+    .insert({ store_id: storeId, name, phone, photo_url: photo_url || null })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function updateDeliveryBoy(id, { name, phone, photo_url }) {
+  const { error } = await supabase.from("delivery_boys").update({ name, phone, photo_url }).eq("id", id);
+  if (error) throw error;
+}
+
+export async function toggleDeliveryBoyActive(id, isActive) {
+  const { error } = await supabase.from("delivery_boys").update({ is_active: isActive }).eq("id", id);
+  if (error) throw error;
+}
+
+export async function deleteDeliveryBoy(id) {
+  const { error } = await supabase.from("delivery_boys").delete().eq("id", id);
+  if (error) throw error;
+}
+
+// Order par delivery boy assign karna — order status ko touch nahi
+// karta, sirf delivery_boy_id set karta hai. Dukaandar isके baad
+// alag se "Out for Delivery" status pe advance karega.
+export async function assignDeliveryBoy(orderId, deliveryBoyId) {
+  const { error } = await supabase.from("orders").update({ delivery_boy_id: deliveryBoyId }).eq("id", orderId);
+  if (error) throw error;
+}
+
+// ============================================================
+// ORDER TRACKING — customer login ke bina, sirf order_number se apna
+// order dekh sake. `orders` table ki RLS (owner-only select) bilkul
+// nahi badli — yeh security-definer RPC sirf tracking-relevant fields
+// deta hai jab exact order_number match ho.
+// ============================================================
+export async function fetchOrderTracking(storeId, orderNumber) {
+  const { data, error } = await supabase.rpc("get_order_tracking", { p_store_id: storeId, p_order_number: orderNumber });
+  if (error) throw error;
+  const row = Array.isArray(data) ? data[0] : data;
+  return row || null;
 }
 
 // ============================================================

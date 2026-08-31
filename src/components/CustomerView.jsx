@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Search, ChevronRight, X, Check, MessageCircle, Plus, Minus, Trash2, Loader2, Star, LayoutGrid } from "lucide-react";
 import { createOrder, fetchCustomerByPhone, upsertCustomerDetails } from "../lib/api";
 import { getTheme, getShoppingMode } from "../lib/theme";
+import { OrderTrackingModal } from "./OrderTracking";
 
 const PENDING_UPI_KEY = "dukaan_pending_upi_checkout";
 
@@ -130,9 +131,10 @@ export default function CustomerView({ store, products, onOrderPlaced }) {
         order_number: orderNumber,
         customer_name: form.name,
         customer_phone: form.phone,
-        address: form.address,
+        address: form.orderType === "Pickup" ? (form.address || null) : form.address,
         landmark: form.landmark || null,
-        pincode: form.pincode,
+        pincode: form.orderType === "Pickup" ? (form.pincode || null) : form.pincode,
+        order_type: form.orderType || "Delivery",
         payment_method: isUpi ? "UPI" : "COD",
         // Payment Status: COD ka matlab paisa delivery ke time milega (kabhi
         // pending nahi hota). UPI ka matlab customer ne pay kiya dawa kiya
@@ -369,7 +371,7 @@ export default function CustomerView({ store, products, onOrderPlaced }) {
       )}
 
       {orderPlaced && (
-        <OrderConfirmedModal order={orderPlaced} storeName={store.name} whatsapp={store.whatsapp_number} theme={theme} onClose={() => setOrderPlaced(null)} />
+        <OrderConfirmedModal order={orderPlaced} storeName={store.name} whatsapp={store.whatsapp_number} theme={theme} store={store} onClose={() => setOrderPlaced(null)} />
       )}
     </div>
   );
@@ -545,6 +547,7 @@ function CartDrawer({ cartItems, cartTotal, onClose, onRemove, onCheckout }) {
 
 function CheckoutModal({ store, cartTotal, submitting, resumeData, cart, onClose, onSubmit }) {
   const theme = getTheme(store.business_type);
+  const [orderType, setOrderType] = useState(resumeData?.orderType || "Delivery");
   const [name, setName] = useState(resumeData?.name || "");
   const [phone, setPhone] = useState(resumeData?.phone || "");
   const [address, setAddress] = useState(resumeData?.address || "");
@@ -593,7 +596,8 @@ function CheckoutModal({ store, cartTotal, submitting, resumeData, cart, onClose
   // customer pehle hi UPI app khol chuka tha, isliye gate already khula
   // rakhte hain.
   const [upiOpened, setUpiOpened] = useState(!!resumeData);
-  const valid = name.trim() && phone.trim().length >= 10 && address.trim() && pincode.trim().length === 6;
+  const isDeliveryType = orderType === "Delivery";
+  const valid = name.trim() && phone.trim().length >= 10 && (!isDeliveryType || (address.trim() && pincode.trim().length === 6));
 
   const upiId = store?.upi_id || "";
   const upiLink = upiId
@@ -617,7 +621,7 @@ function CheckoutModal({ store, cartTotal, submitting, resumeData, cart, onClose
       sessionStorage.setItem(PENDING_UPI_KEY, JSON.stringify({
         storeId: store.id,
         cart,
-        form: { name, phone, address, landmark, pincode, payment: "UPI" },
+        form: { orderType, name, phone, address, landmark, pincode, payment: "UPI" },
       }));
     } catch {}
   };
@@ -637,7 +641,7 @@ function CheckoutModal({ store, cartTotal, submitting, resumeData, cart, onClose
         sessionStorage.setItem(PENDING_UPI_KEY, JSON.stringify({
           storeId: store.id,
           cart,
-          form: { name, phone, address, landmark, pincode, payment: "UPI" },
+          form: { orderType, name, phone, address, landmark, pincode, payment: "UPI" },
         }));
       } catch {}
       return;
@@ -653,6 +657,20 @@ function CheckoutModal({ store, cartTotal, submitting, resumeData, cart, onClose
           <button onClick={handleCloseClick} style={closeBtnStyle}><X size={18} /></button>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+          {/* Order Type — Pickup ya Delivery. Yeh sabse pehle poochte hain
+              kyunki isी se decide hota hai neeche address zaroori hai ya nahi. */}
+          <div>
+            <div style={{ fontSize: "11.5px", fontWeight: 600, color: "#5C5747", marginBottom: "6px" }}>Order Kaise Chahiye?</div>
+            <div style={{ display: "flex", gap: "8px" }}>
+              <button onClick={() => setOrderType("Delivery")} style={{ flex: 1, padding: "10px 0", borderRadius: "9px", border: orderType === "Delivery" ? `1.5px solid ${theme.primary}` : "1px solid #E3DECF", background: orderType === "Delivery" ? "#E7F0EA" : "white", color: orderType === "Delivery" ? theme.primary : "#5C5747", fontWeight: 700, fontSize: "12.5px", cursor: "pointer" }}>
+                🛵 Home Delivery
+              </button>
+              <button onClick={() => setOrderType("Pickup")} style={{ flex: 1, padding: "10px 0", borderRadius: "9px", border: orderType === "Pickup" ? `1.5px solid ${theme.primary}` : "1px solid #E3DECF", background: orderType === "Pickup" ? "#E7F0EA" : "white", color: orderType === "Pickup" ? theme.primary : "#5C5747", fontWeight: 700, fontSize: "12.5px", cursor: "pointer" }}>
+                🏪 Dukaan se Khud Lena Hai
+              </button>
+            </div>
+          </div>
+
           <Field label="Mobile Number" value={phone} onChange={(v) => setPhone(v.replace(/\D/g, "").slice(0, 10))} placeholder="10 digit number" type="tel" />
           {lookupStatus === "checking" && (
             <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "11.5px", color: "#8B8576", marginTop: "-4px" }}>
@@ -665,11 +683,20 @@ function CheckoutModal({ store, cartTotal, submitting, resumeData, cart, onClose
             </div>
           )}
           <Field label="Aapka Naam" value={name} onChange={setName} placeholder="jaise Ramesh Yadav" />
-          <Field label="Ghar/Gali ka Pata" value={address} onChange={setAddress} placeholder="Makaan number, gali, mohalla" textarea />
-          <div style={{ display: "flex", gap: "8px" }}>
-            <div style={{ flex: 1.4 }}><Field label="Landmark (optional)" value={landmark} onChange={setLandmark} placeholder="jaise Shiv Mandir ke paas" /></div>
-            <div style={{ flex: 1 }}><Field label="Pin Code" value={pincode} onChange={(v) => setPincode(v.replace(/\D/g, "").slice(0, 6))} placeholder="471606" type="tel" /></div>
-          </div>
+          {isDeliveryType && (
+            <>
+              <Field label="Ghar/Gali ka Pata" value={address} onChange={setAddress} placeholder="Makaan number, gali, mohalla" textarea />
+              <div style={{ display: "flex", gap: "8px" }}>
+                <div style={{ flex: 1.4 }}><Field label="Landmark (optional)" value={landmark} onChange={setLandmark} placeholder="jaise Shiv Mandir ke paas" /></div>
+                <div style={{ flex: 1 }}><Field label="Pin Code" value={pincode} onChange={(v) => setPincode(v.replace(/\D/g, "").slice(0, 6))} placeholder="471606" type="tel" /></div>
+              </div>
+            </>
+          )}
+          {!isDeliveryType && (
+            <div style={{ background: "#F7F5F0", borderRadius: "9px", padding: "10px 12px", fontSize: "11.5px", color: "#5C5747" }}>
+              🏪 Aap dukaan pe jaakar apna order khud le jaayenge — koi address ki zaroorat nahi.
+            </div>
+          )}
 
           {payment === "UPI" && upiOpened ? (
             // Confirmation mode: customer "UPI se Pay Karein" pe tap kar chuka hai
@@ -727,7 +754,7 @@ function CheckoutModal({ store, cartTotal, submitting, resumeData, cart, onClose
 
           <button
             disabled={!valid || submitting || (payment === "UPI" && (!upiId || !upiOpened))}
-            onClick={() => onSubmit({ name, phone, address, landmark, pincode, payment })}
+            onClick={() => onSubmit({ orderType, name, phone, address, landmark, pincode, payment })}
             className="ddemo-btn"
             style={{ width: "100%", background: valid && !submitting && (payment !== "UPI" || upiOpened) ? theme.primary : "#D8D2BF", color: "white", fontWeight: 800, fontSize: "14px", border: "none", borderRadius: "10px", padding: "13px 0", cursor: valid && !submitting && (payment !== "UPI" || upiOpened) ? "pointer" : "not-allowed" }}
           >
@@ -752,8 +779,9 @@ function Field({ label, value, onChange, placeholder, type = "text", textarea })
   );
 }
 
-function OrderConfirmedModal({ order, storeName, whatsapp, theme, onClose }) {
+function OrderConfirmedModal({ order, storeName, whatsapp, theme, onClose, store }) {
   const waText = encodeURIComponent(`Namaste! Maine order ${order.order_number} place kiya hai (₹${order.total}). Kripya confirm karein.`);
+  const [showTracking, setShowTracking] = useState(false);
   // Confetti particles ka ek fixed set — random hone ki zaroorat nahi,
   // yeh sirf ek baar (order place hote hi) chalta hai, isliye deterministic
   // hone se render predictable rehta hai.
@@ -790,7 +818,7 @@ function OrderConfirmedModal({ order, storeName, whatsapp, theme, onClose }) {
         <div style={{ fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: "17px", marginBottom: "6px" }}>Order Place Ho Gaya!</div>
         <div style={{ fontSize: "12.5px", color: "#5C5747", marginBottom: "16px" }}>Order ID: <b>{order.order_number}</b></div>
 
-        <a href={`https://wa.me/${whatsapp}?text=${waText}`} target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", gap: "10px", textAlign: "left", marginBottom: "14px", background: "#F7F5F0", borderRadius: "10px", padding: "12px", textDecoration: "none" }}>
+        <a href={`https://wa.me/${whatsapp}?text=${waText}`} target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", gap: "10px", textAlign: "left", marginBottom: "10px", background: "#F7F5F0", borderRadius: "10px", padding: "12px", textDecoration: "none" }}>
           <div style={{ width: 30, height: 30, borderRadius: "50%", background: "#25D366", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
             <MessageCircle size={16} color="white" />
           </div>
@@ -799,10 +827,20 @@ function OrderConfirmedModal({ order, storeName, whatsapp, theme, onClose }) {
           </div>
         </a>
 
+        {store && (
+          <button onClick={() => setShowTracking(true)} className="ddemo-btn" style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", background: "white", border: `1.5px solid ${theme?.primary || "#1B4332"}`, color: theme?.primary || "#1B4332", fontWeight: 700, fontSize: "12.5px", borderRadius: "9px", padding: "10px 0", cursor: "pointer", marginBottom: "10px" }}>
+            📦 Apna Order Track Karein
+          </button>
+        )}
+
         <button onClick={onClose} className="ddemo-btn" style={{ width: "100%", background: theme?.primary || "#1B4332", color: "white", fontWeight: 700, fontSize: "13.5px", border: "none", borderRadius: "9px", padding: "11px 0", cursor: "pointer" }}>
           Theek Hai
         </button>
       </div>
+
+      {showTracking && store && (
+        <OrderTrackingModal store={store} initialOrderNumber={order.order_number} onClose={() => setShowTracking(false)} />
+      )}
     </div>
   );
 }

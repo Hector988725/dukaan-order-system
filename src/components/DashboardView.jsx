@@ -1,17 +1,40 @@
 import React, { useState } from "react";
 import { TrendingUp, Bell, Package, Receipt, MessageCircle, AlertCircle, Minus, Plus } from "lucide-react";
-import { updateOrderStatus, updatePaymentStatus, updateVariantStock } from "../lib/api";
+import { updateOrderStatus, updatePaymentStatus, updateVariantStock, assignDeliveryBoy } from "../lib/api";
 
-// Order Status flow (5 stages): New → Accepted → Preparing → Out for Delivery → Delivered
+// Order Status flow (extend hui hai — existing column/values nahi badle,
+// bas ek naya intermediate "Ready" status add kiya hai):
+// New → Accepted → Preparing (UI mein "Packing" dikhta hai) → Ready →
+//   Delivery order: Ready → (delivery boy assign) → Out for Delivery → Delivered
+//   Pickup order:   Ready → Delivered (customer khud dukaan se le gaya)
 const statusMeta = {
   New: { label: "Naya Order", color: "#B3261E", bg: "#FDECEA" },
   Accepted: { label: "Accepted", color: "#9A6B00", bg: "#FFF4DB" },
-  Preparing: { label: "Taiyar ho raha hai", color: "#9A6B00", bg: "#FFF4DB" },
+  Preparing: { label: "Packing", color: "#9A6B00", bg: "#FFF4DB" },
+  Ready: { label: "Ready", color: "#1B4332", bg: "#E7F0EA" },
   "Out for Delivery": { label: "Out for Delivery", color: "#1B4332", bg: "#E7F0EA" },
   Delivered: { label: "Delivered", color: "#1B4332", bg: "#E7F0EA" },
 };
-const nextStatus = { New: "Accepted", Accepted: "Preparing", Preparing: "Out for Delivery", "Out for Delivery": "Delivered", Delivered: null };
-const nextLabel = { New: "Order Accept karein", Accepted: "Taiyar karna shuru karein", Preparing: "Out for Delivery Mark karein", "Out for Delivery": "Delivered Mark karein", Delivered: null };
+
+// Order-type ke hisaab se next status aur uska label alag hota hai —
+// isliye ab yeh function hai, plain object nahi.
+function getNextStatus(order) {
+  const isPickup = order.order_type === "Pickup";
+  const map = { New: "Accepted", Accepted: "Preparing", Preparing: "Ready", Ready: isPickup ? "Delivered" : "Out for Delivery", "Out for Delivery": "Delivered", Delivered: null };
+  return map[order.status] ?? null;
+}
+function getNextLabel(order) {
+  const isPickup = order.order_type === "Pickup";
+  const map = {
+    New: "Order Accept karein",
+    Accepted: "Packing Shuru Karein",
+    Preparing: "Ready Mark Karein",
+    Ready: isPickup ? "Pickup Ho Gaya — Mark Karein" : "Out for Delivery Mark Karein",
+    "Out for Delivery": "Delivered Mark Karein",
+    Delivered: null,
+  };
+  return map[order.status] ?? null;
+}
 
 // Payment Status badge colors (payment_status order_status se alag track hota hai)
 const paymentStatusMeta = {
@@ -20,7 +43,7 @@ const paymentStatusMeta = {
   "Payment Confirmed": { color: "#1B4332", bg: "#E7F0EA" },
 };
 
-export default function DashboardView({ store, products, orders, onRefresh }) {
+export default function DashboardView({ store, products, orders, deliveryBoys, onRefresh }) {
   const [tab, setTab] = useState("orders");
   const todaysSales = orders.filter((o) => o.status === "Delivered").reduce((s, o) => s + Number(o.total), 0);
   const allVariants = products.flatMap((p) => p.variants);
@@ -29,13 +52,29 @@ export default function DashboardView({ store, products, orders, onRefresh }) {
   const newOrderCount = orders.filter((o) => o.status === "New").length;
 
   const handleAdvance = async (order) => {
-    const next = nextStatus[order.status];
+    const next = getNextStatus(order);
     if (!next) return;
+    // Delivery order ko "Out for Delivery" mark karne se pehle delivery
+    // boy assign hona zaroori hai — warna customer ko pata hi nahi
+    // chalega kaun saaman le kar aa raha hai.
+    if (order.status === "Ready" && order.order_type !== "Pickup" && !order.delivery_boy_id) {
+      alert("Pehle Delivery Boy assign karein, phir 'Out for Delivery' mark karein.");
+      return;
+    }
     try {
       await updateOrderStatus(order.id, next);
       onRefresh();
     } catch (e) {
       alert("Status update nahi ho paaya: " + e.message);
+    }
+  };
+
+  const handleAssignDeliveryBoy = async (order, deliveryBoyId) => {
+    try {
+      await assignDeliveryBoy(order.id, deliveryBoyId || null);
+      onRefresh();
+    } catch (e) {
+      alert("Delivery boy assign nahi ho paaya: " + e.message);
     }
   };
 
@@ -87,7 +126,14 @@ export default function DashboardView({ store, products, orders, onRefresh }) {
           <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
             {orders.length === 0 && <EmptyState text="Abhi koi order nahi aaya hai." />}
             {orders.map((o) => (
-              <OrderCard key={o.id} order={o} onAdvance={() => handleAdvance(o)} onPaymentConfirm={() => handlePaymentConfirm(o)} />
+              <OrderCard
+                key={o.id}
+                order={o}
+                deliveryBoys={deliveryBoys || []}
+                onAdvance={() => handleAdvance(o)}
+                onPaymentConfirm={() => handlePaymentConfirm(o)}
+                onAssignDeliveryBoy={(id) => handleAssignDeliveryBoy(o, id)}
+              />
             ))}
           </div>
         ) : (
@@ -126,12 +172,19 @@ function StatCard({ icon, label, value, highlight }) {
   );
 }
 
-function OrderCard({ order, onAdvance, onPaymentConfirm }) {
+function OrderCard({ order, deliveryBoys, onAdvance, onPaymentConfirm, onAssignDeliveryBoy }) {
   const meta = statusMeta[order.status] || statusMeta.New;
   const payMeta = paymentStatusMeta[order.payment_status] || paymentStatusMeta["Cash on Delivery"];
   const needsPaymentVerification = order.payment_method === "UPI" && order.payment_status === "Pending Verification";
+  const isPickup = order.order_type === "Pickup";
+  const nextLabel = getNextLabel(order);
 
   const isNew = order.status === "New";
+
+  // Delivery order jab "Ready" ho jaaye, tabhi delivery boy assign karne
+  // ka option dikhta hai (Pickup orders ko delivery boy ki zaroorat nahi).
+  const showAssignDeliveryBoy = !isPickup && order.status === "Ready";
+  const assignedBoy = order.delivery_boy_id ? (deliveryBoys || []).find((b) => b.id === order.delivery_boy_id) : null;
 
   return (
     <div className="ddemo-card" style={{
@@ -156,14 +209,41 @@ function OrderCard({ order, onAdvance, onPaymentConfirm }) {
         ))}
       </div>
 
-      <div style={{ fontSize: "11.5px", color: "#8B8576", marginBottom: "10px" }}>
-        📍 {order.address}{order.landmark ? ` (${order.landmark})` : ""} – {order.pincode}
+      {/* Pickup/Delivery badge — customer ne checkout par jo chuna tha */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "6px" }}>
+        <InfoPill label="Type" value={isPickup ? "Pickup se Milega" : "Delivery"} color={isPickup ? "#9A6B00" : "#1B4332"} bg={isPickup ? "#FFF4DB" : "#E7F0EA"} />
+        {assignedBoy && <InfoPill label="Delivery Boy" value={assignedBoy.name} color="#1B4332" bg="#E7F0EA" />}
       </div>
+
+      {!isPickup && (
+        <div style={{ fontSize: "11.5px", color: "#8B8576", marginBottom: "10px" }}>
+          📍 {order.address}{order.landmark ? ` (${order.landmark})` : ""} – {order.pincode}
+        </div>
+      )}
 
       {/* Payment mode + status ek pill mein combine, Order Status upar badge mein already dikh raha hai — dohrana nahi */}
       <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "12px" }}>
         <InfoPill label={order.payment_method} value={order.payment_status} color={payMeta.color} bg={payMeta.bg} />
       </div>
+
+      {showAssignDeliveryBoy && (
+        <div style={{ marginBottom: "10px" }}>
+          <div style={{ fontSize: "11px", fontWeight: 700, color: "#5C5747", marginBottom: "5px" }}>Delivery Boy Assign Karein</div>
+          <select
+            value={order.delivery_boy_id || ""}
+            onChange={(e) => onAssignDeliveryBoy(e.target.value || null)}
+            style={{ width: "100%", border: "1px solid #E3DECF", borderRadius: "8px", padding: "9px 10px", fontSize: "12.5px", fontFamily: "inherit", background: "white" }}
+          >
+            <option value="">— Chunein —</option>
+            {(deliveryBoys || []).filter((b) => b.is_active).map((b) => (
+              <option key={b.id} value={b.id}>{b.name} ({b.phone})</option>
+            ))}
+          </select>
+          {(deliveryBoys || []).filter((b) => b.is_active).length === 0 && (
+            <div style={{ fontSize: "10.5px", color: "#B3261E", marginTop: "4px" }}>Koi active delivery boy nahi hai — Admin → Delivery Staff mein add karein.</div>
+          )}
+        </div>
+      )}
 
       <div style={{ display: "flex", gap: "8px" }}>
         <a href={`https://wa.me/91${order.customer_phone}`} target="_blank" rel="noreferrer" className="ddemo-btn" style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", border: "1.5px solid #25D366", color: "#178C42", textDecoration: "none", fontSize: "12.5px", fontWeight: 700, borderRadius: "9px", padding: "10px 0" }}>
@@ -173,9 +253,9 @@ function OrderCard({ order, onAdvance, onPaymentConfirm }) {
           <button onClick={onPaymentConfirm} className="ddemo-btn" style={{ flex: 1.5, background: "#9A6B00", color: "white", border: "none", fontSize: "12.5px", fontWeight: 700, borderRadius: "9px", padding: "10px 0", cursor: "pointer" }}>
             Payment Confirm Karein
           </button>
-        ) : nextLabel[order.status] ? (
+        ) : nextLabel ? (
           <button onClick={onAdvance} className="ddemo-btn" style={{ flex: 1.5, background: "#1B4332", color: "white", border: "none", fontSize: "12.5px", fontWeight: 700, borderRadius: "9px", padding: "10px 0", cursor: "pointer" }}>
-            {nextLabel[order.status]}
+            {nextLabel}
           </button>
         ) : null}
       </div>

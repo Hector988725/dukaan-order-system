@@ -1,11 +1,12 @@
 import React, { useState, useRef } from "react";
-import { Settings, Package, Plus, Trash2, Edit2, X, Check, ChevronDown, ChevronUp, Save, Upload, Image, CreditCard, AlertCircle, Store, Star, ArrowUp, ArrowDown } from "lucide-react";
+import { Settings, Package, Plus, Trash2, Edit2, X, Check, ChevronDown, ChevronUp, Save, Upload, Image, CreditCard, AlertCircle, Store, Star, ArrowUp, ArrowDown, Bike } from "lucide-react";
 import {
   updateStoreSettings,
   createProduct, updateProduct, deleteProduct, updateProductFeatured, updateProductOrder,
   createVariant, updateVariant, deleteVariant,
   uploadProductImage, deactivateStore,
 } from "../lib/api";
+import DeliveryBoyManager from "./DeliveryBoyManager";
 
 export default function AdminPanel({ store, products, onRefresh }) {
   return <AdminContent store={store} products={products} onRefresh={onRefresh} />;
@@ -16,6 +17,7 @@ function AdminContent({ store, products, onRefresh }) {
 
   const tabs = [
     { id: "products", label: "Products", icon: <Package size={14} /> },
+    { id: "delivery", label: "Delivery Staff", icon: <Bike size={14} /> },
     { id: "settings", label: "Store Settings", icon: <Settings size={14} /> },
     { id: "subscription", label: "Subscription", icon: <CreditCard size={14} /> },
   ];
@@ -37,6 +39,7 @@ function AdminContent({ store, products, onRefresh }) {
       </div>
 
       {tab === "products" && <ProductManager store={store} products={products} onRefresh={onRefresh} />}
+      {tab === "delivery" && <DeliveryBoyManager store={store} />}
       {tab === "settings" && <StoreSettingsForm store={store} onRefresh={onRefresh} />}
       {tab === "subscription" && <SubscriptionPanel store={store} onRefresh={onRefresh} />}
     </div>

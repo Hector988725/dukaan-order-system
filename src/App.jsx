@@ -8,6 +8,7 @@ const BUSINESS_ICONS = { Store, Pill, Wrench, Smartphone, Shirt, BookOpen, Cake,
 import { getSlugFromUrl, isSupabaseConfigured } from "./lib/supabase";
 import {
   fetchStoreBySlug, fetchStoreByUserId, fetchProducts, fetchOrders,
+  fetchDeliveryBoys,
   subscribeToOrders, onAuthChange, signOut,
 } from "./lib/api";
 import CustomerView from "./components/CustomerView";
@@ -15,6 +16,7 @@ import DashboardView from "./components/DashboardView";
 import AdminPanel from "./components/AdminPanel";
 import KhataPanel from "./components/KhataPanel";
 import CustomerKhataButton from "./components/CustomerKhata";
+import OrderTrackingButton from "./components/OrderTracking";
 import { AuthGate, StoreDetailsForm, ResetPasswordScreen } from "./components/AuthGate";
 import RazorpaySubscription from "./components/RazorpaySubscription";
 import SuperAdminApp from "./superadmin/SuperAdminApp";
@@ -145,6 +147,7 @@ function OwnerArea() {
   const [store, setStore] = useState(null);
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
+  const [deliveryBoys, setDeliveryBoys] = useState([]);
   const [view, setView] = useState("dashboard");
   const [loadingStore, setLoadingStore] = useState(false);
   const authSettledRef = React.useRef(false);
@@ -168,12 +171,14 @@ function OwnerArea() {
       const storeData = await fetchStoreByUserId(user.id);
       setStore(storeData);
       if (storeData) {
-        const [productsData, ordersData] = await Promise.all([
+        const [productsData, ordersData, deliveryBoysData] = await Promise.all([
           fetchProducts(storeData.id),
           fetchOrders(storeData.id),
+          fetchDeliveryBoys(storeData.id),
         ]);
         setProducts(productsData);
         setOrders(ordersData);
+        setDeliveryBoys(deliveryBoysData);
       }
     } catch (e) {
       console.error(e);
@@ -310,7 +315,7 @@ function OwnerArea() {
         </a>
       </div>
 
-      {view === "dashboard" && <DashboardView store={store} products={products} orders={orders} onRefresh={silentRefresh} />}
+      {view === "dashboard" && <DashboardView store={store} products={products} orders={orders} deliveryBoys={deliveryBoys} onRefresh={silentRefresh} />}
       {view === "khata" && <div style={{ padding: "16px 0 40px" }}><KhataPanel store={store} /></div>}
       {view === "admin" && <AdminPanel store={store} products={products} onRefresh={silentRefresh} />}
     </div>
@@ -332,6 +337,7 @@ function StoreHeader({ store }) {
     }}>
       <StoreHeaderBrand store={store} />
       <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+        <OrderTrackingButton store={store} />
         <CustomerKhataButton store={store} />
         {/* Business-type ka permanent symbol — hamesha yahan, right corner
             mein, chhote badge ki tarah dikhta hai (jaise Medical ka "+").
