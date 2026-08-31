@@ -412,6 +412,57 @@ export async function upsertCustomerDetails(storeId, { phone, name, address, lan
 }
 
 // ============================================================
+// KHATA / UDHAARI — dukaandar aur customer dono ko SAME record
+// dikhta hai (ek hi ledger table, RPC ke through dono taraf se read).
+// ============================================================
+
+// Dukaandar ka poora khata overview — jin customers ka balance 0 nahi
+// hai unki list, sabse zyada due wale upar (dashboard "Khata" tab ke liye).
+export async function fetchStoreKhataOverview(storeId) {
+  const { data, error } = await supabase.rpc("get_store_khata_overview", { p_store_id: storeId });
+  if (error) throw error;
+  return data || [];
+}
+
+// Ek customer ki poori transaction history (dukaandar customer-detail view ke liye)
+export async function fetchCustomerKhataHistory(customerId) {
+  const { data, error } = await supabase.rpc("get_customer_khata_history", { p_customer_id: customerId });
+  if (error) throw error;
+  return data || [];
+}
+
+// Naya "walk-in" customer banao sirf Khata ke liye (kabhi online order
+// nahi kiya) — agar isi phone se record pehle se hai (online order ya
+// pehle se khata), wahi return hota hai, duplicate nahi banta.
+export async function createKhataCustomer(storeId, phone, name) {
+  const { data, error } = await supabase.rpc("create_khata_customer", { p_store_id: storeId, p_phone: phone, p_name: name });
+  if (error) throw error;
+  return data; // customer id
+}
+
+// Naya udhaar (debit) ya payment-received (credit) entry — atomic RPC,
+// balance aur transaction dono ek hi operation mein update hote hain
+// (jaise stock+order atomic hai place_order mein), isliye kabhi
+// out-of-sync nahi ho sakte.
+export async function addKhataTransaction(storeId, customerId, type, amount, description) {
+  const { data, error } = await supabase.rpc("add_khata_transaction", {
+    p_store_id: storeId, p_customer_id: customerId, p_type: type, p_amount: amount, p_description: description || null,
+  });
+  if (error) throw error;
+  return Array.isArray(data) ? data[0] : data;
+}
+
+// Customer apna khata dekhe — guest, sirf phone-number se (login nahi
+// hai), read-only. Yehi RPC dukaandar wali same table se read karta
+// hai, isliye dono taraf hamesha ek jaisa balance/history dikhta hai.
+export async function fetchMyKhata(storeId, phone) {
+  const { data, error } = await supabase.rpc("get_my_khata", { p_store_id: storeId, p_phone: phone });
+  if (error) throw error;
+  const row = Array.isArray(data) ? data[0] : data;
+  return row || { khata_balance: 0, transactions: [] };
+}
+
+// ============================================================
 // REALTIME - jab naya order aaye, dukaandar ko turant pata chal jaye
 // ============================================================
 export function subscribeToOrders(storeId, onNewOrder) {

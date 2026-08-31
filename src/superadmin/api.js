@@ -1,281 +1,101 @@
-import { supabase } from "./supabase";
+import { supabase } from "../lib/supabase";
 
 // ============================================================
-// AUTH
+// SUPER ADMIN AUTH CHECK
 // ============================================================
-export async function signUp(email, password) {
-  const { data, error } = await supabase.auth.signUp({ email, password });
-  if (error) throw error;
-  return data;
-}
-
-export async function signIn(email, password) {
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) throw error;
-  return data;
-}
-
-export async function signOut() {
-  const { error } = await supabase.auth.signOut();
-  if (error) throw error;
-}
-
-export async function getCurrentUser() {
-  const { data, error } = await supabase.auth.getUser();
-  if (error) return null;
-  return data.user;
-}
-
-export function onAuthChange(callback) {
-  const { data } = supabase.auth.onAuthStateChange((event, session) => {
-    callback(session?.user || null, event);
-  });
-  return () => data.subscription.unsubscribe();
-}
-
-// Forgot-password flow: email pe ek reset-link bhejta hai. Link click
-// karne par Supabase khud user ko wapas isi site pe laata hai ek
-// special "PASSWORD_RECOVERY" auth-event ke saath, jo App.jsx sunta hai.
-export async function resetPasswordForEmail(email) {
-  const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: window.location.origin,
-  });
-  if (error) throw error;
-}
-
-// Reset-link click karne ke baad naya password set karne ke liye.
-export async function updatePassword(newPassword) {
-  const { error } = await supabase.auth.updateUser({ password: newPassword });
-  if (error) throw error;
-}
-
-// ============================================================
-// STORE
-// ============================================================
-export async function fetchStoreBySlug(slug) {
-  const { data, error } = await supabase
-    .from("stores")
-    .select("*")
-    .eq("slug", slug)
-    .single();
-  if (error) throw error;
-  // Subscription check: agar expire ho gayi toh inactive mark karo
-  if (data && data.subscription_expires_at && new Date(data.subscription_expires_at) < new Date()) {
-    // Auto-deactivate (background mein)
-    supabase.from("stores").update({ is_active: false }).eq("id", data.id);
-    return { ...data, is_active: false };
-  }
-  return data;
-}
-
-export async function fetchStoreByUserId(userId) {
-  const { data, error } = await supabase
-    .from("stores")
-    .select("*")
-    .eq("user_id", userId)
+export async function checkIsSuperAdmin(email) {
+  if (!email) return false;
+  const { data } = await supabase
+    .from("super_admins")
+    .select("id")
+    .eq("email", email)
     .maybeSingle();
-  if (error) throw error;
-  return data;
-}
-
-export async function checkSlugAvailable(slug) {
-  const { data, error } = await supabase.rpc("is_slug_available", { check_slug: slug });
-  if (error) throw error;
-  return data;
-}
-
-const FOUNDING_MEMBER_LIMIT = 20;
-const FOUNDING_PRICE = 99;
-const REGULAR_PRICE = 199;
-
-export async function createStore(userId, { slug, name, business_type, whatsapp_number, upi_id, address }) {
-  // Pehli 20 dukaano ko founding-member price (₹99/month, hamesha ke
-  // liye lock) milta hai — yeh signup ke waqt hi decide ho jaata hai
-  // total existing (real) stores count karke, aur permanently store ho
-  // jaata hai. `is_test_store=true` wali dukaane (jaise owner ki apni
-  // testing ke liye banayi hui stores) is count mein shamil NAHI hoti —
-  // isliye asli 20 slots hamesha sirf real customers ke liye reserved
-  // rehte hain, chahe kitni bhi test stores bani ho.
-  const { count, error: countError } = await supabase
-    .from("stores")
-    .select("id", { count: "exact", head: true })
-    .or("is_test_store.is.null,is_test_store.eq.false");
-  if (countError) throw countError;
-
-  const isFoundingMember = (count || 0) < FOUNDING_MEMBER_LIMIT;
-
-  const { data, error } = await supabase
-    .from("stores")
-    .insert({
-      user_id: userId, slug, name, business_type, whatsapp_number, upi_id, address,
-      founding_member: isFoundingMember,
-      subscription_base_price: isFoundingMember ? FOUNDING_PRICE : REGULAR_PRICE,
-      // Koi free trial nahi — signup hote hi store inactive rehta hai,
-      // dashboard turant payment screen dikhata hai. Pehle yahan koi
-      // is_active/subscription_expires_at nahi diya jaata tha, isliye
-      // table ka default (30-din free trial) apply ho jaata tha —
-      // ab explicitly override kar rahe hain taaki payment mandatory ho.
-      is_active: false,
-      subscription_expires_at: null,
-    })
-    .select()
-    .single();
-  if (error) throw error;
-  return data;
+  return !!data;
 }
 
 // ============================================================
-// PRODUCTS + VARIANTS
+// DASHBOARD STATS
 // ============================================================
-export async function fetchProducts(storeId) {
+export async function fetchDashboardStats() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const [storesRes, ordersRes, paymentsRes, newTodayRes] = await Promise.all([
+    supabase.from("stores").select("id, is_active, subscription_expires_at, created_at"),
+    supabase.from("orders").select("id, total, status"),
+    supabase.from("payment_logs").select("id, amount, status"),
+    supabase.from("stores").select("id").gte("created_at", today.toISOString()),
+  ]);
+
+  const stores = storesRes.data || [];
+  const orders = ordersRes.data || [];
+  const payments = paymentsRes.data || [];
+  const newToday = newTodayRes.data || [];
+
+  const now = new Date();
+  const activeStores = stores.filter(s =>
+    s.is_active &&
+    s.subscription_expires_at &&
+    new Date(s.subscription_expires_at) > now
+  );
+  const expiredStores = stores.filter(s =>
+    !s.is_active ||
+    !s.subscription_expires_at ||
+    new Date(s.subscription_expires_at) <= now
+  );
+
+  const totalRevenue = payments
+    .filter(p => p.status === "paid")
+    .reduce((sum, p) => sum + Number(p.amount), 0);
+
+  return {
+    totalStores: stores.length,
+    activeStores: activeStores.length,
+    expiredStores: expiredStores.length,
+    totalOrders: orders.length,
+    totalRevenue,
+    newStoresToday: newToday.length,
+  };
+}
+
+// ============================================================
+// STORES MANAGEMENT
+// ============================================================
+export async function fetchAllStoresAdmin() {
+  // Security note: yeh direct view-select nahi karta (view auth.users
+  // ke saath join karke owner emails leak kar sakta tha) — ek
+  // security-definer RPC use karta hai jo sirf super admin ko hi data
+  // deta hai, poori tarah verify karke.
+  const { data, error } = await supabase.rpc("get_admin_stores");
+  if (error) {
+    console.warn("get_admin_stores RPC fail hua, fallback try kar rahe hain:", error);
+    const { data: basic } = await supabase.from("stores").select("*").order("created_at", { ascending: false });
+    return basic || [];
+  }
+  return data || [];
+}
+
+export async function fetchStoreOrders(storeId) {
   const { data, error } = await supabase
-    .from("products")
-    .select("*, variants(*)")
+    .from("orders")
+    .select("*")
     .eq("store_id", storeId)
-    .order("sort_order", { ascending: true });
+    .order("created_at", { ascending: false });
   if (error) throw error;
-  return data;
+  return data || [];
 }
 
-export async function updateVariantStock(variantId, newStock) {
-  const { error } = await supabase
-    .from("variants")
-    .update({ stock: newStock })
-    .eq("id", variantId);
-  if (error) throw error;
-}
-
-// ---- Product CRUD ----
-export async function createProduct(storeId, { name, category, emoji, image_url, image_urls, description, sort_order }) {
-  const photos = image_urls && image_urls.length > 0 ? image_urls : (image_url ? [image_url] : []);
-  const { data, error } = await supabase
-    .from("products")
-    .insert({
-      store_id: storeId, name, category, emoji: emoji || "📦",
-      image_url: photos[0] || null, image_urls: photos, description: description || null,
-      sort_order: sort_order || 0,
-    })
-    .select()
-    .single();
-  if (error) throw error;
-  return data;
-}
-
-export async function updateProduct(productId, { name, category, emoji, image_url, image_urls, description }) {
-  const photos = image_urls && image_urls.length > 0 ? image_urls : (image_url ? [image_url] : []);
-  const { error } = await supabase
-    .from("products")
-    .update({ name, category, emoji, image_url: photos[0] || null, image_urls: photos, description: description || null })
-    .eq("id", productId);
-  if (error) throw error;
-}
-
-// Yeh 2 functions jaan-bujh kar chhote/alag rakhe gaye hain — upar wala
-// updateProduct() poora record overwrite karta hai (name/category/emoji
-// bhi), isliye usse reuse karne par featured-toggle ya reorder karte waqt
-// galti se doosri fields corrupt ho sakti thi.
-export async function updateProductFeatured(productId, featured) {
-  const { error } = await supabase.from("products").update({ featured }).eq("id", productId);
-  if (error) throw error;
-}
-
-export async function updateProductOrder(productId, sortOrder) {
-  const { error } = await supabase.from("products").update({ sort_order: sortOrder }).eq("id", productId);
-  if (error) throw error;
-}
-
-// ---- Image Upload ----
-// Har dukaan ka fixed storage quota hai (default 5GB) — isse zyada
-// upload nahi hone diya jaata, taaki platform ka storage-cost
-// unpredictable na badhe. Upload se pehle available space check
-// karta hai, aur success ke baad `storage_used_bytes` badhata hai.
-export async function uploadProductImage(file, storeId) {
-  const { data: store, error: storeErr } = await supabase
-    .from("stores")
-    .select("storage_used_bytes, storage_limit_bytes")
-    .eq("id", storeId)
-    .single();
-  if (storeErr) throw storeErr;
-
-  const used = store.storage_used_bytes || 0;
-  const limit = store.storage_limit_bytes || 5 * 1024 * 1024 * 1024;
-  if (used + file.size > limit) {
-    const usedGB = (used / (1024 * 1024 * 1024)).toFixed(2);
-    const limitGB = (limit / (1024 * 1024 * 1024)).toFixed(0);
-    throw new Error(`Aapki dukaan ka storage space (${limitGB}GB) bhar chuka hai (${usedGB}GB use ho chuka hai). Purani photos hata kar jagah banayein, ya zyada space ke liye humse sampark karein.`);
-  }
-
-  const ext = file.name.split(".").pop();
-  const fileName = `${storeId}/${Date.now()}.${ext}`;
-  const { data, error } = await supabase.storage
-    .from("product-images")
-    .upload(fileName, file, { cacheControl: "3600", upsert: false });
-  if (error) throw error;
-
-  // Best-effort: usage counter badha dete hain. Agar yeh fail bhi ho
-  // jaaye, photo already upload ho chuki hai, isliye user ko error
-  // nahi dikhate — sirf quota tracking thodi si off ho sakti hai.
-  try {
-    await supabase.from("stores").update({ storage_used_bytes: used + file.size }).eq("id", storeId);
-  } catch (trackErr) {
-    console.warn("Storage usage track nahi ho paayi:", trackErr);
-  }
-
-  const { data: urlData } = supabase.storage.from("product-images").getPublicUrl(fileName);
-  return urlData.publicUrl;
-}
-
-// Store settings screen mein storage usage dikhane ke liye
-export async function fetchStorageUsage(storeId) {
-  const { data, error } = await supabase
-    .from("stores")
-    .select("storage_used_bytes, storage_limit_bytes")
-    .eq("id", storeId)
-    .single();
-  if (error) throw error;
-  return data;
-}
-
-// ---- Subscription Management ----
-export async function fetchSubscriptionStatus(storeId) {
-  const { data, error } = await supabase
-    .from("stores")
-    .select("is_active, subscription_expires_at, subscription_plan")
-    .eq("id", storeId)
-    .single();
-  if (error) throw error;
-  return data;
-}
-
-export async function renewSubscription(storeId, months = 1) {
-  // Subscription renew karna - current date se months add karo
-  const { data: current } = await supabase
-    .from("stores")
-    .select("subscription_expires_at")
-    .eq("id", storeId)
-    .single();
-
-  const currentExpiry = current?.subscription_expires_at
-    ? new Date(current.subscription_expires_at)
-    : new Date();
-
-  // Agar already expire ho gayi toh aaj se calculate karo
-  const baseDate = currentExpiry > new Date() ? currentExpiry : new Date();
-  const newExpiry = new Date(baseDate);
-  newExpiry.setMonth(newExpiry.getMonth() + months);
-
+export async function adminActivateStore(storeId) {
+  const expiry = new Date();
+  expiry.setMonth(expiry.getMonth() + 1);
   const { error } = await supabase
     .from("stores")
-    .update({
-      is_active: true,
-      subscription_expires_at: newExpiry.toISOString(),
-    })
+    .update({ is_active: true, subscription_expires_at: expiry.toISOString() })
     .eq("id", storeId);
   if (error) throw error;
-  return newExpiry;
 }
 
-export async function deactivateStore(storeId) {
+export async function adminDeactivateStore(storeId) {
   const { error } = await supabase
     .from("stores")
     .update({ is_active: false })
@@ -283,242 +103,143 @@ export async function deactivateStore(storeId) {
   if (error) throw error;
 }
 
-export async function deleteProduct(productId) {
-  const { error } = await supabase.from("products").delete().eq("id", productId);
-  if (error) throw error;
-}
-
-// ---- Variant CRUD ----
-export async function createVariant(productId, { label, unit, price, stock }) {
-  const { data, error } = await supabase
-    .from("variants")
-    .insert({ product_id: productId, label, unit, price, stock: stock || 0 })
-    .select()
-    .single();
-  if (error) throw error;
-  return data;
-}
-
-export async function updateVariant(variantId, { label, unit, price, stock }) {
-  const { error } = await supabase
-    .from("variants")
-    .update({ label, unit, price, stock })
-    .eq("id", variantId);
-  if (error) throw error;
-}
-
-export async function deleteVariant(variantId) {
-  const { error } = await supabase.from("variants").delete().eq("id", variantId);
-  if (error) throw error;
-}
-
-// ---- Store Settings ----
-export async function updateStoreSettings(storeId, { name, whatsapp_number, upi_id, address, logo_url, tagline, timings }) {
-  const { error } = await supabase
+export async function adminExtendSubscription(storeId, months) {
+  const { data: store } = await supabase
     .from("stores")
-    .update({ name, whatsapp_number, upi_id, address, logo_url, tagline, timings })
-    .eq("id", storeId);
-  if (error) throw error;
-}
+    .select("subscription_expires_at")
+    .eq("id", storeId)
+    .single();
 
-// ============================================================
-// ORDERS
-// ============================================================
-export async function fetchOrders(storeId) {
-  const { data, error } = await supabase
-    .from("orders")
-    .select("*")
-    .eq("store_id", storeId)
-    .order("created_at", { ascending: false });
-  if (error) throw error;
-  return data;
-}
+  const base = store?.subscription_expires_at && new Date(store.subscription_expires_at) > new Date()
+    ? new Date(store.subscription_expires_at)
+    : new Date();
 
-// Order place karta hai AUR stock atomically kam karta hai (ek hi
-// database transaction mein) — isse overselling kabhi nahi hoti,
-// chahe 2 customers same second mein last item order karein.
-export async function createOrder(orderPayload) {
-  const { data, error } = await supabase.rpc("place_order", {
-    p_store_id: orderPayload.store_id,
-    p_order_number: orderPayload.order_number,
-    p_customer_name: orderPayload.customer_name,
-    p_customer_phone: orderPayload.customer_phone,
-    p_address: orderPayload.address,
-    p_landmark: orderPayload.landmark,
-    p_pincode: orderPayload.pincode,
-    p_payment_method: orderPayload.payment_method,
-    p_payment_status: orderPayload.payment_status,
-    p_status: orderPayload.status,
-    p_items: orderPayload.items,
-    p_total: orderPayload.total,
-  });
-  if (error) {
-    // Function ke andar se aane wale friendly error messages ko clean
-    // karke dikhate hain (Postgres inhe "STOCK_UNAVAILABLE: ..." jaise
-    // prefix ke saath deta hai).
-    const msg = error.message || "";
-    if (msg.includes("STOCK_UNAVAILABLE:")) throw new Error(msg.split("STOCK_UNAVAILABLE:")[1].trim());
-    if (msg.includes("VARIANT_MISSING:")) throw new Error(msg.split("VARIANT_MISSING:")[1].trim());
-    throw error;
-  }
-  return Array.isArray(data) ? data[0] : data;
-}
-
-export async function updateOrderStatus(orderId, status) {
-  const { error } = await supabase
-    .from("orders")
-    .update({ status })
-    .eq("id", orderId);
-  if (error) throw error;
-}
-
-// Sirf payment_status update karta hai (order_status ko touch nahi karta) —
-// dukaandar apne UPI app mein payment manually verify karke ye call karta hai.
-export async function updatePaymentStatus(orderId, paymentStatus) {
-  const { error } = await supabase
-    .from("orders")
-    .update({ payment_status: paymentStatus })
-    .eq("id", orderId);
-  if (error) throw error;
-}
-
-// ============================================================
-// CUSTOMERS — Guest checkout ke liye saved delivery details
-// (phone-number ke basis par, koi login/password nahi)
-// ============================================================
-
-// Store ke andar diye gaye phone number se pichli saved details dhoondhta hai.
-// Agar koi match nahi mila to null return karta hai (naya customer maana jaata hai).
-// Security note: yeh direct table select nahi karta (RLS se poori
-// table expose ho sakti thi) — ek security-definer RPC use karta hai
-// jo sirf EXACT phone-match wala ek record deta hai, kuch aur nahi.
-export async function fetchCustomerByPhone(storeId, phone) {
-  const { data, error } = await supabase.rpc("get_customer_by_phone", { p_store_id: storeId, p_phone: phone });
-  if (error) throw error;
-  return data && data.length > 0 ? data[0] : null;
-}
-
-// Order place hone ke baad customer ki details save/update karta hai
-// (store_id + phone par unique, isliye dobara order karne par naya
-// duplicate record nahi banta, existing record hi update ho jaata hai).
-export async function upsertCustomerDetails(storeId, { phone, name, address, landmark, pincode }) {
-  const { error } = await supabase
-    .from("customers")
-    .upsert(
-      { store_id: storeId, phone, name, address, landmark: landmark || null, pincode, updated_at: new Date().toISOString() },
-      { onConflict: "store_id,phone" }
-    );
-  if (error) throw error;
-}
-
-// ============================================================
-// KHATA / UDHAARI — dukaandar aur customer dono ko SAME record
-// dikhta hai (ek hi ledger table, RPC ke through dono taraf se read).
-// ============================================================
-
-// Dukaandar ka poora khata overview — jin customers ka balance 0 nahi
-// hai unki list, sabse zyada due wale upar (dashboard "Khata" tab ke liye).
-export async function fetchStoreKhataOverview(storeId) {
-  const { data, error } = await supabase.rpc("get_store_khata_overview", { p_store_id: storeId });
-  if (error) throw error;
-  return data || [];
-}
-
-// Ek customer ki poori transaction history (dukaandar customer-detail view ke liye)
-export async function fetchCustomerKhataHistory(customerId) {
-  const { data, error } = await supabase.rpc("get_customer_khata_history", { p_customer_id: customerId });
-  if (error) throw error;
-  return data || [];
-}
-
-// Naya "walk-in" customer banao sirf Khata ke liye (kabhi online order
-// nahi kiya) — agar isi phone se record pehle se hai (online order ya
-// pehle se khata), wahi return hota hai, duplicate nahi banta.
-export async function createKhataCustomer(storeId, phone, name) {
-  const { data, error } = await supabase.rpc("create_khata_customer", { p_store_id: storeId, p_phone: phone, p_name: name });
-  if (error) throw error;
-  return data; // customer id
-}
-
-// Naya udhaar (debit) ya payment-received (credit) entry — atomic RPC,
-// balance aur transaction dono ek hi operation mein update hote hain
-// (jaise stock+order atomic hai place_order mein), isliye kabhi
-// out-of-sync nahi ho sakte.
-export async function addKhataTransaction(storeId, customerId, type, amount, description) {
-  const { data, error } = await supabase.rpc("add_khata_transaction", {
-    p_store_id: storeId, p_customer_id: customerId, p_type: type, p_amount: amount, p_description: description || null,
-  });
-  if (error) throw error;
-  return Array.isArray(data) ? data[0] : data;
-}
-
-// Customer apna khata dekhe — guest, sirf phone-number se (login nahi
-// hai), read-only. Yehi RPC dukaandar wali same table se read karta
-// hai, isliye dono taraf hamesha ek jaisa balance/history dikhta hai.
-export async function fetchMyKhata(storeId, phone) {
-  const { data, error } = await supabase.rpc("get_my_khata", { p_store_id: storeId, p_phone: phone });
-  if (error) throw error;
-  const row = Array.isArray(data) ? data[0] : data;
-  return row || { khata_balance: 0, transactions: [] };
-}
-
-// ============================================================
-// REALTIME - jab naya order aaye, dukaandar ko turant pata chal jaye
-// ============================================================
-export function subscribeToOrders(storeId, onNewOrder) {
-  const channel = supabase
-    .channel("orders-realtime")
-    .on(
-      "postgres_changes",
-      { event: "INSERT", schema: "public", table: "orders", filter: `store_id=eq.${storeId}` },
-      (payload) => onNewOrder(payload.new)
-    )
-    .subscribe();
-
-  return () => supabase.removeChannel(channel);
-}
-
-// ============================================================
-// RAZORPAY SUBSCRIPTION
-// ============================================================
-export const RAZORPAY_KEY_ID = import.meta.env.VITE_RAZORPAY_KEY_ID || "";
-export const RAZORPAY_PLAN_ID = import.meta.env.VITE_RAZORPAY_PLAN_ID || "plan_T8uv8ubtqXG0JD";
-
-// Razorpay script load karna
-export function loadRazorpayScript() {
-  return new Promise((resolve) => {
-    if (window.Razorpay) { resolve(true); return; }
-    const script = document.createElement("script");
-    script.src = "https://checkout.razorpay.com/v1/checkout.js";
-    script.onload = () => resolve(true);
-    script.onerror = () => resolve(false);
-    document.body.appendChild(script);
-  });
-}
-
-// Subscription activate karna after payment
-export async function activateSubscription(storeId, razorpaySubscriptionId, months = 1) {
-  const newExpiry = new Date();
+  const newExpiry = new Date(base);
   newExpiry.setMonth(newExpiry.getMonth() + months);
 
   const { error } = await supabase
     .from("stores")
-    .update({
-      is_active: true,
-      subscription_expires_at: newExpiry.toISOString(),
-      razorpay_subscription_id: razorpaySubscriptionId || null,
-    })
+    .update({ is_active: true, subscription_expires_at: newExpiry.toISOString() })
     .eq("id", storeId);
   if (error) throw error;
   return newExpiry;
 }
 
-// Super admin ke liye - sab stores ki list
-export async function fetchAllStores() {
-  const { data, error } = await supabase
+export async function adminDeleteStore(storeId) {
+  const { error } = await supabase
     .from("stores")
-    .select("id, slug, name, is_active, subscription_expires_at, whatsapp_number, created_at")
-    .order("created_at", { ascending: false });
+    .delete()
+    .eq("id", storeId);
   if (error) throw error;
-  return data;
+}
+
+// ============================================================
+// ALL ORDERS (for monitoring)
+// ============================================================
+export async function fetchAllOrdersAdmin(storeId = null) {
+  let query = supabase
+    .from("orders")
+    .select("*, stores(name, slug)")
+    .order("created_at", { ascending: false })
+    .limit(200);
+
+  if (storeId) query = query.eq("store_id", storeId);
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return data || [];
+}
+
+// ============================================================
+// PAYMENTS
+// ============================================================
+export async function fetchAllPaymentsAdmin() {
+  const { data, error } = await supabase
+    .from("payment_logs")
+    .select("*, stores(name, slug)")
+    .order("created_at", { ascending: false })
+    .limit(200);
+  if (error) throw error;
+  return data || [];
+}
+
+// ============================================================
+// SUBSCRIPTION PLANS
+// ============================================================
+export async function fetchSubscriptionPlans() {
+  const { data } = await supabase
+    .from("subscription_plans")
+    .select("*")
+    .order("sort_order");
+  return data || [];
+}
+
+export async function updateSubscriptionPlan(id, updates) {
+  const { error } = await supabase
+    .from("subscription_plans")
+    .update(updates)
+    .eq("id", id);
+  if (error) throw error;
+}
+
+export async function createSubscriptionPlan(plan) {
+  const { error } = await supabase
+    .from("subscription_plans")
+    .insert(plan);
+  if (error) throw error;
+}
+
+export async function deleteSubscriptionPlan(id) {
+  const { error } = await supabase
+    .from("subscription_plans")
+    .delete()
+    .eq("id", id);
+  if (error) throw error;
+}
+
+// ============================================================
+// ANALYTICS - Daily data
+// ============================================================
+export async function fetchAnalytics() {
+  // Last 30 days registrations
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+  const { data: stores } = await supabase
+    .from("stores")
+    .select("created_at, is_active, subscription_expires_at")
+    .gte("created_at", thirtyDaysAgo.toISOString());
+
+  const { data: payments } = await supabase
+    .from("payment_logs")
+    .select("created_at, amount, status")
+    .eq("status", "paid")
+    .gte("created_at", thirtyDaysAgo.toISOString());
+
+  // Group by date
+  const dailyRegistrations = {};
+  const dailyRevenue = {};
+
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const key = d.toISOString().split("T")[0];
+    dailyRegistrations[key] = 0;
+    dailyRevenue[key] = 0;
+  }
+
+  (stores || []).forEach(s => {
+    const key = s.created_at.split("T")[0];
+    if (dailyRegistrations[key] !== undefined) dailyRegistrations[key]++;
+  });
+
+  (payments || []).forEach(p => {
+    const key = p.created_at.split("T")[0];
+    if (dailyRevenue[key] !== undefined) dailyRevenue[key] += Number(p.amount);
+  });
+
+  return {
+    dailyRegistrations: Object.entries(dailyRegistrations).map(([date, count]) => ({ date, count })),
+    dailyRevenue: Object.entries(dailyRevenue).map(([date, amount]) => ({ date, amount })),
+  };
 }
