@@ -1,6 +1,6 @@
-import React, { useState } from "react";
-import { TrendingUp, Bell, Package, Receipt, MessageCircle, AlertCircle, Minus, Plus } from "lucide-react";
-import { updateOrderStatus, updatePaymentStatus, updateVariantStock, assignDeliveryBoy } from "../lib/api";
+import React, { useState, useEffect } from "react";
+import { TrendingUp, Bell, Package, Receipt, MessageCircle, AlertCircle, Minus, Plus, BookText, X } from "lucide-react";
+import { updateOrderStatus, updatePaymentStatus, updateVariantStock, assignDeliveryBoy, fetchTodaysKhataCollection } from "../lib/api";
 
 // Order Status flow (extend hui hai — existing column/values nahi badle,
 // bas ek naya intermediate "Ready" status add kiya hai):
@@ -15,6 +15,10 @@ const statusMeta = {
   "Out for Delivery": { label: "Out for Delivery", color: "#1B4332", bg: "#E7F0EA" },
   Delivered: { label: "Delivered", color: "#1B4332", bg: "#E7F0EA" },
 };
+
+// Dashboard "Control Center" pipeline strip ke liye stage order —
+// Home screen par turant dikhta hai ki kis stage par kitne orders hain.
+const PIPELINE_STAGES = ["New", "Accepted", "Preparing", "Ready", "Out for Delivery", "Delivered"];
 
 // Order-type ke hisaab se next status aur uska label alag hota hai —
 // isliye ab yeh function hai, plain object nahi.
@@ -43,13 +47,38 @@ const paymentStatusMeta = {
   "Payment Confirmed": { color: "#1B4332", bg: "#E7F0EA" },
 };
 
+function isToday(dateStr) {
+  const d = new Date(dateStr);
+  const now = new Date();
+  return d.getDate() === now.getDate() && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+}
+
 export default function DashboardView({ store, products, orders, deliveryBoys, onRefresh }) {
   const [tab, setTab] = useState("orders");
-  const todaysSales = orders.filter((o) => o.status === "Delivered").reduce((s, o) => s + Number(o.total), 0);
+  const [statusFilter, setStatusFilter] = useState(null);
+  const [khataCollection, setKhataCollection] = useState(0);
+
+  // "Aaj ka Khata Collection" — orders refresh hote hi yeh bhi dobara
+  // fetch ho jaata hai (dono ek doosre se related hain, ek hi refresh
+  // cycle mein up-to-date rehte hain).
+  useEffect(() => {
+    fetchTodaysKhataCollection(store.id).then(setKhataCollection).catch(() => {});
+  }, [store.id, orders]);
+
+  const todaysOrders = orders.filter((o) => isToday(o.created_at));
+  // Sirf AAJ ke Delivered orders ki sale count hoti hai — pehle yeh
+  // galti se saare (kabhi bhi delivered) orders jod deta tha.
+  const todaysSales = todaysOrders.filter((o) => o.status === "Delivered").reduce((s, o) => s + Number(o.total), 0);
   const allVariants = products.flatMap((p) => p.variants);
   const lowStock = allVariants.filter((v) => v.stock > 0 && v.stock <= 10).length;
   const outOfStock = allVariants.filter((v) => v.stock === 0).length;
-  const newOrderCount = orders.filter((o) => o.status === "New").length;
+
+  const pipelineCounts = PIPELINE_STAGES.reduce((acc, s) => {
+    acc[s] = todaysOrders.filter((o) => o.status === s).length;
+    return acc;
+  }, {});
+
+  const visibleOrders = statusFilter ? orders.filter((o) => o.status === statusFilter) : orders;
 
   const handleAdvance = async (order) => {
     const next = getNextStatus(order);
@@ -101,11 +130,49 @@ export default function DashboardView({ store, products, orders, deliveryBoys, o
 
   return (
     <div style={{ maxWidth: "900px", margin: "0 auto" }}>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "10px", padding: "16px 18px 0" }}>
-        <StatCard icon={<TrendingUp size={16} />} label="Aaj ki Sale" value={`₹${todaysSales}`} />
-        <StatCard icon={<Bell size={16} />} label="Naye Orders" value={newOrderCount} highlight={newOrderCount > 0} />
-        <StatCard icon={<Package size={16} />} label="Kam Stock" value={lowStock + outOfStock} />
+      {/* Hero numbers — sabse zaroori 2 cheezein, sabse bada/prominent */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", padding: "16px 18px 0" }}>
+        <HeroCard icon={<TrendingUp size={18} />} label="Aaj ki Sale" value={`₹${todaysSales.toLocaleString("en-IN")}`} accent="#1B4332" />
+        <HeroCard icon={<BookText size={18} />} label="Aaj ka Khata Collection" value={`₹${khataCollection.toLocaleString("en-IN")}`} accent="#9A6B00" />
       </div>
+
+      {/* Order pipeline strip — "Control Center" ka core: ek nazar mein
+          pata chal jaaye har stage par kitne (AAJ ke) orders hain. Tap
+          karke us stage ke orders (sab dates ke) filter ho jaate hain
+          neeche ki list mein — dobara tap karke filter hat jaata hai. */}
+      <div style={{ padding: "12px 18px 0" }}>
+        <div style={{ fontSize: "11px", fontWeight: 700, color: "#8B8576", marginBottom: "6px", textTransform: "uppercase", letterSpacing: "0.03em" }}>Aaj ke Orders — Stage Se Dekhein</div>
+        <div style={{ display: "flex", gap: "8px", overflowX: "auto", paddingBottom: "4px" }}>
+          {PIPELINE_STAGES.map((stage) => {
+            const meta = statusMeta[stage];
+            const count = pipelineCounts[stage];
+            const active = statusFilter === stage;
+            return (
+              <button
+                key={stage}
+                onClick={() => setStatusFilter(active ? null : stage)}
+                className="ddemo-btn"
+                style={{
+                  flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: "2px",
+                  padding: "9px 14px", borderRadius: "11px", cursor: "pointer", minWidth: "72px",
+                  border: active ? `1.5px solid ${meta.color}` : "1px solid #E3DECF",
+                  background: active ? meta.bg : "white",
+                }}
+              >
+                <span style={{ fontSize: "17px", fontWeight: 800, color: meta.color, fontFamily: "'Fraunces', serif" }}>{count}</span>
+                <span style={{ fontSize: "10px", fontWeight: 600, color: "#5C5747", whiteSpace: "nowrap" }}>{meta.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {(lowStock + outOfStock) > 0 && (
+        <div style={{ margin: "12px 18px 0", background: "#FDECEA", border: "1px solid #F3C6C1", borderRadius: "10px", padding: "9px 13px", display: "flex", alignItems: "center", gap: "8px" }}>
+          <AlertCircle size={14} color="#B3261E" />
+          <span style={{ fontSize: "11.5px", color: "#B3261E", fontWeight: 600 }}>{lowStock + outOfStock} product{lowStock + outOfStock > 1 ? "s" : ""} ka stock kam/khatam hai — "Products & Stock" tab dekhein</span>
+        </div>
+      )}
 
       <div style={{ display: "flex", gap: "3px", padding: "16px 18px 0" }}>
         {[{ id: "orders", label: "Orders", icon: <Receipt size={14} /> }, { id: "products", label: "Products & Stock", icon: <Package size={14} /> }].map((t) => (
@@ -124,8 +191,16 @@ export default function DashboardView({ store, products, orders, deliveryBoys, o
       <div style={{ padding: "14px 18px 18px" }}>
         {tab === "orders" ? (
           <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-            {orders.length === 0 && <EmptyState text="Abhi koi order nahi aaya hai." />}
-            {orders.map((o) => (
+            {statusFilter && (
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#F0EEE6", borderRadius: "9px", padding: "8px 12px" }}>
+                <span style={{ fontSize: "11.5px", fontWeight: 600, color: "#5C5747" }}>Filter: <b>{statusMeta[statusFilter]?.label}</b> ({visibleOrders.length})</span>
+                <button onClick={() => setStatusFilter(null)} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#5C5747", display: "flex", alignItems: "center", gap: "3px", fontSize: "11px", fontWeight: 700 }}>
+                  <X size={12} /> Hatayein
+                </button>
+              </div>
+            )}
+            {visibleOrders.length === 0 && <EmptyState text={statusFilter ? "Is stage mein koi order nahi hai." : "Abhi koi order nahi aaya hai."} />}
+            {visibleOrders.map((o) => (
               <OrderCard
                 key={o.id}
                 order={o}
@@ -153,6 +228,22 @@ function EmptyState({ text }) {
     <div style={{ textAlign: "center", padding: "48px 20px", color: "#8B8576" }}>
       <div style={{ fontSize: "30px", marginBottom: "8px" }}>🧾</div>
       <div style={{ fontSize: "13px" }}>{text}</div>
+    </div>
+  );
+}
+
+function HeroCard({ icon, label, value, accent }) {
+  return (
+    <div className="ddemo-card" style={{ background: "white", border: "1px solid #E3DECF", borderRadius: "14px", padding: "16px 16px 14px", position: "relative", overflow: "hidden" }}>
+      <div style={{ position: "absolute", top: -14, right: -14, width: 60, height: 60, borderRadius: "50%", background: accent, opacity: 0.08 }} />
+      <div style={{
+        display: "flex", alignItems: "center", justifyContent: "center", width: "30px", height: "30px", borderRadius: "9px",
+        background: `${accent}18`, color: accent, marginBottom: "10px",
+      }}>
+        {icon}
+      </div>
+      <div style={{ fontSize: "10.5px", fontWeight: 700, color: "#8B8576", marginBottom: "3px" }}>{label}</div>
+      <div style={{ fontSize: "22px", fontWeight: 800, color: "#1A1A1A", fontFamily: "'Fraunces', serif" }}>{value}</div>
     </div>
   );
 }

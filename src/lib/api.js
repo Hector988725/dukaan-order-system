@@ -534,6 +534,13 @@ export async function fetchOrderTracking(storeId, orderNumber) {
   return row || null;
 }
 
+// Dashboard ke "Aaj ka Khata Collection" hero-number ke liye
+export async function fetchTodaysKhataCollection(storeId) {
+  const { data, error } = await supabase.rpc("get_todays_khata_collection", { p_store_id: storeId });
+  if (error) throw error;
+  return Number(data) || 0;
+}
+
 // ============================================================
 // KHATA / UDHAARI — dukaandar aur customer dono ko SAME record
 // dikhta hai (ek hi ledger table, RPC ke through dono taraf se read).

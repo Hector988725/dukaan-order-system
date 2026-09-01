@@ -276,7 +276,7 @@ function OwnerArea() {
     );
   }
 
-  const newOrderCount = orders.filter((o) => o.status === "new").length;
+  const newOrderCount = orders.filter((o) => o.status === "New").length;
   const silentRefresh = () => loadStoreData(true);
 
   return (
