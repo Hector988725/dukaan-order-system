@@ -1,5 +1,5 @@
 import React, { useState, useRef } from "react";
-import { Settings, Package, Plus, Trash2, Edit2, X, Check, ChevronDown, ChevronUp, Save, Upload, Image, CreditCard, AlertCircle, Store, Star, ArrowUp, ArrowDown, Bike, ScanLine, FileSpreadsheet } from "lucide-react";
+import { Settings, Package, Plus, Trash2, Edit2, X, Check, ChevronDown, ChevronUp, Save, Upload, Image, CreditCard, AlertCircle, Store, Star, ArrowUp, ArrowDown, Bike, FileSpreadsheet } from "lucide-react";
 import {
   updateStoreSettings,
   createProduct, updateProduct, deleteProduct, updateProductFeatured, updateProductOrder,
@@ -8,7 +8,6 @@ import {
 } from "../lib/api";
 import DeliveryBoyManager from "./DeliveryBoyManager";
 import CsvBulkUploadModal from "./CsvBulkUpload";
-import BarcodeScannerModal from "./BarcodeScanner";
 
 export default function AdminPanel({ store, products, onRefresh }) {
   return <AdminContent store={store} products={products} onRefresh={onRefresh} />;
@@ -251,10 +250,6 @@ function ProductManager({ store, products, onRefresh }) {
   const [expandedId, setExpandedId] = useState(null);
   const [reordering, setReordering] = useState(false);
   const [showCsvUpload, setShowCsvUpload] = useState(false);
-  const [showBarcodeScan, setShowBarcodeScan] = useState(false);
-  const [barcodeNotFoundPrefill, setBarcodeNotFoundPrefill] = useState(null);
-  const [autoOpenVariantFor, setAutoOpenVariantFor] = useState(null);
-  const [scanMessage, setScanMessage] = useState(null);
 
   // Do products ke sort_order swap karke unka display sequence badalta hai
   // (list already sort_order se sorted aati hai fetchProducts() se).
@@ -283,30 +278,11 @@ function ProductManager({ store, products, onRefresh }) {
     }
   };
 
-  // Barcode scan hone par: agar match mila to us product ko seedha expand
-  // kar dete hain (dukaandar edit kar sake, jaise stock badhana). Agar
-  // match nahi mila, "Naya Product" form khul jaata hai barcode field
-  // already bhara hua (naya variant save karte waqt use ho jaayega).
-  const handleBarcodeFound = (match) => {
-    setShowBarcodeScan(false);
-    setExpandedId(match.product_id);
-    setScanMessage({ type: "found", text: `"${match.product_name}" mil gaya — stock: ${match.variant_stock}` });
-    setTimeout(() => setScanMessage(null), 4000);
-  };
-  const handleBarcodeNotFound = (barcode) => {
-    setShowBarcodeScan(false);
-    setBarcodeNotFoundPrefill(barcode);
-    setAdding(true);
-  };
-
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px", flexWrap: "wrap", gap: "8px" }}>
         <div style={{ fontSize: "12px", color: "#8B8576" }}>{products.length} products · ⭐ ya ↑↓ se apni dukaan saja sakte hain</div>
         <div style={{ display: "flex", gap: "6px" }}>
-          <button onClick={() => setShowBarcodeScan(true)} className="ddemo-btn" style={{ display: "flex", alignItems: "center", gap: "5px", background: "white", border: "1px solid #1B4332", color: "#1B4332", borderRadius: "8px", padding: "8px 11px", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}>
-            <ScanLine size={13} /> Scan
-          </button>
           <button onClick={() => setShowCsvUpload(true)} className="ddemo-btn" style={{ display: "flex", alignItems: "center", gap: "5px", background: "white", border: "1px solid #1B4332", color: "#1B4332", borderRadius: "8px", padding: "8px 11px", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}>
             <FileSpreadsheet size={13} /> CSV
           </button>
@@ -316,29 +292,14 @@ function ProductManager({ store, products, onRefresh }) {
         </div>
       </div>
 
-      {scanMessage && (
-        <div style={{ background: "#E7F0EA", color: "#1B4332", borderRadius: "8px", padding: "9px 12px", fontSize: "12px", fontWeight: 600, marginBottom: "12px" }}>
-          ✓ {scanMessage.text}
-        </div>
-      )}
-
       {adding && (
         <NewProductForm
           storeId={store.id}
           businessType={store.business_type}
-          prefillBarcode={barcodeNotFoundPrefill}
-          onCancel={() => { setAdding(false); setBarcodeNotFoundPrefill(null); }}
+          onCancel={() => setAdding(false)}
           onSave={async (form) => {
-            const newProduct = await createProduct(store.id, { ...form, sort_order: products.length + 1 });
+            await createProduct(store.id, { ...form, sort_order: products.length + 1 });
             setAdding(false);
-            if (barcodeNotFoundPrefill) {
-              // Naya product ban gaya barcode-scan se — usko turant expand
-              // karke variant-add form khol dete hain, barcode already bhara
-              // hua, taaki dukaandar ko dobara scan/type na karna pade.
-              setExpandedId(newProduct.id);
-              setAutoOpenVariantFor({ productId: newProduct.id, barcode: barcodeNotFoundPrefill });
-            }
-            setBarcodeNotFoundPrefill(null);
             onRefresh();
           }}
         />
@@ -351,16 +312,6 @@ function ProductManager({ store, products, onRefresh }) {
           onDone={() => { setShowCsvUpload(false); onRefresh(); }}
         />
       )}
-
-      {showBarcodeScan && (
-        <BarcodeScannerModal
-          store={store}
-          onClose={() => setShowBarcodeScan(false)}
-          onFound={handleBarcodeFound}
-          onNotFound={handleBarcodeNotFound}
-        />
-      )}
-
 
       <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
         {products.map((p, idx) => (
@@ -375,8 +326,6 @@ function ProductManager({ store, products, onRefresh }) {
             onMoveUp={idx > 0 ? () => moveProduct(idx, -1) : null}
             onMoveDown={idx < products.length - 1 ? () => moveProduct(idx, 1) : null}
             reordering={reordering}
-            autoOpenVariantBarcode={autoOpenVariantFor?.productId === p.id ? autoOpenVariantFor.barcode : null}
-            onAutoOpenConsumed={() => setAutoOpenVariantFor(null)}
           />
         ))}
       </div>
@@ -538,9 +487,9 @@ function MultiImagePicker({ images, storeId, onChange }) {
 // ============================================================
 // PRODUCT ROW
 // ============================================================
-function ProductRow({ product, storeId, businessType, expanded, onToggle, onRefresh, onMoveUp, onMoveDown, reordering, autoOpenVariantBarcode, onAutoOpenConsumed }) {
+function ProductRow({ product, storeId, businessType, expanded, onToggle, onRefresh, onMoveUp, onMoveDown, reordering }) {
   const [editing, setEditing] = useState(false);
-  const [addingVariant, setAddingVariant] = useState(!!autoOpenVariantBarcode);
+  const [addingVariant, setAddingVariant] = useState(false);
   const [togglingFeatured, setTogglingFeatured] = useState(false);
 
   const handleDeleteProduct = async () => {
@@ -602,9 +551,8 @@ function ProductRow({ product, storeId, businessType, expanded, onToggle, onRefr
           ))}
           {addingVariant ? (
             <NewVariantForm
-              prefillBarcode={autoOpenVariantBarcode}
-              onCancel={() => { setAddingVariant(false); onAutoOpenConsumed?.(); }}
-              onSave={async (form) => { await createVariant(product.id, form); setAddingVariant(false); onAutoOpenConsumed?.(); onRefresh(); }}
+              onCancel={() => setAddingVariant(false)}
+              onSave={async (form) => { await createVariant(product.id, form); setAddingVariant(false); onRefresh(); }}
             />
           ) : (
             <button onClick={() => setAddingVariant(true)} className="ddemo-btn" style={{ display: "flex", alignItems: "center", gap: "6px", background: "white", border: "1px dashed #1B4332", color: "#1B4332", borderRadius: "8px", padding: "8px 12px", fontSize: "12px", fontWeight: 700, cursor: "pointer", marginTop: "6px" }}>
