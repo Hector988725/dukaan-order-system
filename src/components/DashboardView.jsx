@@ -53,7 +53,7 @@ function isToday(dateStr) {
   return d.getDate() === now.getDate() && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
 }
 
-export default function DashboardView({ store, products, orders, deliveryBoys, onRefresh }) {
+export default function DashboardView({ store, products, orders, deliveryBoys, hasMoreOrders, loadingMoreOrders, onLoadMoreOrders, onRefresh }) {
   const [tab, setTab] = useState("orders");
   const [statusFilter, setStatusFilter] = useState(null);
   const [khataCollection, setKhataCollection] = useState(0);
@@ -210,6 +210,21 @@ export default function DashboardView({ store, products, orders, deliveryBoys, o
                 onAssignDeliveryBoy={(id) => handleAssignDeliveryBoy(o, id)}
               />
             ))}
+            {/* Purane orders history mahino/saalon lambi ho sakti hai — sab
+                ek saath load karne ke bajaye, zaroorat padne par hi agli
+                50 laate hain (dashboard hamesha fast rehta hai). Filter
+                laga ho to yeh button nahi dikhta — filter sirf already
+                load ki hui orders par kaam karta hai. */}
+            {!statusFilter && hasMoreOrders && (
+              <button
+                onClick={onLoadMoreOrders}
+                disabled={loadingMoreOrders}
+                className="ddemo-btn"
+                style={{ width: "100%", background: "white", border: "1px solid #E3DECF", color: "#5C5747", borderRadius: "10px", padding: "11px 0", fontSize: "12.5px", fontWeight: 700, cursor: loadingMoreOrders ? "default" : "pointer" }}
+              >
+                {loadingMoreOrders ? "Load ho raha hai..." : "Purane Orders Dekhein"}
+              </button>
+            )}
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>

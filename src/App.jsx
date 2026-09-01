@@ -147,10 +147,13 @@ function OwnerArea() {
   const [store, setStore] = useState(null);
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
+  const [hasMoreOrders, setHasMoreOrders] = useState(false);
+  const [loadingMoreOrders, setLoadingMoreOrders] = useState(false);
   const [deliveryBoys, setDeliveryBoys] = useState([]);
   const [view, setView] = useState("dashboard");
   const [loadingStore, setLoadingStore] = useState(false);
   const authSettledRef = React.useRef(false);
+  const ORDERS_PAGE_SIZE = 50;
 
   useEffect(() => {
     // onAuthChange fire hota hai turant (current session ke saath) jab subscribe hota hai,
@@ -173,11 +176,12 @@ function OwnerArea() {
       if (storeData) {
         const [productsData, ordersData, deliveryBoysData] = await Promise.all([
           fetchProducts(storeData.id),
-          fetchOrders(storeData.id),
+          fetchOrders(storeData.id, { limit: ORDERS_PAGE_SIZE }),
           fetchDeliveryBoys(storeData.id),
         ]);
         setProducts(productsData);
         setOrders(ordersData);
+        setHasMoreOrders(ordersData.length === ORDERS_PAGE_SIZE);
         setDeliveryBoys(deliveryBoysData);
       }
     } catch (e) {
@@ -186,6 +190,24 @@ function OwnerArea() {
       if (!silent) setLoadingStore(false);
     }
   }, [user]);
+
+  // "Purane Orders Dekhein" — abhi jo sabse purana order list mein hai
+  // usse pehle wale 50 aur laata hai (cursor-based, offset-based nahi —
+  // isliye naye order aane par bhi duplicate/missing rows nahi aate).
+  const loadMoreOrders = useCallback(async () => {
+    if (!store || orders.length === 0) return;
+    setLoadingMoreOrders(true);
+    try {
+      const oldestCreatedAt = orders[orders.length - 1].created_at;
+      const more = await fetchOrders(store.id, { limit: ORDERS_PAGE_SIZE, before: oldestCreatedAt });
+      setOrders((prev) => [...prev, ...more]);
+      setHasMoreOrders(more.length === ORDERS_PAGE_SIZE);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingMoreOrders(false);
+    }
+  }, [store, orders]);
 
   useEffect(() => {
     if (user) loadStoreData();
@@ -315,7 +337,7 @@ function OwnerArea() {
         </a>
       </div>
 
-      {view === "dashboard" && <DashboardView store={store} products={products} orders={orders} deliveryBoys={deliveryBoys} onRefresh={silentRefresh} />}
+      {view === "dashboard" && <DashboardView store={store} products={products} orders={orders} deliveryBoys={deliveryBoys} hasMoreOrders={hasMoreOrders} loadingMoreOrders={loadingMoreOrders} onLoadMoreOrders={loadMoreOrders} onRefresh={silentRefresh} />}
       {view === "khata" && <div style={{ padding: "16px 0 40px" }}><KhataPanel store={store} /></div>}
       {view === "admin" && <AdminPanel store={store} products={products} onRefresh={silentRefresh} />}
     </div>

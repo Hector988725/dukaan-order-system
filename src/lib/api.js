@@ -324,12 +324,21 @@ export async function updateStoreSettings(storeId, { name, whatsapp_number, upi_
 // ============================================================
 // ORDERS
 // ============================================================
-export async function fetchOrders(storeId) {
-  const { data, error } = await supabase
+// Orders ki poori history kabhi ek saath load nahi karte — dukaan
+// mahino/saalon purani ho jaaye to yeh hazaron rows ek baar mein la
+// sakta tha, jisse dashboard dheere-dheere slow hota jaata. Ab default
+// 50 sabse naye orders aate hain, aur zaroorat par "Purane Orders"
+// button se agle 50 load hote hain (cursor-based: last order ke
+// created_at se pehle wale).
+export async function fetchOrders(storeId, { limit = 50, before = null } = {}) {
+  let query = supabase
     .from("orders")
     .select("*")
     .eq("store_id", storeId)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (before) query = query.lt("created_at", before);
+  const { data, error } = await query;
   if (error) throw error;
   return data;
 }
