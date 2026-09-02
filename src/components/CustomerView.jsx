@@ -185,13 +185,22 @@ export default function CustomerView({ store, products, onOrderPlaced }) {
       // agli baar isi phone number se order karne par khud-ba-khud bhar jaayein.
       // Yeh best-effort hai: agar kisi wajah se fail bhi ho jaaye, order place
       // ho chuka hai, isliye customer ko koi error nahi dikhate.
+      //
+      // BUG FIX: Pickup order mein address/pincode fields customer se
+      // maange hi nahi jaate (khaali rehte hain) — pehle yeh khaali values
+      // seedha save ho jaati thi, jisse agar customer ne pehle kabhi
+      // Delivery order kiya ho (address already saved), toh Pickup order
+      // karte hi uska saved address blank se overwrite ho jaata tha. Ab
+      // Pickup order ke waqt address/landmark/pincode ko bilkul touch
+      // nahi karte — jo pehle se saved hai wahi surakshit rehta hai.
       try {
+        const isPickupOrder = form.orderType === "Pickup";
         await upsertCustomerDetails(store.id, {
           phone: form.phone,
           name: form.name,
-          address: form.address,
-          landmark: form.landmark,
-          pincode: form.pincode,
+          address: isPickupOrder ? undefined : form.address,
+          landmark: isPickupOrder ? undefined : form.landmark,
+          pincode: isPickupOrder ? undefined : form.pincode,
         });
       } catch (saveErr) {
         console.warn("Customer details save nahi ho payi:", saveErr);

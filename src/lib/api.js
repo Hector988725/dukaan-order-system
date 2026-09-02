@@ -420,12 +420,16 @@ export async function fetchCustomerByPhone(storeId, phone) {
 // (store_id + phone par unique, isliye dobara order karne par naya
 // duplicate record nahi banta, existing record hi update ho jaata hai).
 export async function upsertCustomerDetails(storeId, { phone, name, address, landmark, pincode }) {
+  const payload = { store_id: storeId, phone, name, address, pincode, updated_at: new Date().toISOString() };
+  // undefined = is order-type mein yeh field maanga hi nahi gaya tha
+  // (jaise Pickup order mein landmark) — isse column ko bilkul touch
+  // nahi karte, jo pehle se saved hai wahi rehta hai. Explicit khaali
+  // string = customer ne Delivery order mein jaan-bujh kar landmark
+  // khaali chhoda — usse null store karte hain (jaisa pehle tha).
+  if (landmark !== undefined) payload.landmark = landmark || null;
   const { error } = await supabase
     .from("customers")
-    .upsert(
-      { store_id: storeId, phone, name, address, landmark: landmark || null, pincode, updated_at: new Date().toISOString() },
-      { onConflict: "store_id,phone" }
-    );
+    .upsert(payload, { onConflict: "store_id,phone" });
   if (error) throw error;
 }
 
