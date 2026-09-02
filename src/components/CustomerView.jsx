@@ -372,11 +372,11 @@ export default function CustomerView({ store, products, onOrderPlaced }) {
       </div>
 
       {variantPicker && (
-        <VariantPickerModal product={variantPicker} cart={cart} addToCart={addToCart} decFromCart={decFromCart} theme={theme} onClose={() => setVariantPicker(null)} triggerFlyToCart={triggerFlyToCart} />
+        <VariantPickerModal product={variantPicker} cart={cart} addToCart={addToCart} decFromCart={decFromCart} theme={theme} onClose={() => setVariantPicker(null)} triggerFlyToCart={triggerFlyToCart} cartCount={cartCount} cartTotal={cartTotal} onGoToCart={() => { setVariantPicker(null); setDetailProduct(null); setCartOpen(true); }} />
       )}
 
       {detailProduct && (
-        <ProductDetailModal product={detailProduct} cart={cart} addToCart={addToCart} decFromCart={decFromCart} theme={theme} onClose={() => setDetailProduct(null)} triggerFlyToCart={triggerFlyToCart} />
+        <ProductDetailModal product={detailProduct} cart={cart} addToCart={addToCart} decFromCart={decFromCart} theme={theme} onClose={() => setDetailProduct(null)} triggerFlyToCart={triggerFlyToCart} cartCount={cartCount} cartTotal={cartTotal} onGoToCart={() => { setDetailProduct(null); setVariantPicker(null); setCartOpen(true); }} />
       )}
 
       {cartCount > 0 && !cartOpen && (
@@ -453,7 +453,7 @@ function QtyStepper({ qty, onInc, onDec }) {
 // Gallery-mode products (Kapde/Footwear/Mobile) ke liye — Amazon/Flipkart
 // jaisa detail-screen: photo carousel, description, phir size/variant
 // choose karke Add. Quick-mode products isse kabhi nahi khulte.
-function ProductDetailModal({ product, cart, addToCart, decFromCart, theme, onClose, triggerFlyToCart }) {
+function ProductDetailModal({ product, cart, addToCart, decFromCart, theme, onClose, triggerFlyToCart, cartCount, cartTotal, onGoToCart }) {
   const [activePhoto, setActivePhoto] = useState(0);
   const photos = product.image_urls && product.image_urls.length > 0
     ? product.image_urls
@@ -461,7 +461,8 @@ function ProductDetailModal({ product, cart, addToCart, decFromCart, theme, onCl
 
   return (
     <div style={{ ...overlayBottomStyle, alignItems: "flex-end" }}>
-      <div style={{ background: "white", borderRadius: "16px 16px 0 0", width: "100%", maxWidth: "480px", maxHeight: "88vh", overflowY: "auto", margin: "0 auto" }}>
+      <div style={{ background: "white", borderRadius: "16px 16px 0 0", width: "100%", maxWidth: "480px", maxHeight: "88vh", margin: "0 auto", display: "flex", flexDirection: "column" }}>
+        <div style={{ overflowY: "auto", flex: 1 }}>
         <div style={{ position: "relative", background: "#F3ECDC" }}>
           {photos.length > 0 ? (
             // objectFit "contain" — poori photo dikhti hai (letterbox ho
@@ -529,12 +530,24 @@ function ProductDetailModal({ product, cart, addToCart, decFromCart, theme, onCl
             })}
           </div>
         </div>
+        </div>
+
+        {/* Sticky "aage badhein" CTA — jaise hi kuch cart mein aata hai,
+            yeh turant dikhta hai taaki customer ko sirf "✕" (band karo)
+            hi rasta na lage. Modal band karke seedha Cart drawer khol deta
+            hai — ek hi tap mein checkout ki taraf aage badh jaate hain. */}
+        {cartCount > 0 && (
+          <button onClick={onGoToCart} className="ddemo-btn" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", background: theme.primary, color: "white", border: "none", padding: "14px 18px", fontSize: "13.5px", fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>
+            <span>🛒 Cart mein {cartCount} item{cartCount > 1 ? "s" : ""}</span>
+            <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>₹{cartTotal} — Aage Badhein <ChevronRight size={15} /></span>
+          </button>
+        )}
       </div>
     </div>
   );
 }
 
-function VariantPickerModal({ product, cart, addToCart, decFromCart, theme, onClose, triggerFlyToCart }) {
+function VariantPickerModal({ product, cart, addToCart, decFromCart, theme, onClose, triggerFlyToCart, cartCount, cartTotal, onGoToCart }) {
   return (
     <div style={overlayBottomStyle}>
       <div style={{ background: "white", width: "100%", maxWidth: "480px", borderRadius: "16px 16px 0 0", maxHeight: "75%", display: "flex", flexDirection: "column", animation: "ddemoSlideUp 0.25s ease" }}>
@@ -566,6 +579,12 @@ function VariantPickerModal({ product, cart, addToCart, decFromCart, theme, onCl
             );
           })}
         </div>
+        {cartCount > 0 && (
+          <button onClick={onGoToCart} className="ddemo-btn" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", background: theme.primary, color: "white", border: "none", padding: "14px 18px", fontSize: "13.5px", fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>
+            <span>🛒 Cart mein {cartCount} item{cartCount > 1 ? "s" : ""}</span>
+            <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>₹{cartTotal} — Aage Badhein <ChevronRight size={15} /></span>
+          </button>
+        )}
       </div>
     </div>
   );
