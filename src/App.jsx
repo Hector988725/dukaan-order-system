@@ -343,15 +343,60 @@ function OwnerArea() {
       </div>
 
       <div style={{ maxWidth: "900px", margin: "0 auto", padding: "10px 18px 0" }}>
-        <a href={`/${store.slug}`} target="_blank" rel="noreferrer" style={{ fontSize: "12px", color: "#1B4332", fontWeight: 600, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "5px" }}>
-          🔗 Aapki dukaan ka link: <b>/{store.slug}</b> — customer ko bhejne ke liye yahan click karein
-        </a>
+        <StoreLinkShareButton store={store} />
       </div>
 
       {view === "dashboard" && <DashboardView store={store} products={products} orders={orders} deliveryBoys={deliveryBoys} hasMoreOrders={hasMoreOrders} loadingMoreOrders={loadingMoreOrders} onLoadMoreOrders={loadMoreOrders} onRefresh={silentRefresh} />}
       {view === "khata" && <div style={{ padding: "16px 0 40px" }}><KhataPanel store={store} /></div>}
       {view === "admin" && <AdminPanel store={store} products={products} onRefresh={silentRefresh} />}
     </div>
+  );
+}
+
+// ============================================================
+// STORE LINK — SHARE/COPY (never navigate away from admin view)
+// ============================================================
+// Pehle yeh ek <a href target="_blank"> tha. Browser mein toh naya tab
+// khulta, lekin installed PWA mein (jahan "naya tab" jaisi cheez nahi
+// hoti — poora app ek hi window hai) yeh admin view se seedha customer
+// storefront par navigate kar deta tha, aur wapas aane ke liye app
+// force-close karke dobara kholna padta tha. Ab is button se link
+// share/copy hoti hai — dukaandar KABHI apni current screen se hatta
+// hi nahi.
+function StoreLinkShareButton({ store }) {
+  const [copied, setCopied] = useState(false);
+  const storeUrl = `${window.location.origin}/${store.slug}`;
+
+  const handleShare = async () => {
+    // Mobile par native "Share" sheet khulta hai (WhatsApp, SMS, etc.
+    // seedha) — yeh sabse achha UX hai, aur current page kabhi nahi badalti.
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: store.name, text: `${store.name} — order karne ke liye yeh link kholein:`, url: storeUrl });
+        return;
+      } catch {
+        // User ne share cancel kiya ho sakta hai — koi error nahi dikhate.
+        return;
+      }
+    }
+    // Share API na ho (jaise desktop browser) to link clipboard mein copy karo.
+    try {
+      await navigator.clipboard.writeText(storeUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      alert("Link copy nahi ho paayi. Manually copy karein: " + storeUrl);
+    }
+  };
+
+  return (
+    <button
+      onClick={handleShare}
+      className="ddemo-btn"
+      style={{ display: "inline-flex", alignItems: "center", gap: "6px", background: "white", border: "1px solid #E3DECF", borderRadius: "8px", padding: "8px 12px", fontSize: "12px", color: "#1B4332", fontWeight: 700, cursor: "pointer" }}
+    >
+      {copied ? <>✓ Link Copy Ho Gayi</> : <>🔗 Aapki dukaan ka link: <b>/{store.slug}</b> — Share/Copy Karein</>}
+    </button>
   );
 }
 
