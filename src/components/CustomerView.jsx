@@ -19,6 +19,8 @@ export default function CustomerView({ store, products, onOrderPlaced }) {
   const [variantPicker, setVariantPicker] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [resumeCheckout, setResumeCheckout] = useState(null);
+  const [flyingItems, setFlyingItems] = useState([]);
+  const cartButtonRef = useRef(null);
 
   // UPI app khulne ke baad browser page reload/unload kar sakta hai, jisse
   // saara React state (cart, checkoutOpen, form) reset ho jaata hai. Isliye
@@ -104,6 +106,25 @@ export default function CustomerView({ store, products, onOrderPlaced }) {
     if (!entry || entry.variant.stock <= 0) return;
     setCart((c) => ({ ...c, [variantId]: (c[variantId] || 0) + 1 }));
   };
+
+  // "Trolley mein saaman daalne" wala physical feel — jis button se "+ Add"
+  // dabaya, us jagah se ek chhota clone udkar cart tak jaata hai. Agar
+  // yeh pehla item hai (floating cart abhi tak screen par nahi hai, kyunki
+  // state update async hai), toh fallback position (screen ke neeche
+  // center) use karte hain — cart bar wahi ban raha hoga.
+  const triggerFlyToCart = (sourceEl, imageUrl, emoji) => {
+    if (!sourceEl) return;
+    const startRect = sourceEl.getBoundingClientRect();
+    const endRect = cartButtonRef.current?.getBoundingClientRect();
+    const startX = startRect.left + startRect.width / 2 - 22;
+    const startY = startRect.top + startRect.height / 2 - 22;
+    const endX = endRect ? endRect.left + 30 - 22 : window.innerWidth / 2 - 22;
+    const endY = endRect ? endRect.top + endRect.height / 2 - 22 : window.innerHeight - 50;
+    const id = Date.now() + Math.random();
+    setFlyingItems((items) => [...items, { id, startX, startY, endX, endY, imageUrl, emoji }]);
+    setTimeout(() => setFlyingItems((items) => items.filter((it) => it.id !== id)), 600);
+  };
+
   const decFromCart = (variantId) => {
     setCart((c) => {
       const newQty = (c[variantId] || 0) - 1;
@@ -190,6 +211,19 @@ export default function CustomerView({ store, products, onOrderPlaced }) {
         .ddemo-cart-bump { animation: ddemoCartBump 0.28s cubic-bezier(0.34, 1.56, 0.64, 1); }
         .ddemo-add-btn { transition: transform 0.12s ease; }
         .ddemo-add-btn:active { transform: scale(0.92); }
+        /* "Trolley mein daala" — item click-point se udkar cart tak jaata
+           hai, ghumte-ghumte chhota hokar fade ho jaata hai (asli cheez
+           uthakar trolley mein daalne jaisa physical feel). */
+        @keyframes ddemoFlyToCart {
+          0% { transform: translate(var(--x1), var(--y1)) scale(1) rotate(0deg); opacity: 1; }
+          65% { opacity: 1; }
+          100% { transform: translate(var(--x2), var(--y2)) scale(0.25) rotate(25deg); opacity: 0; }
+        }
+        .ddemo-fly-item {
+          position: fixed; top: 0; left: 0; width: 44px; height: 44px; border-radius: 10px;
+          overflow: hidden; z-index: 200; pointer-events: none; box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+          animation: ddemoFlyToCart 0.55s cubic-bezier(0.3, 0, 0.6, 1) forwards;
+        }
       `}</style>
       {/* Search + categories */}
       <div style={{ padding: "16px 18px 0" }}>
@@ -322,7 +356,7 @@ export default function CustomerView({ store, products, onOrderPlaced }) {
                 </div>
               ) : singleVariant ? (
                 qtyInCart === 0 ? (
-                  <button onClick={() => addToCart(onlyVariant.id)} className="ddemo-btn ddemo-add-btn" style={btnOutline(theme)}>+ Add</button>
+                  <button onClick={(e) => { addToCart(onlyVariant.id); triggerFlyToCart(e.currentTarget, p.image_url, p.emoji); }} className="ddemo-btn ddemo-add-btn" style={btnOutline(theme)}>+ Add</button>
                 ) : (
                   <QtyStepper qty={qtyInCart} onInc={() => addToCart(onlyVariant.id)} onDec={() => decFromCart(onlyVariant.id)} />
                 )
@@ -338,16 +372,30 @@ export default function CustomerView({ store, products, onOrderPlaced }) {
       </div>
 
       {variantPicker && (
-        <VariantPickerModal product={variantPicker} cart={cart} addToCart={addToCart} decFromCart={decFromCart} theme={theme} onClose={() => setVariantPicker(null)} />
+        <VariantPickerModal product={variantPicker} cart={cart} addToCart={addToCart} decFromCart={decFromCart} theme={theme} onClose={() => setVariantPicker(null)} triggerFlyToCart={triggerFlyToCart} />
       )}
 
       {detailProduct && (
-        <ProductDetailModal product={detailProduct} cart={cart} addToCart={addToCart} decFromCart={decFromCart} theme={theme} onClose={() => setDetailProduct(null)} />
+        <ProductDetailModal product={detailProduct} cart={cart} addToCart={addToCart} decFromCart={decFromCart} theme={theme} onClose={() => setDetailProduct(null)} triggerFlyToCart={triggerFlyToCart} />
       )}
 
       {cartCount > 0 && !cartOpen && (
-        <button key={cartCount} onClick={() => setCartOpen(true)} className="ddemo-btn ddemo-cart-bump" style={floatingCartStyle(theme)}>
+        <button key={cartCount} ref={cartButtonRef} onClick={() => setCartOpen(true)} className="ddemo-btn ddemo-cart-bump" style={floatingCartStyle(theme)}>
           <span style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: 700, fontSize: "13.5px" }}>
+            {/* Trolley preview — jo items abhi "trolley" mein hain unki
+                chhoti thumbnails (max 3), jaisa mall trolley mein saaman
+                dikhta hai upar se jhaankte hue. */}
+            <span style={{ display: "flex", alignItems: "center" }}>
+              {cartItems.slice(0, 3).map((it, i) => (
+                <span key={it.id} style={{
+                  width: 22, height: 22, borderRadius: "50%", overflow: "hidden", flexShrink: 0,
+                  border: "1.5px solid white", marginLeft: i === 0 ? 0 : -8, background: "white",
+                  display: "flex", alignItems: "center", justifyContent: "center", fontSize: "11px",
+                }}>
+                  {it.image_url ? <img src={it.image_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : (it.emoji || "📦")}
+                </span>
+              ))}
+            </span>
             🛒 {cartCount} item{cartCount > 1 ? "s" : ""}
           </span>
           <span style={{ display: "flex", alignItems: "center", gap: "6px", fontWeight: 700, fontSize: "13.5px" }}>
@@ -355,6 +403,21 @@ export default function CustomerView({ store, products, onOrderPlaced }) {
           </span>
         </button>
       )}
+
+      {/* "Trolley mein daala" animation layer — poore page ke upar fixed,
+          click se nahi rukta (pointerEvents none) */}
+      {flyingItems.map((item) => (
+        <div
+          key={item.id}
+          className="ddemo-fly-item"
+          style={{ "--x1": `${item.startX}px`, "--y1": `${item.startY}px`, "--x2": `${item.endX}px`, "--y2": `${item.endY}px` }}
+        >
+          {item.imageUrl
+            ? <img src={item.imageUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            : <span style={{ fontSize: "22px", display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: "100%", background: "white" }}>{item.emoji || "📦"}</span>
+          }
+        </div>
+      ))}
 
       {cartOpen && (
         <CartDrawer
@@ -390,7 +453,7 @@ function QtyStepper({ qty, onInc, onDec }) {
 // Gallery-mode products (Kapde/Footwear/Mobile) ke liye — Amazon/Flipkart
 // jaisa detail-screen: photo carousel, description, phir size/variant
 // choose karke Add. Quick-mode products isse kabhi nahi khulte.
-function ProductDetailModal({ product, cart, addToCart, decFromCart, theme, onClose }) {
+function ProductDetailModal({ product, cart, addToCart, decFromCart, theme, onClose, triggerFlyToCart }) {
   const [activePhoto, setActivePhoto] = useState(0);
   const photos = product.image_urls && product.image_urls.length > 0
     ? product.image_urls
@@ -457,7 +520,7 @@ function ProductDetailModal({ product, cart, addToCart, decFromCart, theme, onCl
                   {out ? (
                     <span style={{ fontSize: "11px", fontWeight: 700, color: "#B3261E" }}>Stock Khatam</span>
                   ) : qty === 0 ? (
-                    <button onClick={() => addToCart(v.id)} className="ddemo-btn ddemo-add-btn" style={{ ...btnOutline(theme), width: "auto", padding: "7px 18px" }}>+ Add</button>
+                    <button onClick={(e) => { addToCart(v.id); triggerFlyToCart(e.currentTarget, product.image_urls?.[0] || product.image_url, product.emoji); }} className="ddemo-btn ddemo-add-btn" style={{ ...btnOutline(theme), width: "auto", padding: "7px 18px" }}>+ Add</button>
                   ) : (
                     <QtyStepper qty={qty} onInc={() => addToCart(v.id)} onDec={() => decFromCart(v.id)} />
                   )}
@@ -471,7 +534,7 @@ function ProductDetailModal({ product, cart, addToCart, decFromCart, theme, onCl
   );
 }
 
-function VariantPickerModal({ product, cart, addToCart, decFromCart, theme, onClose }) {
+function VariantPickerModal({ product, cart, addToCart, decFromCart, theme, onClose, triggerFlyToCart }) {
   return (
     <div style={overlayBottomStyle}>
       <div style={{ background: "white", width: "100%", maxWidth: "480px", borderRadius: "16px 16px 0 0", maxHeight: "75%", display: "flex", flexDirection: "column", animation: "ddemoSlideUp 0.25s ease" }}>
@@ -495,7 +558,7 @@ function VariantPickerModal({ product, cart, addToCart, decFromCart, theme, onCl
                 {out ? (
                   <span style={{ fontSize: "11px", fontWeight: 700, color: "#B3261E" }}>Out of Stock</span>
                 ) : qty === 0 ? (
-                  <button onClick={() => addToCart(v.id)} className="ddemo-btn ddemo-add-btn" style={{ ...btnOutline(theme), padding: "7px 16px" }}>+ Add</button>
+                  <button onClick={(e) => { addToCart(v.id); triggerFlyToCart(e.currentTarget, product.image_url, product.emoji); }} className="ddemo-btn ddemo-add-btn" style={{ ...btnOutline(theme), padding: "7px 16px" }}>+ Add</button>
                 ) : (
                   <QtyStepper qty={qty} onInc={() => addToCart(v.id)} onDec={() => decFromCart(v.id)} />
                 )}
