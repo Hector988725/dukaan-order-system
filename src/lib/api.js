@@ -321,6 +321,13 @@ export async function updateStoreSettings(storeId, { name, whatsapp_number, upi_
   if (error) throw error;
 }
 
+// Quick toggle — "Abhi Open Hain?" switch ke liye, poori settings-form
+// save karne ki zaroorat nahi, ek tap mein turant badal jaata hai.
+export async function toggleStoreOpen(storeId, isOpen) {
+  const { error } = await supabase.from("stores").update({ is_open: isOpen }).eq("id", storeId);
+  if (error) throw error;
+}
+
 // ============================================================
 // ORDERS
 // ============================================================

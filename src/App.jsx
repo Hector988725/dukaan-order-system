@@ -8,7 +8,7 @@ const BUSINESS_ICONS = { Store, Pill, Wrench, Smartphone, Shirt, BookOpen, Cake,
 import { getSlugFromUrl, isSupabaseConfigured } from "./lib/supabase";
 import {
   fetchStoreBySlug, fetchStoreByUserId, fetchProducts, fetchOrders,
-  fetchDeliveryBoys,
+  fetchDeliveryBoys, toggleStoreOpen,
   subscribeToOrders, onAuthChange, signOut,
 } from "./lib/api";
 import CustomerView from "./components/CustomerView";
@@ -301,6 +301,17 @@ function OwnerArea() {
   const newOrderCount = orders.filter((o) => o.status === "New").length;
   const silentRefresh = () => loadStoreData(true);
 
+  const handleToggleOpen = async () => {
+    const newValue = !(store.is_open !== false);
+    setStore((s) => ({ ...s, is_open: newValue })); // turant UI update, wait nahi
+    try {
+      await toggleStoreOpen(store.id, newValue);
+    } catch (e) {
+      setStore((s) => ({ ...s, is_open: !newValue })); // fail hua to wapas purani state
+      alert("Status badalte waqt error aaya: " + e.message);
+    }
+  };
+
   return (
     <div style={shellStyle}>
       <GlobalStyles />
@@ -309,7 +320,7 @@ function OwnerArea() {
         backgroundImage: `${getHeaderBackground(getTheme(store.business_type))}, repeating-linear-gradient(135deg, rgba(255,255,255,0.05) 0px, rgba(255,255,255,0.05) 1px, transparent 1px, transparent 12px)`,
         padding: "14px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", flexWrap: "wrap",
       }}>
-        <StoreHeaderBrand store={store} />
+        <StoreHeaderBrand store={store} editable onToggleOpen={handleToggleOpen} />
 
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           <div className="ddemo-toggle-track">
@@ -383,8 +394,9 @@ function StoreHeader({ store }) {
   );
 }
 
-function StoreHeaderBrand({ store }) {
+function StoreHeaderBrand({ store, editable, onToggleOpen }) {
   const theme = getTheme(store.business_type);
+  const isOpen = store.is_open !== false;
   return (
     <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
       {/* Dukaan ka apna logo — primary identity, left mein (jahan pehle
@@ -404,7 +416,28 @@ function StoreHeaderBrand({ store }) {
 
       <div>
         <div style={{ color: "white", fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: "15px", lineHeight: 1.1 }}>{store.name}</div>
-        <div style={{ color: "rgba(255,255,255,0.6)", fontSize: "10.5px" }}>{store.tagline || store.address}</div>
+        <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "2px" }}>
+          <div style={{ color: "rgba(255,255,255,0.6)", fontSize: "10.5px" }}>{store.tagline || store.address}</div>
+          {/* Open/Closed status — customer ko turant pata chale abhi order
+              lene ke liye khuli hai ya nahi. Dukaandar ke liye yehi pill
+              tap karne se turant toggle bhi ho jaata hai (settings mein
+              jaane ki zaroorat nahi). */}
+          <button
+            onClick={editable ? onToggleOpen : undefined}
+            disabled={!editable}
+            className={editable ? "ddemo-btn" : undefined}
+            style={{
+              display: "flex", alignItems: "center", gap: "4px",
+              background: isOpen ? "rgba(76,175,80,0.22)" : "rgba(211,47,47,0.25)",
+              color: isOpen ? "#8FE398" : "#FF9B9B",
+              border: "none", borderRadius: "999px", padding: "2px 8px 2px 6px",
+              fontSize: "9.5px", fontWeight: 800, cursor: editable ? "pointer" : "default",
+            }}
+          >
+            <span style={{ width: 5, height: 5, borderRadius: "50%", background: isOpen ? "#4CAF50" : "#D32F2F" }} />
+            {isOpen ? "OPEN" : "BAND HAI"}
+          </button>
+        </div>
       </div>
     </div>
   );
