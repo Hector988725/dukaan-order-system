@@ -401,7 +401,11 @@ function ProductDetailModal({ product, cart, addToCart, decFromCart, theme, onCl
       <div style={{ background: "white", borderRadius: "16px 16px 0 0", width: "100%", maxWidth: "480px", maxHeight: "88vh", overflowY: "auto", margin: "0 auto" }}>
         <div style={{ position: "relative", background: "#F3ECDC" }}>
           {photos.length > 0 ? (
-            <img src={photos[activePhoto]} alt={product.name} style={{ width: "100%", height: "280px", objectFit: "cover", display: "block" }} />
+            // objectFit "contain" — poori photo dikhti hai (letterbox ho
+            // sakta hai upar-neeche khaali jagah), "cover" ki tarah katti
+            // nahi. Product-detail view mein customer ko poora product
+            // dekhna chahiye, jaisa Amazon/Flipkart product pages karte hain.
+            <img src={photos[activePhoto]} alt={product.name} style={{ width: "100%", height: "280px", objectFit: "contain", display: "block" }} />
           ) : (
             <div style={{ width: "100%", height: "220px", display: "flex", alignItems: "center", justifyContent: "center" }}>
               <span style={{ fontSize: "64px" }}>{product.emoji || "📦"}</span>
