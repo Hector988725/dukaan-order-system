@@ -139,6 +139,8 @@ function StoreSettingsForm({ store, onRefresh }) {
   const [logoUrl, setLogoUrl] = useState(store.logo_url || "");
   const [tagline, setTagline] = useState(store.tagline || "");
   const [timings, setTimings] = useState(store.timings || "");
+  const [deliveryFee, setDeliveryFee] = useState(String(store.delivery_fee || 0));
+  const [freeDeliveryAbove, setFreeDeliveryAbove] = useState(store.free_delivery_above != null ? String(store.free_delivery_above) : "");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -146,7 +148,11 @@ function StoreSettingsForm({ store, onRefresh }) {
     setSaving(true);
     setSaved(false);
     try {
-      await updateStoreSettings(store.id, { name, whatsapp_number: whatsapp, upi_id: upi, address, logo_url: logoUrl || null, tagline: tagline || null, timings: timings || null });
+      await updateStoreSettings(store.id, {
+        name, whatsapp_number: whatsapp, upi_id: upi, address, logo_url: logoUrl || null, tagline: tagline || null, timings: timings || null,
+        delivery_fee: Number(deliveryFee) || 0,
+        free_delivery_above: freeDeliveryAbove.trim() === "" ? null : Number(freeDeliveryAbove),
+      });
       setSaved(true);
       onRefresh();
       setTimeout(() => setSaved(false), 2500);
@@ -167,6 +173,20 @@ function StoreSettingsForm({ store, onRefresh }) {
       <Field label="UPI ID (jaise dukaan@upi)" value={upi} onChange={setUpi} placeholder="abhi optional hai" />
       <Field label="Address" value={address} onChange={setAddress} textarea />
       <Field label="Khulne-Band hone ka Time (customer ko dikhega, optional)" value={timings} onChange={setTimings} placeholder="jaise Roz subah 8 - raat 10 baje tak" textarea />
+      <div style={{ borderTop: "1px solid #E3DECF", paddingTop: "12px", marginTop: "2px" }}>
+        <div style={{ fontSize: "12px", fontWeight: 700, color: "#1A1A1A", marginBottom: "10px" }}>🛵 Delivery Charge</div>
+        <div style={{ display: "flex", gap: "8px" }}>
+          <div style={{ flex: 1 }}>
+            <Field label="Delivery Charge (₹)" value={deliveryFee} onChange={(v) => setDeliveryFee(v.replace(/[^\d.]/g, ""))} placeholder="jaise 20 (0 rakhein agar free hai)" />
+          </div>
+          <div style={{ flex: 1 }}>
+            <Field label="Free Delivery Upar Kitne Rupaye Se (optional)" value={freeDeliveryAbove} onChange={(v) => setFreeDeliveryAbove(v.replace(/[^\d.]/g, ""))} placeholder="jaise 300" />
+          </div>
+        </div>
+        <div style={{ fontSize: "10.5px", color: "#8B8576", marginTop: "4px" }}>
+          Yeh sirf Home Delivery orders par lagta hai — Pickup (dukaan se khud lena) orders par kabhi nahi.
+        </div>
+      </div>
       <button onClick={handleSave} disabled={saving} className="ddemo-btn" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", background: saved ? "#1B4332" : "#D4A24C", color: saved ? "white" : "#123026", fontWeight: 800, fontSize: "13.5px", border: "none", borderRadius: "10px", padding: "12px 0", cursor: "pointer", marginTop: "6px" }}>
         {saved ? <><Check size={15} /> Save Ho Gaya</> : <><Save size={15} /> {saving ? "Save ho raha hai..." : "Changes Save Karein"}</>}
       </button>

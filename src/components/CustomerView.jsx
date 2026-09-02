@@ -6,6 +6,17 @@ import { OrderTrackingModal } from "./OrderTracking";
 
 const PENDING_UPI_KEY = "dukaan_pending_upi_checkout";
 
+// Delivery charge sirf Home Delivery par lagta hai, Pickup par kabhi
+// nahi. Agar dukaandar ne "free delivery above ₹X" set kiya hai aur
+// cart usse zyada hai, to fee 0 ho jaati hai.
+function computeDeliveryFee(store, orderType, cartTotal) {
+  if (orderType === "Pickup") return 0;
+  const fee = Number(store.delivery_fee) || 0;
+  if (fee <= 0) return 0;
+  if (store.free_delivery_above != null && cartTotal >= Number(store.free_delivery_above)) return 0;
+  return fee;
+}
+
 export default function CustomerView({ store, products, onOrderPlaced }) {
   const theme = getTheme(store.business_type);
   const isGalleryMode = getShoppingMode(store.business_type) === "gallery";
@@ -147,6 +158,7 @@ export default function CustomerView({ store, products, onOrderPlaced }) {
     try {
       const orderNumber = "ORD" + Math.floor(1000 + Math.random() * 9000);
       const isUpi = form.payment === "UPI";
+      const deliveryFee = computeDeliveryFee(store, form.orderType, cartTotal);
       const payload = {
         store_id: store.id,
         order_number: orderNumber,
@@ -156,6 +168,7 @@ export default function CustomerView({ store, products, onOrderPlaced }) {
         landmark: form.landmark || null,
         pincode: form.orderType === "Pickup" ? (form.pincode || null) : form.pincode,
         order_type: form.orderType || "Delivery",
+        delivery_fee: deliveryFee,
         payment_method: isUpi ? "UPI" : "COD",
         // Payment Status: COD ka matlab paisa delivery ke time milega (kabhi
         // pending nahi hota). UPI ka matlab customer ne pay kiya dawa kiya
@@ -165,7 +178,7 @@ export default function CustomerView({ store, products, onOrderPlaced }) {
         payment_status: isUpi ? "Pending Verification" : "Cash on Delivery",
         status: "New",
         items: cartItems.map((it) => ({ variant_id: it.id, name: it.productName, variant: it.label, qty: it.qty, unit: it.unit, price: it.price })),
-        total: cartTotal,
+        total: cartTotal + deliveryFee,
       };
       const saved = await createOrder(payload);
       // Order safal hua — customer ki details save/update karte hain taaki
@@ -640,6 +653,10 @@ function CheckoutModal({ store, cartTotal, submitting, resumeData, cart, onClose
   const [landmark, setLandmark] = useState(resumeData?.landmark || "");
   const [pincode, setPincode] = useState(resumeData?.pincode || "");
   const [payment, setPayment] = useState(resumeData?.payment || "COD");
+  // Delivery Home Delivery par hi lagta hai, Pickup badalte hi turant 0
+  // ho jaata hai — customer ko live pata chalta hai kya charge lagega.
+  const deliveryFee = computeDeliveryFee(store, orderType, cartTotal);
+  const grandTotal = cartTotal + deliveryFee;
   // Guest checkout: koi login/password nahi. Phone number 10 digit poora
   // hote hi is store ke liye pehle se saved details (agar hain) dhoondh
   // ke auto-fill kar dete hain. Customer chahe to inhe edit kar sakta hai.
@@ -687,7 +704,7 @@ function CheckoutModal({ store, cartTotal, submitting, resumeData, cart, onClose
 
   const upiId = store?.upi_id || "";
   const upiLink = upiId
-    ? `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(store.name)}&am=${cartTotal}&cu=INR&tn=${encodeURIComponent("Order - " + store.name)}`
+    ? `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(store.name)}&am=${grandTotal}&cu=INR&tn=${encodeURIComponent("Order - " + store.name)}`
     : "";
   const qrImageUrl = upiLink
     ? `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(upiLink)}`
@@ -834,8 +851,24 @@ function CheckoutModal({ store, cartTotal, submitting, resumeData, cart, onClose
             </>
           )}
 
-          <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 0", borderTop: "1px solid #E3DECF", marginTop: "6px", fontWeight: 700, fontSize: "14px" }}>
-            <span>Total Payable</span><span>₹{cartTotal}</span>
+          <div style={{ padding: "10px 0 0", borderTop: "1px solid #E3DECF", marginTop: "6px", display: "flex", flexDirection: "column", gap: "4px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12.5px", color: "#5C5747" }}>
+              <span>Items Total</span><span>₹{cartTotal}</span>
+            </div>
+            {orderType === "Delivery" && (
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12.5px", color: deliveryFee === 0 ? "#1B4332" : "#5C5747" }}>
+                <span>Delivery Charge</span>
+                <span>{deliveryFee === 0 ? "FREE" : `₹${deliveryFee}`}</span>
+              </div>
+            )}
+            {orderType === "Delivery" && deliveryFee > 0 && store.free_delivery_above != null && (
+              <div style={{ fontSize: "11px", color: "#9A6B00", fontWeight: 600 }}>
+                🎉 ₹{(Number(store.free_delivery_above) - cartTotal).toFixed(0)} aur order karein, delivery FREE ho jaayegi!
+              </div>
+            )}
+            <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, fontSize: "14px", marginTop: "4px" }}>
+              <span>Total Payable</span><span>₹{grandTotal}</span>
+            </div>
           </div>
 
           <button

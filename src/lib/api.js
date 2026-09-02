@@ -313,10 +313,10 @@ export async function deleteVariant(variantId) {
 }
 
 // ---- Store Settings ----
-export async function updateStoreSettings(storeId, { name, whatsapp_number, upi_id, address, logo_url, tagline, timings }) {
+export async function updateStoreSettings(storeId, { name, whatsapp_number, upi_id, address, logo_url, tagline, timings, delivery_fee, free_delivery_above }) {
   const { error } = await supabase
     .from("stores")
-    .update({ name, whatsapp_number, upi_id, address, logo_url, tagline, timings })
+    .update({ name, whatsapp_number, upi_id, address, logo_url, tagline, timings, delivery_fee, free_delivery_above })
     .eq("id", storeId);
   if (error) throw error;
 }
@@ -368,6 +368,7 @@ export async function createOrder(orderPayload) {
     p_items: orderPayload.items,
     p_total: orderPayload.total,
     p_order_type: orderPayload.order_type || "Delivery",
+    p_delivery_fee: orderPayload.delivery_fee || 0,
   });
   if (error) {
     // Function ke andar se aane wale friendly error messages ko clean

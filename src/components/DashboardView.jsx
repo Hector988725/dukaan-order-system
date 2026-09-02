@@ -306,6 +306,9 @@ function OrderCard({ order, deliveryBoys, onAdvance, onPaymentConfirm, onAssignD
         <div style={{ textAlign: "right" }}>
           <span style={{ background: meta.bg, color: meta.color, fontSize: "10.5px", fontWeight: 700, padding: "4px 9px", borderRadius: "999px", whiteSpace: "nowrap" }}>{meta.label}</span>
           <div style={{ fontWeight: 800, fontSize: "15px", color: "#1A1A1A", fontFamily: "'Fraunces', serif", marginTop: "5px" }}>₹{order.total}</div>
+          {order.delivery_fee > 0 && (
+            <div style={{ fontSize: "10px", color: "#8B8576" }}>(includes ₹{order.delivery_fee} delivery)</div>
+          )}
         </div>
       </div>
 
