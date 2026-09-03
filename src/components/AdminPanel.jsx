@@ -1,5 +1,5 @@
 import React, { useState, useRef } from "react";
-import { Settings, Package, Plus, Trash2, Edit2, X, Check, ChevronDown, ChevronUp, Save, Upload, Image, CreditCard, AlertCircle, Store, Star, ArrowUp, ArrowDown, Bike, FileSpreadsheet } from "lucide-react";
+import { Settings, Package, Plus, Trash2, Edit2, X, Check, ChevronDown, ChevronUp, Save, Upload, Image, CreditCard, AlertCircle, Store, Star, ArrowUp, ArrowDown, Bike, FileSpreadsheet, UserCircle } from "lucide-react";
 import {
   updateStoreSettings,
   createProduct, updateProduct, deleteProduct, updateProductFeatured, updateProductOrder,
@@ -8,18 +8,20 @@ import {
 } from "../lib/api";
 import DeliveryBoyManager from "./DeliveryBoyManager";
 import CsvBulkUploadModal from "./CsvBulkUpload";
+import AccountSettings from "./AccountSettings";
 
-export default function AdminPanel({ store, products, onRefresh }) {
-  return <AdminContent store={store} products={products} onRefresh={onRefresh} />;
+export default function AdminPanel({ store, products, user, onRefresh }) {
+  return <AdminContent store={store} products={products} user={user} onRefresh={onRefresh} />;
 }
 
-function AdminContent({ store, products, onRefresh }) {
+function AdminContent({ store, products, user, onRefresh }) {
   const [tab, setTab] = useState("products");
 
   const tabs = [
     { id: "products", label: "Products", icon: <Package size={14} /> },
     { id: "delivery", label: "Delivery Staff", icon: <Bike size={14} /> },
     { id: "settings", label: "Store Settings", icon: <Settings size={14} /> },
+    { id: "account", label: "Account", icon: <UserCircle size={14} /> },
     { id: "subscription", label: "Subscription", icon: <CreditCard size={14} /> },
   ];
 
@@ -42,6 +44,7 @@ function AdminContent({ store, products, onRefresh }) {
       {tab === "products" && <ProductManager store={store} products={products} onRefresh={onRefresh} />}
       {tab === "delivery" && <DeliveryBoyManager store={store} />}
       {tab === "settings" && <StoreSettingsForm store={store} onRefresh={onRefresh} />}
+      {tab === "account" && <AccountSettings user={user} />}
       {tab === "subscription" && <SubscriptionPanel store={store} onRefresh={onRefresh} />}
     </div>
   );

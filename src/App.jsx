@@ -348,7 +348,7 @@ function OwnerArea() {
 
       {view === "dashboard" && <DashboardView store={store} products={products} orders={orders} deliveryBoys={deliveryBoys} hasMoreOrders={hasMoreOrders} loadingMoreOrders={loadingMoreOrders} onLoadMoreOrders={loadMoreOrders} onRefresh={silentRefresh} />}
       {view === "khata" && <div style={{ padding: "16px 0 40px" }}><KhataPanel store={store} /></div>}
-      {view === "admin" && <AdminPanel store={store} products={products} onRefresh={silentRefresh} />}
+      {view === "admin" && <AdminPanel store={store} products={products} user={user} onRefresh={silentRefresh} />}
     </div>
   );
 }

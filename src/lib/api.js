@@ -50,6 +50,36 @@ export async function updatePassword(newPassword) {
 }
 
 // ============================================================
+// ACCOUNT SETTINGS — email/password change, current-password verify
+// ke saath. Existing signIn/signUp/updatePassword ko bilkul nahi
+// chheda — yeh sirf unke upar ek security layer add karte hain.
+// ============================================================
+
+// Current password sahi hai ya nahi check karta hai (bina session
+// change kiye) — Supabase mein isका koi seedha "verify" API nahi hai,
+// isliye hum khud ke email+password se dobara signIn try karte hain.
+// Agar galat hai to "Invalid login credentials" error throw hoga.
+export async function verifyCurrentPassword(email, password) {
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) throw error;
+}
+
+// Naya email set karta hai — Supabase khud confirmation email bhejta
+// hai NAYE address par, jab tak wahan confirm na ho email badalta nahi
+// (yeh Supabase ka built-in secure default hai, humne kuch alag nahi kiya).
+export async function changeEmail(newEmail) {
+  const { error } = await supabase.auth.updateUser({ email: newEmail });
+  if (error) throw error;
+}
+
+// Naya password set karta hai (current-password verify hone ke BAAD
+// hi is function ko call kiya jaata hai — AccountSettings.jsx dekhein).
+export async function changePassword(newPassword) {
+  const { error } = await supabase.auth.updateUser({ password: newPassword });
+  if (error) throw error;
+}
+
+// ============================================================
 // STORE
 // ============================================================
 export async function fetchStoreBySlug(slug) {
