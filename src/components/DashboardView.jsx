@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { TrendingUp, Bell, Package, Receipt, MessageCircle, AlertCircle, Minus, Plus, BookText, X } from "lucide-react";
-import { updateOrderStatus, updatePaymentStatus, updateVariantStock, assignDeliveryBoy, fetchTodaysKhataCollection } from "../lib/api";
+import { TrendingUp, Bell, Package, Receipt, MessageCircle, AlertCircle, Minus, Plus, BookText, X, Trash2 } from "lucide-react";
+import { updateOrderStatus, updatePaymentStatus, updateVariantStock, assignDeliveryBoy, fetchTodaysKhataCollection, deleteOrder } from "../lib/api";
 
 // Order Status flow (extend hui hai — existing column/values nahi badle,
 // bas ek naya intermediate "Ready" status add kiya hai):
@@ -107,6 +107,15 @@ export default function DashboardView({ store, products, orders, deliveryBoys, h
     }
   };
 
+  const handleDeleteOrder = async (order) => {
+    try {
+      await deleteOrder(order.id);
+      onRefresh();
+    } catch (e) {
+      alert("Order delete nahi ho paaya: " + e.message);
+    }
+  };
+
   // Dukaandar apne UPI app mein payment manually verify karke ye dabata hai —
   // ye sirf payment_status badalta hai, order_status ko bilkul touch nahi karta.
   const handlePaymentConfirm = async (order) => {
@@ -208,6 +217,7 @@ export default function DashboardView({ store, products, orders, deliveryBoys, h
                 onAdvance={() => handleAdvance(o)}
                 onPaymentConfirm={() => handlePaymentConfirm(o)}
                 onAssignDeliveryBoy={(id) => handleAssignDeliveryBoy(o, id)}
+                onDelete={() => handleDeleteOrder(o)}
               />
             ))}
             {/* Purane orders history mahino/saalon lambi ho sakti hai — sab
@@ -278,7 +288,7 @@ function StatCard({ icon, label, value, highlight }) {
   );
 }
 
-function OrderCard({ order, deliveryBoys, onAdvance, onPaymentConfirm, onAssignDeliveryBoy }) {
+function OrderCard({ order, deliveryBoys, onAdvance, onPaymentConfirm, onAssignDeliveryBoy, onDelete }) {
   const meta = statusMeta[order.status] || statusMeta.New;
   const payMeta = paymentStatusMeta[order.payment_status] || paymentStatusMeta["Cash on Delivery"];
   const needsPaymentVerification = order.payment_method === "UPI" && order.payment_status === "Pending Verification";
@@ -292,6 +302,11 @@ function OrderCard({ order, deliveryBoys, onAdvance, onPaymentConfirm, onAssignD
   const showAssignDeliveryBoy = !isPickup && order.status === "Ready";
   const assignedBoy = order.delivery_boy_id ? (deliveryBoys || []).find((b) => b.id === order.delivery_boy_id) : null;
 
+  const handleDelete = () => {
+    if (!confirm(`Order ${order.order_number} (${order.customer_name}) delete karein? Yeh wapas nahi hoga.`)) return;
+    onDelete();
+  };
+
   return (
     <div className="ddemo-card" style={{
       background: isNew ? "#FFFBF6" : "white",
@@ -303,8 +318,11 @@ function OrderCard({ order, deliveryBoys, onAdvance, onPaymentConfirm, onAssignD
           <div style={{ fontWeight: 700, fontSize: "14.5px", fontFamily: "'Fraunces', serif" }}>{order.customer_name}</div>
           <div style={{ fontSize: "11px", color: "#8B8576", marginTop: "2px" }}>{order.order_number} · {new Date(order.created_at).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</div>
         </div>
-        <div style={{ textAlign: "right" }}>
-          <span style={{ background: meta.bg, color: meta.color, fontSize: "10.5px", fontWeight: 700, padding: "4px 9px", borderRadius: "999px", whiteSpace: "nowrap" }}>{meta.label}</span>
+        <div style={{ textAlign: "right", position: "relative" }}>
+          <button onClick={handleDelete} title="Order Delete Karein" style={{ position: "absolute", top: -6, right: -4, border: "none", background: "transparent", cursor: "pointer", color: "#B7AF9B", padding: "4px" }}>
+            <Trash2 size={13} />
+          </button>
+          <span style={{ background: meta.bg, color: meta.color, fontSize: "10.5px", fontWeight: 700, padding: "4px 9px", borderRadius: "999px", whiteSpace: "nowrap", marginTop: "12px", display: "inline-block" }}>{meta.label}</span>
           <div style={{ fontWeight: 800, fontSize: "15px", color: "#1A1A1A", fontFamily: "'Fraunces', serif", marginTop: "5px" }}>₹{order.total}</div>
           {order.delivery_fee > 0 && (
             <div style={{ fontSize: "10px", color: "#8B8576" }}>(includes ₹{order.delivery_fee} delivery)</div>

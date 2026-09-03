@@ -390,6 +390,14 @@ export async function updateOrderStatus(orderId, status) {
   if (error) throw error;
 }
 
+// Galti se bana ya test order delete karne ke liye. Yeh sirf order
+// record hataata hai — agar us order ne stock decrement kiya tha, woh
+// automatically wapas nahi aata (Products tab se manually adjust karein).
+export async function deleteOrder(orderId) {
+  const { error } = await supabase.from("orders").delete().eq("id", orderId);
+  if (error) throw error;
+}
+
 // Sirf payment_status update karta hai (order_status ko touch nahi karta) —
 // dukaandar apne UPI app mein payment manually verify karke ye call karta hai.
 export async function updatePaymentStatus(orderId, paymentStatus) {
