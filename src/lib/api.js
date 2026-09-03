@@ -114,6 +114,14 @@ export async function checkSlugAvailable(slug) {
   return data;
 }
 
+// URL slug badalna — jaan-bujh kar isko har jagah easily available nahi
+// banaya (sirf Store Settings mein, spasht warning ke saath), kyunki
+// agar customer ne purana link save/bookmark kiya hai to woh tootega.
+export async function updateStoreSlug(storeId, newSlug) {
+  const { error } = await supabase.from("stores").update({ slug: newSlug }).eq("id", storeId);
+  if (error) throw error;
+}
+
 const FOUNDING_MEMBER_LIMIT = 20;
 const FOUNDING_PRICE = 99;
 const REGULAR_PRICE = 199;

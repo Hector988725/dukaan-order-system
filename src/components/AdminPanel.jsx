@@ -5,7 +5,9 @@ import {
   createProduct, updateProduct, deleteProduct, updateProductFeatured, updateProductOrder,
   createVariant, updateVariant, deleteVariant,
   uploadProductImage, deactivateStore,
+  checkSlugAvailable, updateStoreSlug,
 } from "../lib/api";
+import { slugify } from "./AuthGate";
 import DeliveryBoyManager from "./DeliveryBoyManager";
 import CsvBulkUploadModal from "./CsvBulkUpload";
 import AccountSettings from "./AccountSettings";
@@ -167,7 +169,9 @@ function StoreSettingsForm({ store, onRefresh }) {
   };
 
   return (
-    <div style={{ background: "white", border: "1px solid #E3DECF", borderRadius: "12px", padding: "18px", display: "flex", flexDirection: "column", gap: "12px" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+      <SlugChangeSection store={store} onRefresh={onRefresh} />
+      <div style={{ background: "white", border: "1px solid #E3DECF", borderRadius: "12px", padding: "18px", display: "flex", flexDirection: "column", gap: "12px" }}>
       <StoreLogoPicker currentLogo={logoUrl} storeId={store.id} onChange={setLogoUrl} />
       <StorageUsageBar usedBytes={store.storage_used_bytes} limitBytes={store.storage_limit_bytes} />
       <Field label="Dukaan ka Naam" value={name} onChange={setName} />
@@ -193,6 +197,102 @@ function StoreSettingsForm({ store, onRefresh }) {
       <button onClick={handleSave} disabled={saving} className="ddemo-btn" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", background: saved ? "#1B4332" : "#D4A24C", color: saved ? "white" : "#123026", fontWeight: 800, fontSize: "13.5px", border: "none", borderRadius: "10px", padding: "12px 0", cursor: "pointer", marginTop: "6px" }}>
         {saved ? <><Check size={15} /> Save Ho Gaya</> : <><Save size={15} /> {saving ? "Save ho raha hai..." : "Changes Save Karein"}</>}
       </button>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// URL SLUG CHANGE — alag section, apna save button, saaf warning ke
+// saath (kyunki purane shared links tootne ka risk hota hai).
+// ============================================================
+function SlugChangeSection({ store, onRefresh }) {
+  const [editing, setEditing] = useState(false);
+  const [slug, setSlug] = useState(store.slug);
+  const [status, setStatus] = useState(null); // null | 'checking' | 'available' | 'taken'
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
+
+  const RESERVED_SLUGS = new Set(["superadmin", "signup", "login", "create-store", "admin", "api", "order"]);
+
+  const handleSlugChange = (v) => {
+    setSlug(slugify(v));
+    setStatus(null);
+    setError("");
+  };
+
+  const handleCheck = async () => {
+    if (!slug || slug === store.slug) return;
+    if (RESERVED_SLUGS.has(slug)) { setStatus("taken"); return; }
+    setStatus("checking");
+    try {
+      const available = await checkSlugAvailable(slug);
+      setStatus(available ? "available" : "taken");
+    } catch {
+      setStatus(null);
+    }
+  };
+
+  const handleSave = async () => {
+    setError("");
+    if (slug === store.slug) { setError("Yeh already aapka current link hai."); return; }
+    if (!slug.trim()) { setError("Link khali nahi ho sakta."); return; }
+    if (RESERVED_SLUGS.has(slug)) { setError("Yeh link naam use nahi kar sakte, doosra try karein."); return; }
+    if (!confirm(`Pakka link badalna hai? Purana link "/${store.slug}" kaam karna band kar dega — agar customers ne woh save/bookmark kiya hai, unhe naya link dena hoga.`)) return;
+    setSaving(true);
+    try {
+      const available = await checkSlugAvailable(slug);
+      if (!available) { setStatus("taken"); setError("Yeh link naam already liya hua hai."); setSaving(false); return; }
+      await updateStoreSlug(store.id, slug);
+      setSuccess(true);
+      setEditing(false);
+      onRefresh();
+      setTimeout(() => setSuccess(false), 3000);
+    } catch (e) {
+      setError(e.message || "Link badalte waqt error aaya.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div style={{ background: "white", border: "1px solid #E3DECF", borderRadius: "12px", padding: "18px" }}>
+      <div style={{ fontWeight: 700, fontSize: "13.5px", marginBottom: "4px" }}>🔗 Dukaan ka Link (URL)</div>
+      <div style={{ fontSize: "11.5px", color: "#8B8576", marginBottom: "12px" }}>Abhi ka link: <b>dukaan-order-system.vercel.app/{store.slug}</b></div>
+
+      {!editing ? (
+        <button onClick={() => setEditing(true)} style={{ background: "white", border: "1px solid #1B4332", color: "#1B4332", borderRadius: "8px", padding: "8px 14px", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}>
+          Link Badlein
+        </button>
+      ) : (
+        <>
+          <div style={{ background: "#FDECEA", borderRadius: "8px", padding: "9px 11px", marginBottom: "10px", display: "flex", gap: "7px", alignItems: "flex-start" }}>
+            <AlertCircle size={14} color="#B3261E" style={{ flexShrink: 0, marginTop: "1px" }} />
+            <span style={{ fontSize: "11px", color: "#B3261E", lineHeight: 1.5 }}>Purana link (<b>/{store.slug}</b>) badalne ke baad kaam nahi karega. Agar customers ne yeh link save/bookmark kiya hai, unhe naya link dobara bhejna hoga.</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "0", marginBottom: "6px" }}>
+            <span style={{ fontSize: "12.5px", color: "#8B8576", background: "#F7F5F0", border: "1px solid #E3DECF", borderRight: "none", borderRadius: "8px 0 0 8px", padding: "9px 10px" }}>.../</span>
+            <input
+              value={slug}
+              onChange={(e) => handleSlugChange(e.target.value)}
+              onBlur={handleCheck}
+              style={{ flex: 1, border: "1px solid #E3DECF", borderRadius: "0 8px 8px 0", padding: "9px 10px", fontSize: "13px", outline: "none" }}
+            />
+          </div>
+          {status === "checking" && <div style={{ fontSize: "11px", color: "#8B8576" }}>Check ho raha hai...</div>}
+          {status === "available" && <div style={{ fontSize: "11px", color: "#1B4332", fontWeight: 600 }}>✓ Yeh link available hai</div>}
+          {status === "taken" && <div style={{ fontSize: "11px", color: "#B3261E", fontWeight: 600 }}>✗ Yeh link already liya hua hai ya reserved hai</div>}
+          {error && <div style={{ fontSize: "11px", color: "#B3261E", marginTop: "4px" }}>{error}</div>}
+          <div style={{ display: "flex", gap: "8px", marginTop: "10px" }}>
+            <button onClick={() => { setEditing(false); setSlug(store.slug); setError(""); setStatus(null); }} style={{ flex: 1, background: "#F7F5F0", border: "1px solid #E3DECF", borderRadius: "8px", padding: "9px 0", fontSize: "12px", fontWeight: 700, color: "#5C5747", cursor: "pointer" }}>Cancel</button>
+            <button onClick={handleSave} disabled={saving || status === "taken"} className="ddemo-btn" style={{ flex: 1, background: status === "taken" ? "#D8D2BF" : "#B3261E", color: "white", border: "none", borderRadius: "8px", padding: "9px 0", fontSize: "12px", fontWeight: 700, cursor: status === "taken" ? "not-allowed" : "pointer" }}>
+              {saving ? "Save ho raha hai..." : "Haan, Link Badal Dein"}
+            </button>
+          </div>
+        </>
+      )}
+      {success && <div style={{ marginTop: "10px", fontSize: "11.5px", color: "#1B4332", fontWeight: 600 }}>✓ Link safaltapoorvak badal diya gaya.</div>}
     </div>
   );
 }

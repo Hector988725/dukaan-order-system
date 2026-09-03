@@ -5,7 +5,7 @@ import { BUSINESS_TYPE_LIST } from "../lib/theme";
 
 const BUSINESS_TYPES = BUSINESS_TYPE_LIST;
 
-function slugify(text) {
+export function slugify(text) {
   return text
     .toLowerCase()
     .trim()
