@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Search, ChevronRight, X, Check, MessageCircle, Plus, Minus, Trash2, Loader2, Star, LayoutGrid } from "lucide-react";
 import { createOrder, fetchCustomerByPhone, upsertCustomerDetails } from "../lib/api";
-import { getTheme, getShoppingMode } from "../lib/theme";
+import { getTheme, getShoppingMode, getDiscountInfo } from "../lib/theme";
 import { OrderTrackingModal } from "./OrderTracking";
 
 const PENDING_UPI_KEY = "dukaan_pending_upi_checkout";
@@ -316,6 +316,7 @@ export default function CustomerView({ store, products, onOrderPlaced }) {
           const minPrice = Math.min(...prices), maxPrice = Math.max(...prices);
           const singleVariant = p.variants.length === 1;
           const onlyVariant = singleVariant ? p.variants[0] : null;
+          const discount = singleVariant ? getDiscountInfo(onlyVariant.mrp, onlyVariant.price) : null;
           const qtyInCart = singleVariant ? cart[onlyVariant.id] || 0 : 0;
 
           // Photo hai to natural aspect-ratio leta hai (masonry variety khud
@@ -352,10 +353,18 @@ export default function CustomerView({ store, products, onOrderPlaced }) {
               <div style={{ padding: "8px 13px 0", display: "flex", flexDirection: "column", gap: "8px" }}>
               <div>
                 <div style={{ fontWeight: 600, fontSize: "13px", lineHeight: 1.3 }}>{p.name}</div>
-                <div style={{ fontSize: "11.5px", color: "#8B8576", marginTop: "2px" }}>
-                  {singleVariant ? `₹${onlyVariant.price} / ${onlyVariant.unit}` : minPrice === maxPrice ? `₹${minPrice}` : `₹${minPrice}–${maxPrice}`}
-                  {!singleVariant && <span style={{ color: "#A89F87" }}> · {p.variants.length} options</span>}
-                </div>
+                {singleVariant && discount ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "3px", flexWrap: "wrap" }}>
+                    <span style={{ fontSize: "11px", color: "#A89F87", textDecoration: "line-through" }}>₹{discount.mrp}</span>
+                    <span style={{ fontSize: "12.5px", fontWeight: 700, color: "#1A1A1A" }}>₹{discount.price}</span>
+                    <span style={{ fontSize: "10px", fontWeight: 800, color: "#178C42", background: "#E7F5EA", padding: "1px 6px", borderRadius: "5px" }}>{discount.pct}% OFF</span>
+                  </div>
+                ) : (
+                  <div style={{ fontSize: "11.5px", color: "#8B8576", marginTop: "2px" }}>
+                    {singleVariant ? `₹${onlyVariant.price} / ${onlyVariant.unit}` : minPrice === maxPrice ? `₹${minPrice}` : `₹${minPrice}–${maxPrice}`}
+                    {!singleVariant && <span style={{ color: "#A89F87" }}> · {p.variants.length} options</span>}
+                  </div>
+                )}
               </div>
 
               {isGalleryMode ? (
@@ -534,11 +543,20 @@ function ProductDetailModal({ product, cart, addToCart, decFromCart, theme, onCl
             {product.variants.map((v) => {
               const qty = cart[v.id] || 0;
               const out = v.stock <= 0;
+              const vDiscount = getDiscountInfo(v.mrp, v.price);
               return (
                 <div key={v.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", padding: "11px 13px", border: "1px solid #E3DECF", borderRadius: "10px" }}>
                   <div>
                     <div style={{ fontWeight: 600, fontSize: "13.5px" }}>{v.label}</div>
-                    <div style={{ fontSize: "11.5px", color: "#8B8576" }}>₹{v.price} / {v.unit}</div>
+                    {vDiscount ? (
+                      <div style={{ display: "flex", alignItems: "center", gap: "5px", marginTop: "2px" }}>
+                        <span style={{ fontSize: "10.5px", color: "#A89F87", textDecoration: "line-through" }}>₹{vDiscount.mrp}</span>
+                        <span style={{ fontSize: "11.5px", fontWeight: 700 }}>₹{vDiscount.price}</span>
+                        <span style={{ fontSize: "9.5px", fontWeight: 800, color: "#178C42", background: "#E7F5EA", padding: "1px 5px", borderRadius: "5px" }}>{vDiscount.pct}% OFF</span>
+                      </div>
+                    ) : (
+                      <div style={{ fontSize: "11.5px", color: "#8B8576" }}>₹{v.price} / {v.unit}</div>
+                    )}
                   </div>
                   {out ? (
                     <span style={{ fontSize: "11px", fontWeight: 700, color: "#B3261E" }}>Stock Khatam</span>
@@ -584,11 +602,21 @@ function VariantPickerModal({ product, cart, addToCart, decFromCart, theme, onCl
           {product.variants.map((v) => {
             const qty = cart[v.id] || 0;
             const out = v.stock <= 0;
+            const vDiscount = getDiscountInfo(v.mrp, v.price);
             return (
               <div key={v.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0", borderBottom: "1px solid #E3DECF", opacity: out ? 0.5 : 1 }}>
                 <div>
                   <div style={{ fontWeight: 600, fontSize: "13px" }}>{v.label}</div>
-                  <div style={{ fontSize: "11.5px", color: "#8B8576", marginTop: "2px" }}>₹{v.price} / {v.unit}{out && " · Stock Khatam"}</div>
+                  {vDiscount ? (
+                    <div style={{ display: "flex", alignItems: "center", gap: "5px", marginTop: "2px" }}>
+                      <span style={{ fontSize: "10.5px", color: "#A89F87", textDecoration: "line-through" }}>₹{vDiscount.mrp}</span>
+                      <span style={{ fontSize: "11.5px", fontWeight: 700 }}>₹{vDiscount.price}</span>
+                      <span style={{ fontSize: "9.5px", fontWeight: 800, color: "#178C42", background: "#E7F5EA", padding: "1px 5px", borderRadius: "5px" }}>{vDiscount.pct}% OFF</span>
+                      {out && <span style={{ fontSize: "10.5px", color: "#B3261E" }}>· Stock Khatam</span>}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: "11.5px", color: "#8B8576", marginTop: "2px" }}>₹{v.price} / {v.unit}{out && " · Stock Khatam"}</div>
+                  )}
                 </div>
                 {out ? (
                   <span style={{ fontSize: "11px", fontWeight: 700, color: "#B3261E" }}>Out of Stock</span>

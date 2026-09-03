@@ -136,3 +136,17 @@ export function getHeaderBackground(theme) {
 
 // Signup dropdown ke liye list format
 export const BUSINESS_TYPE_LIST = Object.entries(BUSINESS_THEMES).map(([id, t]) => ({ id, label: t.label }));
+
+// ============================================================
+// MRP / DISCOUNT — ek hi jagah calculate hota hai (admin form
+// preview aur customer-facing product cards, dono isi function ko use
+// karte hain), taaki kahin bhi mismatch na ho. Kuch bhi store nahi
+// hota — hamesha live calculate hota hai mrp aur price se.
+// ============================================================
+export function getDiscountInfo(mrp, price) {
+  const m = Number(mrp), p = Number(price);
+  if (!m || m <= p) return null; // MRP nahi hai, ya price MRP se kam nahi — koi discount nahi dikhana
+  const pct = Math.round(((m - p) / m) * 100);
+  if (pct <= 0) return null;
+  return { mrp: m, price: p, pct };
+}

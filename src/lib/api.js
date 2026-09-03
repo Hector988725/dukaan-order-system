@@ -319,20 +319,20 @@ export async function deleteProduct(productId) {
 }
 
 // ---- Variant CRUD ----
-export async function createVariant(productId, { label, unit, price, stock, barcode }) {
+export async function createVariant(productId, { label, unit, price, stock, barcode, mrp }) {
   const { data, error } = await supabase
     .from("variants")
-    .insert({ product_id: productId, label, unit, price, stock: stock || 0, barcode: barcode || null })
+    .insert({ product_id: productId, label, unit, price, stock: stock || 0, barcode: barcode || null, mrp: mrp || null })
     .select()
     .single();
   if (error) throw error;
   return data;
 }
 
-export async function updateVariant(variantId, { label, unit, price, stock, barcode }) {
+export async function updateVariant(variantId, { label, unit, price, stock, barcode, mrp }) {
   const { error } = await supabase
     .from("variants")
-    .update({ label, unit, price, stock, barcode: barcode || null })
+    .update({ label, unit, price, stock, barcode: barcode || null, mrp: mrp || null })
     .eq("id", variantId);
   if (error) throw error;
 }

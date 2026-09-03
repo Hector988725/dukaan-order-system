@@ -51,7 +51,7 @@ function AdminContent({ store, products, user, onRefresh }) {
 }
 
 import RazorpaySubscription from "./RazorpaySubscription";
-import { getShoppingMode } from "../lib/theme";
+import { getShoppingMode, getDiscountInfo } from "../lib/theme";
 
 // ============================================================
 // SUBSCRIPTION PANEL — Razorpay se real payment
@@ -647,11 +647,15 @@ function VariantRow({ variant, onRefresh }) {
     );
   }
 
+  const discount = getDiscountInfo(variant.mrp, variant.price);
+
   return (
     <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "8px 0", borderBottom: "1px solid #E3DECF" }}>
       <div style={{ flex: 1 }}>
         <div style={{ fontWeight: 600, fontSize: "12.5px" }}>{variant.label}</div>
-        <div style={{ fontSize: "10.5px", color: "#8B8576" }}>₹{variant.price} / {variant.unit} · Stock: {variant.stock}</div>
+        <div style={{ fontSize: "10.5px", color: "#8B8576" }}>
+          {discount ? <><s>₹{discount.mrp}</s> ₹{discount.price} <span style={{ color: "#1B4332", fontWeight: 700 }}>({discount.pct}% OFF)</span></> : `₹${variant.price}`} / {variant.unit} · Stock: {variant.stock}
+        </div>
       </div>
       <button onClick={() => setEditing(true)} style={iconBtnStyle}><Edit2 size={13} /></button>
       <button onClick={handleDelete} style={{ ...iconBtnStyle, color: "#B3261E" }}><Trash2 size={13} /></button>
@@ -663,20 +667,24 @@ function EditVariantForm({ variant, onCancel, onSave }) {
   const [label, setLabel] = useState(variant.label);
   const [unit, setUnit] = useState(variant.unit);
   const [price, setPrice] = useState(String(variant.price));
+  const [mrp, setMrp] = useState(variant.mrp != null ? String(variant.mrp) : "");
   const [stock, setStock] = useState(String(variant.stock));
   const [barcode, setBarcode] = useState(variant.barcode || "");
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
+  const discount = getDiscountInfo(mrp, price);
 
   const handleSave = async () => {
     setFormError("");
     const priceNum = Number(price);
     const stockNum = Number(stock);
+    const mrpNum = mrp.trim() === "" ? null : Number(mrp);
     if (!label.trim() || !unit.trim()) { setFormError("Naam aur Unit khaali nahi ho sakte."); return; }
     if (price === "" || isNaN(priceNum) || priceNum <= 0) { setFormError("Price ek valid number hona chahiye, 0 se zyada."); return; }
+    if (mrpNum !== null && (isNaN(mrpNum) || mrpNum <= 0)) { setFormError("MRP ek valid number hona chahiye, 0 se zyada."); return; }
     if (stock === "" || isNaN(stockNum) || stockNum < 0) { setFormError("Stock ek valid number hona chahiye (0 ya usse zyada)."); return; }
     setSaving(true);
-    await onSave({ label, unit, price: priceNum, stock: stockNum, barcode: barcode.trim() || null });
+    await onSave({ label, unit, price: priceNum, mrp: mrpNum, stock: stockNum, barcode: barcode.trim() || null });
     setSaving(false);
   };
 
@@ -686,9 +694,15 @@ function EditVariantForm({ variant, onCancel, onSave }) {
         <Field label="Naam/Brand" value={label} onChange={setLabel} />
         <div style={{ display: "flex", gap: "6px" }}>
           <div style={{ flex: 1 }}><Field label="Unit" value={unit} onChange={setUnit} placeholder="kg, litre, piece" /></div>
-          <div style={{ flex: 1 }}><Field label="Price (₹)" value={price} onChange={(v) => setPrice(v.replace(/[^\d.]/g, ""))} /></div>
+          <div style={{ flex: 1 }}><Field label="MRP (₹, optional)" value={mrp} onChange={(v) => setMrp(v.replace(/[^\d.]/g, ""))} placeholder="jaise 100" /></div>
+          <div style={{ flex: 1 }}><Field label="Selling Price (₹)" value={price} onChange={(v) => setPrice(v.replace(/[^\d.]/g, ""))} /></div>
           <div style={{ flex: 1 }}><Field label="Stock" value={stock} onChange={(v) => setStock(v.replace(/\D/g, ""))} /></div>
         </div>
+        {discount && (
+          <div style={{ fontSize: "11px", color: "#1B4332", fontWeight: 700, background: "#E7F0EA", borderRadius: "6px", padding: "5px 9px" }}>
+            Customer ko dikhega: <s style={{ color: "#8B8576" }}>₹{discount.mrp}</s> ₹{discount.price} — {discount.pct}% OFF
+          </div>
+        )}
         <Field label="Barcode (optional)" value={barcode} onChange={setBarcode} placeholder="jaise 8901234567890" />
       </div>
       {formError && <div style={{ color: "#B3261E", fontSize: "11px", marginTop: "6px" }}>{formError}</div>}
@@ -706,20 +720,24 @@ function NewVariantForm({ onCancel, onSave, prefillBarcode }) {
   const [label, setLabel] = useState("");
   const [unit, setUnit] = useState("kg");
   const [price, setPrice] = useState("");
+  const [mrp, setMrp] = useState("");
   const [stock, setStock] = useState("0");
   const [barcode, setBarcode] = useState(prefillBarcode || "");
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
   const valid = label.trim() && unit.trim() && price;
+  const discount = getDiscountInfo(mrp, price);
 
   const handleSave = async () => {
     setFormError("");
     const priceNum = Number(price);
     const stockNum = Number(stock);
+    const mrpNum = mrp.trim() === "" ? null : Number(mrp);
     if (price === "" || isNaN(priceNum) || priceNum <= 0) { setFormError("Price ek valid number hona chahiye, 0 se zyada."); return; }
+    if (mrpNum !== null && (isNaN(mrpNum) || mrpNum <= 0)) { setFormError("MRP ek valid number hona chahiye, 0 se zyada."); return; }
     if (stock !== "" && (isNaN(stockNum) || stockNum < 0)) { setFormError("Stock ek valid number hona chahiye (0 ya usse zyada)."); return; }
     setSaving(true);
-    await onSave({ label, unit, price: priceNum, stock: stock === "" ? 0 : stockNum, barcode: barcode.trim() || null });
+    await onSave({ label, unit, price: priceNum, mrp: mrpNum, stock: stock === "" ? 0 : stockNum, barcode: barcode.trim() || null });
     setSaving(false);
   };
 
@@ -734,9 +752,15 @@ function NewVariantForm({ onCancel, onSave, prefillBarcode }) {
         <Field label="Naam/Brand" value={label} onChange={setLabel} placeholder="jaise Normal, Premium, 1kg" />
         <div style={{ display: "flex", gap: "6px" }}>
           <div style={{ flex: 1 }}><Field label="Unit" value={unit} onChange={setUnit} placeholder="kg, litre, piece" /></div>
-          <div style={{ flex: 1 }}><Field label="Price (₹)" value={price} onChange={(v) => setPrice(v.replace(/[^\d.]/g, ""))} /></div>
+          <div style={{ flex: 1 }}><Field label="MRP (₹, optional)" value={mrp} onChange={(v) => setMrp(v.replace(/[^\d.]/g, ""))} placeholder="jaise 100" /></div>
+          <div style={{ flex: 1 }}><Field label="Selling Price (₹)" value={price} onChange={(v) => setPrice(v.replace(/[^\d.]/g, ""))} /></div>
           <div style={{ flex: 1 }}><Field label="Stock" value={stock} onChange={(v) => setStock(v.replace(/\D/g, ""))} /></div>
         </div>
+        {discount && (
+          <div style={{ fontSize: "11px", color: "#1B4332", fontWeight: 700, background: "#E7F0EA", borderRadius: "6px", padding: "5px 9px" }}>
+            Customer ko dikhega: <s style={{ color: "#8B8576" }}>₹{discount.mrp}</s> ₹{discount.price} — {discount.pct}% OFF
+          </div>
+        )}
         <Field label="Barcode (optional)" value={barcode} onChange={setBarcode} placeholder="jaise 8901234567890" />
       </div>
       {formError && <div style={{ color: "#B3261E", fontSize: "11px", marginTop: "6px" }}>{formError}</div>}

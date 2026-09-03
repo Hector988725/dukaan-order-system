@@ -1,0 +1,12 @@
+-- ============================================================
+-- MRP + DISCOUNT PRICE
+-- ============================================================
+-- `variants.price` hamesha se "selling price" tha — ab ek naya
+-- optional `mrp` column add kar rahe hain. Discount % kahin bhi
+-- store nahi hota — hamesha live calculate hota hai (mrp aur price
+-- se), isliye price/mrp update karte hi discount automatically sahi
+-- ho jaata hai, kahin bhi stale data nahi ban sakta.
+alter table variants add column if not exists mrp numeric;
+-- NULL = koi MRP set nahi (purane variants, ya jinke liye discount
+-- dikhana hi nahi hai) — is case mein sirf normal price dikhta hai,
+-- koi discount badge nahi.
