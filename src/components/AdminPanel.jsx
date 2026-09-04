@@ -787,6 +787,9 @@ function EditVariantForm({ variant, onCancel, onSave }) {
   const [offerPrice, setOfferPrice] = useState(variant.offer_price != null ? String(variant.offer_price) : "");
   const [offerStart, setOfferStart] = useState(toDatetimeLocal(variant.offer_starts_at));
   const [offerEnd, setOfferEnd] = useState(toDatetimeLocal(variant.offer_ends_at));
+  const [qtyTiers, setQtyTiers] = useState(
+    Array.isArray(variant.qty_deal_tiers) ? variant.qty_deal_tiers.map((t) => ({ qty: String(t.qty), price: String(t.price) })) : []
+  );
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
   const discount = getDiscountInfo(mrp, price);
@@ -807,12 +810,25 @@ function EditVariantForm({ variant, onCancel, onSave }) {
       if (!offerStart || !offerEnd) { setFormError("Offer ki Start aur End date/time dono daalein."); return; }
       if (new Date(offerEnd) <= new Date(offerStart)) { setFormError("Offer End time, Start time se baad ka hona chahiye."); return; }
     }
+    let cleanTiers = [];
+    if (qtyTiers.length > 0) {
+      for (const t of qtyTiers) {
+        const q = Number(t.qty), p = Number(t.price);
+        if (!t.qty || !t.price || isNaN(q) || isNaN(p) || q <= 0 || p <= 0) { setFormError("Buy More Save More ke sab tiers mein valid Qty aur Price bharein."); return; }
+        cleanTiers.push({ qty: q, price: p });
+      }
+      cleanTiers.sort((a, b) => a.qty - b.qty);
+      for (let i = 1; i < cleanTiers.length; i++) {
+        if (cleanTiers[i].qty === cleanTiers[i - 1].qty) { setFormError("Do tiers ka Qty same nahi ho sakta."); return; }
+      }
+    }
     setSaving(true);
     await onSave({
       label, unit, price: priceNum, mrp: mrpNum, stock: stockNum, barcode: barcode.trim() || null,
       offer_enabled: offerEnabled, offer_price: offerEnabled ? offerPriceNum : null,
       offer_starts_at: offerEnabled ? fromDatetimeLocal(offerStart) : null,
       offer_ends_at: offerEnabled ? fromDatetimeLocal(offerEnd) : null,
+      qty_deal_tiers: cleanTiers,
     });
     setSaving(false);
   };
@@ -840,6 +856,7 @@ function EditVariantForm({ variant, onCancel, onSave }) {
           end={offerEnd} onEndChange={setOfferEnd}
           basePrice={price}
         />
+        <QuantityDealFields tiers={qtyTiers} onChange={setQtyTiers} basePrice={price} />
       </div>
       {formError && <div style={{ color: "#B3261E", fontSize: "11px", marginTop: "6px" }}>{formError}</div>}
       <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
@@ -887,6 +904,60 @@ function LimitedTimeDealFields({ enabled, onEnabledChange, offerPrice, onOfferPr
   );
 }
 
+// ============================================================
+// BUY MORE, SAVE MORE — quantity-based tiers (jaise "2 lo to ₹190,
+// 3 lo to ₹270"). Chhota, repeatable list — max 4 tiers rakhte hain
+// taaki UI simple rahe.
+// ============================================================
+function QuantityDealFields({ tiers, onChange, basePrice }) {
+  const enabled = tiers.length > 0;
+
+  const handleToggle = (checked) => {
+    if (checked) onChange([{ qty: "2", price: "" }]);
+    else onChange([]);
+  };
+  const updateTier = (idx, field, value) => {
+    const copy = tiers.map((t, i) => (i === idx ? { ...t, [field]: value } : t));
+    onChange(copy);
+  };
+  const addTier = () => {
+    if (tiers.length >= 4) return;
+    onChange([...tiers, { qty: "", price: "" }]);
+  };
+  const removeTier = (idx) => onChange(tiers.filter((_, i) => i !== idx));
+
+  return (
+    <div style={{ border: "1px solid #D4E4D9", background: "#F5FAF6", borderRadius: "8px", padding: "10px" }}>
+      <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
+        <input type="checkbox" checked={enabled} onChange={(e) => handleToggle(e.target.checked)} style={{ width: 15, height: 15, cursor: "pointer" }} />
+        <span style={{ fontSize: "12px", fontWeight: 700, color: "#1B4332" }}>📦 Buy More, Save More</span>
+      </label>
+      {enabled && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginTop: "8px" }}>
+          {tiers.map((t, idx) => (
+            <div key={idx} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <div style={{ flex: 1 }}>
+                <input value={t.qty} onChange={(e) => updateTier(idx, "qty", e.target.value.replace(/\D/g, ""))} placeholder="Qty" style={{ width: "100%", border: "1px solid #E3DECF", borderRadius: "7px", padding: "7px 8px", fontSize: "12px", outline: "none", boxSizing: "border-box" }} />
+              </div>
+              <span style={{ fontSize: "11px", color: "#8B8576" }}>piece =</span>
+              <div style={{ flex: 1 }}>
+                <input value={t.price} onChange={(e) => updateTier(idx, "price", e.target.value.replace(/[^\d.]/g, ""))} placeholder="₹ Total" style={{ width: "100%", border: "1px solid #E3DECF", borderRadius: "7px", padding: "7px 8px", fontSize: "12px", outline: "none", boxSizing: "border-box" }} />
+              </div>
+              <button onClick={() => removeTier(idx)} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#B3261E", padding: "4px" }}><Trash2 size={13} /></button>
+            </div>
+          ))}
+          {tiers.length < 4 && (
+            <button onClick={addTier} style={{ display: "flex", alignItems: "center", gap: "5px", background: "white", border: "1px dashed #1B4332", color: "#1B4332", borderRadius: "7px", padding: "6px 10px", fontSize: "11px", fontWeight: 700, cursor: "pointer", alignSelf: "flex-start" }}>
+              <Plus size={11} /> Aur Tier Add Karein
+            </button>
+          )}
+          <div style={{ fontSize: "10px", color: "#8B8576" }}>Jaise: 2 piece = ₹190 (matlab dono milakar ₹190, ₹95/piece ke hisaab se). Cart mein customer ki quantity ke hisaab se best deal automatically laagu hoga.</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function NewVariantForm({ onCancel, onSave, prefillBarcode }) {
   const [label, setLabel] = useState("");
   const [unit, setUnit] = useState("kg");
@@ -898,6 +969,7 @@ function NewVariantForm({ onCancel, onSave, prefillBarcode }) {
   const [offerPrice, setOfferPrice] = useState("");
   const [offerStart, setOfferStart] = useState("");
   const [offerEnd, setOfferEnd] = useState("");
+  const [qtyTiers, setQtyTiers] = useState([]);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
   const valid = label.trim() && unit.trim() && price;
@@ -918,12 +990,25 @@ function NewVariantForm({ onCancel, onSave, prefillBarcode }) {
       if (!offerStart || !offerEnd) { setFormError("Offer ki Start aur End date/time dono daalein."); return; }
       if (new Date(offerEnd) <= new Date(offerStart)) { setFormError("Offer End time, Start time se baad ka hona chahiye."); return; }
     }
+    let cleanTiers = [];
+    if (qtyTiers.length > 0) {
+      for (const t of qtyTiers) {
+        const q = Number(t.qty), p = Number(t.price);
+        if (!t.qty || !t.price || isNaN(q) || isNaN(p) || q <= 0 || p <= 0) { setFormError("Buy More Save More ke sab tiers mein valid Qty aur Price bharein."); return; }
+        cleanTiers.push({ qty: q, price: p });
+      }
+      cleanTiers.sort((a, b) => a.qty - b.qty);
+      for (let i = 1; i < cleanTiers.length; i++) {
+        if (cleanTiers[i].qty === cleanTiers[i - 1].qty) { setFormError("Do tiers ka Qty same nahi ho sakta."); return; }
+      }
+    }
     setSaving(true);
     await onSave({
       label, unit, price: priceNum, mrp: mrpNum, stock: stock === "" ? 0 : stockNum, barcode: barcode.trim() || null,
       offer_enabled: offerEnabled, offer_price: offerEnabled ? offerPriceNum : null,
       offer_starts_at: offerEnabled ? fromDatetimeLocal(offerStart) : null,
       offer_ends_at: offerEnabled ? fromDatetimeLocal(offerEnd) : null,
+      qty_deal_tiers: cleanTiers,
     });
     setSaving(false);
   };
@@ -956,6 +1041,7 @@ function NewVariantForm({ onCancel, onSave, prefillBarcode }) {
           end={offerEnd} onEndChange={setOfferEnd}
           basePrice={price}
         />
+        <QuantityDealFields tiers={qtyTiers} onChange={setQtyTiers} basePrice={price} />
       </div>
       {formError && <div style={{ color: "#B3261E", fontSize: "11px", marginTop: "6px" }}>{formError}</div>}
       <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>

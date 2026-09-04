@@ -1,0 +1,11 @@
+-- ============================================================
+-- BUY MORE, SAVE MORE (Quantity-based deals)
+-- ============================================================
+-- Naya table nahi banaya — ek jsonb column use kiya hai kyunki yeh
+-- data sirf us variant ke saath hi kaam ka hai, aur array chhota hota
+-- hai (typically 2-4 tiers). Format:
+-- [{"qty": 2, "price": 190}, {"qty": 3, "price": 270}]
+-- Matlab: "2 piece ek saath lo to ₹190 mein, 3 piece lo to ₹270 mein"
+-- (yeh TOTAL price hai us quantity ke liye, per-piece nahi).
+alter table variants add column if not exists qty_deal_tiers jsonb;
+-- NULL ya empty array = koi quantity-deal nahi, normal pricing chalegi.

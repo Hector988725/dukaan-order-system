@@ -327,13 +327,14 @@ export async function deleteProduct(productId) {
 }
 
 // ---- Variant CRUD ----
-export async function createVariant(productId, { label, unit, price, stock, barcode, mrp, offer_enabled, offer_price, offer_starts_at, offer_ends_at }) {
+export async function createVariant(productId, { label, unit, price, stock, barcode, mrp, offer_enabled, offer_price, offer_starts_at, offer_ends_at, qty_deal_tiers }) {
   const { data, error } = await supabase
     .from("variants")
     .insert({
       product_id: productId, label, unit, price, stock: stock || 0, barcode: barcode || null, mrp: mrp || null,
       offer_enabled: offer_enabled || false, offer_price: offer_price || null,
       offer_starts_at: offer_starts_at || null, offer_ends_at: offer_ends_at || null,
+      qty_deal_tiers: qty_deal_tiers && qty_deal_tiers.length > 0 ? qty_deal_tiers : null,
     })
     .select()
     .single();
@@ -341,13 +342,14 @@ export async function createVariant(productId, { label, unit, price, stock, barc
   return data;
 }
 
-export async function updateVariant(variantId, { label, unit, price, stock, barcode, mrp, offer_enabled, offer_price, offer_starts_at, offer_ends_at }) {
+export async function updateVariant(variantId, { label, unit, price, stock, barcode, mrp, offer_enabled, offer_price, offer_starts_at, offer_ends_at, qty_deal_tiers }) {
   const { error } = await supabase
     .from("variants")
     .update({
       label, unit, price, stock, barcode: barcode || null, mrp: mrp || null,
       offer_enabled: offer_enabled || false, offer_price: offer_price || null,
       offer_starts_at: offer_starts_at || null, offer_ends_at: offer_ends_at || null,
+      qty_deal_tiers: qty_deal_tiers && qty_deal_tiers.length > 0 ? qty_deal_tiers : null,
     })
     .eq("id", variantId);
   if (error) throw error;

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Search, ChevronRight, X, Check, MessageCircle, Plus, Minus, Trash2, Loader2, Star, LayoutGrid } from "lucide-react";
 import { createOrder, fetchCustomerByPhone, upsertCustomerDetails } from "../lib/api";
-import { getTheme, getShoppingMode, getDiscountInfo, getVariantPricing } from "../lib/theme";
+import { getTheme, getShoppingMode, getDiscountInfo, getVariantPricing, getQuantityDealPrice, getBestQuantityDealBadge } from "../lib/theme";
 import { OrderTrackingModal } from "./OrderTracking";
 
 const PENDING_UPI_KEY = "dukaan_pending_upi_checkout";
@@ -117,7 +117,13 @@ export default function CustomerView({ store, products, onOrderPlaced }) {
       .filter(Boolean);
   }, [cart, variantIndex]);
 
-  const cartTotal = cartItems.reduce((sum, it) => sum + it.price * it.qty, 0);
+  const cartTotal = cartItems.reduce((sum, it) => {
+    // Buy More Save More: agar is variant ke liye quantity-tiers hain
+    // aur cart mein li gayi quantity kisi tier ko match karti hai, to
+    // uska special (kam) total use hota hai — warna normal price * qty.
+    const deal = getQuantityDealPrice(it, it.qty);
+    return sum + (deal ? deal.total : it.price * it.qty);
+  }, 0);
   const cartCount = cartItems.reduce((sum, it) => sum + it.qty, 0);
 
   const addToCart = (variantId) => {
@@ -325,6 +331,7 @@ export default function CustomerView({ store, products, onOrderPlaced }) {
           const singleVariant = p.variants.length === 1;
           const onlyVariant = singleVariant ? p.variants[0] : null;
           const pricing = singleVariant ? getVariantPricing(onlyVariant) : null;
+          const qtyDealBadge = singleVariant ? getBestQuantityDealBadge(onlyVariant) : null;
           const qtyInCart = singleVariant ? cart[onlyVariant.id] || 0 : 0;
 
           // Photo hai to natural aspect-ratio leta hai (masonry variety khud
@@ -376,6 +383,11 @@ export default function CustomerView({ store, products, onOrderPlaced }) {
                   <div style={{ fontSize: "11.5px", color: "#8B8576", marginTop: "2px" }}>
                     {singleVariant ? `₹${onlyVariant.price} / ${onlyVariant.unit}` : minPrice === maxPrice ? `₹${minPrice}` : `₹${minPrice}–${maxPrice}`}
                     {!singleVariant && <span style={{ color: "#A89F87" }}> · {p.variants.length} options</span>}
+                  </div>
+                )}
+                {qtyDealBadge && (
+                  <div style={{ marginTop: "3px", fontSize: "9.5px", fontWeight: 800, color: "#1B4332", background: "#E7F0EA", display: "inline-block", padding: "2px 6px", borderRadius: "5px" }}>
+                    📦 Buy {qtyDealBadge.qty} & Save ₹{qtyDealBadge.savings}
                   </div>
                 )}
               </div>
@@ -557,6 +569,7 @@ function ProductDetailModal({ product, cart, addToCart, decFromCart, theme, onCl
               const qty = cart[v.id] || 0;
               const out = v.stock <= 0;
               const vPricing = getVariantPricing(v);
+              const vQtyBadge = getBestQuantityDealBadge(v);
               return (
                 <div key={v.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", padding: "11px 13px", border: "1px solid #E3DECF", borderRadius: "10px" }}>
                   <div>
@@ -572,6 +585,11 @@ function ProductDetailModal({ product, cart, addToCart, decFromCart, theme, onCl
                       </div>
                     ) : (
                       <div style={{ fontSize: "11.5px", color: "#8B8576" }}>₹{v.price} / {v.unit}</div>
+                    )}
+                    {vQtyBadge && (
+                      <div style={{ marginTop: "3px", fontSize: "9.5px", fontWeight: 800, color: "#1B4332", background: "#E7F0EA", display: "inline-block", padding: "2px 6px", borderRadius: "5px" }}>
+                        📦 Buy {vQtyBadge.qty} & Save ₹{vQtyBadge.savings}
+                      </div>
                     )}
                   </div>
                   {out ? (
@@ -668,24 +686,31 @@ function CartDrawer({ cartItems, cartTotal, onClose, onRemove, onCheckout }) {
           <button onClick={onClose} style={closeBtnStyle}><X size={20} /></button>
         </div>
         <div style={{ overflowY: "auto", padding: "10px 18px", flex: 1 }}>
-          {cartItems.map((it) => (
-            <div key={it.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid #E3DECF" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                {it.image_url
-                  ? <img src={it.image_url} alt={it.productName} style={{ width: 36, height: 36, objectFit: "cover", borderRadius: "7px", flexShrink: 0 }} />
-                  : <span style={{ width: 36, height: 36, borderRadius: "7px", background: "linear-gradient(135deg, #F3ECDC 0%, #E9DFC0 100%)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "18px", flexShrink: 0 }}>{it.emoji || "📦"}</span>
-                }
-                <div>
-                  <div style={{ fontWeight: 600, fontSize: "13px" }}>{it.productName}</div>
-                  <div style={{ fontSize: "11.5px", color: "#8B8576" }}>{it.label} · {it.qty} {it.unit} × ₹{it.price}</div>
+          {cartItems.map((it) => {
+            const deal = getQuantityDealPrice(it, it.qty);
+            const lineTotal = deal ? deal.total : it.price * it.qty;
+            return (
+              <div key={it.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid #E3DECF" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  {it.image_url
+                    ? <img src={it.image_url} alt={it.productName} style={{ width: 36, height: 36, objectFit: "cover", borderRadius: "7px", flexShrink: 0 }} />
+                    : <span style={{ width: 36, height: 36, borderRadius: "7px", background: "linear-gradient(135deg, #F3ECDC 0%, #E9DFC0 100%)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "18px", flexShrink: 0 }}>{it.emoji || "📦"}</span>
+                  }
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: "13px" }}>{it.productName}</div>
+                    <div style={{ fontSize: "11.5px", color: "#8B8576" }}>{it.label} · {it.qty} {it.unit} × ₹{it.price}</div>
+                    {deal && deal.savings > 0 && (
+                      <div style={{ fontSize: "10.5px", color: "#178C42", fontWeight: 700 }}>📦 Deal laga: ₹{deal.savings} bacha</div>
+                    )}
+                  </div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  <span style={{ fontWeight: 700, fontSize: "13px" }}>₹{lineTotal}</span>
+                  <button onClick={() => onRemove(it.id)} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#B3261E" }}><Trash2 size={15} /></button>
                 </div>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                <span style={{ fontWeight: 700, fontSize: "13px" }}>₹{it.qty * it.price}</span>
-                <button onClick={() => onRemove(it.id)} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#B3261E" }}><Trash2 size={15} /></button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
         <div style={{ padding: "16px 18px", borderTop: "1px solid #E3DECF", background: "white" }}>
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "12px", fontSize: "14px", fontWeight: 700 }}>

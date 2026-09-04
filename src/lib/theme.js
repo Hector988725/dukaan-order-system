@@ -189,3 +189,45 @@ export function getVariantPricing(variant) {
 
   return { effectivePrice: price, strikePrice: null, pct: null, isLimitedTimeOffer: false };
 }
+
+// ============================================================
+// BUY MORE, SAVE MORE (quantity tiers)
+// ============================================================
+// tiers format: [{ qty: 2, price: 190 }, { qty: 3, price: 270 }] —
+// price yahan TOTAL hai us quantity ke liye, per-piece nahi.
+//
+// Calculation rule: cart mein jitni quantity hai, usके liye SABSE BADA
+// tier dhoondte hain jiska qty us se kam-ya-barabar ho, us tier ka poora
+// price laagu karte hain, aur bacha hua (remainder) quantity normal
+// per-unit price (MRP/offer already applied) par charge hota hai.
+// Example: tiers [{2,190},{3,270}], cart qty 5 → 3-tier (₹270) + 2 units
+// normal price par.
+export function getQuantityDealPrice(variant, qty) {
+  const tiers = Array.isArray(variant.qty_deal_tiers) ? variant.qty_deal_tiers.filter((t) => t.qty > 0 && t.price > 0) : [];
+  if (tiers.length === 0) return null;
+  const sorted = [...tiers].sort((a, b) => a.qty - b.qty);
+  let bestTier = null;
+  for (const t of sorted) {
+    if (t.qty <= qty) bestTier = t; else break;
+  }
+  if (!bestTier) return null; // qty abhi sabse chhote tier jitni bhi nahi hai
+  const unitPrice = getVariantPricing(variant).effectivePrice;
+  const remainder = qty - bestTier.qty;
+  const total = bestTier.price + remainder * unitPrice;
+  const normalTotal = unitPrice * qty;
+  const savings = normalTotal - total;
+  return { total, savings: savings > 0 ? Math.round(savings) : 0, tierQty: bestTier.qty, tierPrice: bestTier.price };
+}
+
+// Product card par "Buy 3 & Save ₹30" jaisa badge dikhane ke liye —
+// sabse bade tier ko "best deal" maan kar uski savings dikhata hai.
+export function getBestQuantityDealBadge(variant) {
+  const tiers = Array.isArray(variant.qty_deal_tiers) ? variant.qty_deal_tiers.filter((t) => t.qty > 0 && t.price > 0) : [];
+  if (tiers.length === 0) return null;
+  const sorted = [...tiers].sort((a, b) => b.qty - a.qty);
+  const top = sorted[0];
+  const unitPrice = getVariantPricing(variant).effectivePrice;
+  const savings = Math.round(unitPrice * top.qty - top.price);
+  if (savings <= 0) return null;
+  return { qty: top.qty, savings };
+}
