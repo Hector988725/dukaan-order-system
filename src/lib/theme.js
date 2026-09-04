@@ -150,3 +150,42 @@ export function getDiscountInfo(mrp, price) {
   if (pct <= 0) return null;
   return { mrp: m, price: p, pct };
 }
+
+// ============================================================
+// UNIFIED VARIANT PRICING — ek hi jagah "is variant ki abhi asal
+// kimat kya hai" decide hota hai. Yeh function grid card, product
+// detail, variant picker, AUR cart/checkout total — sabme use hota
+// hai, isliye jo price customer ko dikhta hai wahi charge bhi hota
+// hai, kabhi mismatch nahi ho sakta.
+//
+// Priority: Limited-Time Offer (agar abhi active hai) > MRP Discount > Normal Price.
+// Offer expiry KE LIYE koi cron/background job nahi chahiye — "active
+// hai ya nahi" hamesha is function ke andar live (`new Date()` se)
+// check hota hai, isliye expire hote hi apne aap normal price dikhne
+// lagta hai.
+// ============================================================
+export function getVariantPricing(variant) {
+  const price = Number(variant.price);
+  const mrp = variant.mrp ? Number(variant.mrp) : null;
+
+  let offerActive = false;
+  if (variant.offer_enabled && variant.offer_price != null) {
+    const now = new Date();
+    const start = variant.offer_starts_at ? new Date(variant.offer_starts_at) : null;
+    const end = variant.offer_ends_at ? new Date(variant.offer_ends_at) : null;
+    const offerPrice = Number(variant.offer_price);
+    offerActive = offerPrice > 0 && offerPrice < price && (!start || now >= start) && (!end || now <= end);
+  }
+
+  if (offerActive) {
+    const strikePrice = mrp && mrp > price ? mrp : price; // MRP hai to usse strike karo, warna normal price se
+    const offerPrice = Number(variant.offer_price);
+    const pct = Math.round(((strikePrice - offerPrice) / strikePrice) * 100);
+    return { effectivePrice: offerPrice, strikePrice, pct, isLimitedTimeOffer: true };
+  }
+
+  const discount = getDiscountInfo(mrp, price);
+  if (discount) return { effectivePrice: price, strikePrice: discount.mrp, pct: discount.pct, isLimitedTimeOffer: false };
+
+  return { effectivePrice: price, strikePrice: null, pct: null, isLimitedTimeOffer: false };
+}

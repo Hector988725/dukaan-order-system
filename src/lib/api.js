@@ -327,20 +327,28 @@ export async function deleteProduct(productId) {
 }
 
 // ---- Variant CRUD ----
-export async function createVariant(productId, { label, unit, price, stock, barcode, mrp }) {
+export async function createVariant(productId, { label, unit, price, stock, barcode, mrp, offer_enabled, offer_price, offer_starts_at, offer_ends_at }) {
   const { data, error } = await supabase
     .from("variants")
-    .insert({ product_id: productId, label, unit, price, stock: stock || 0, barcode: barcode || null, mrp: mrp || null })
+    .insert({
+      product_id: productId, label, unit, price, stock: stock || 0, barcode: barcode || null, mrp: mrp || null,
+      offer_enabled: offer_enabled || false, offer_price: offer_price || null,
+      offer_starts_at: offer_starts_at || null, offer_ends_at: offer_ends_at || null,
+    })
     .select()
     .single();
   if (error) throw error;
   return data;
 }
 
-export async function updateVariant(variantId, { label, unit, price, stock, barcode, mrp }) {
+export async function updateVariant(variantId, { label, unit, price, stock, barcode, mrp, offer_enabled, offer_price, offer_starts_at, offer_ends_at }) {
   const { error } = await supabase
     .from("variants")
-    .update({ label, unit, price, stock, barcode: barcode || null, mrp: mrp || null })
+    .update({
+      label, unit, price, stock, barcode: barcode || null, mrp: mrp || null,
+      offer_enabled: offer_enabled || false, offer_price: offer_price || null,
+      offer_starts_at: offer_starts_at || null, offer_ends_at: offer_ends_at || null,
+    })
     .eq("id", variantId);
   if (error) throw error;
 }

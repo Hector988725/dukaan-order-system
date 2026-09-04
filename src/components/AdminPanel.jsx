@@ -763,6 +763,19 @@ function VariantRow({ variant, onRefresh }) {
   );
 }
 
+// datetime-local input browser ke local timezone mein kaam karta hai
+// (YYYY-MM-DDTHH:mm), lekin DB mein UTC timestamptz store hota hai —
+// yeh 2 helpers dono ke beech convert karte hain.
+function toDatetimeLocal(isoString) {
+  if (!isoString) return "";
+  const d = new Date(isoString);
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function fromDatetimeLocal(localStr) {
+  return localStr ? new Date(localStr).toISOString() : null;
+}
+
 function EditVariantForm({ variant, onCancel, onSave }) {
   const [label, setLabel] = useState(variant.label);
   const [unit, setUnit] = useState(variant.unit);
@@ -770,6 +783,10 @@ function EditVariantForm({ variant, onCancel, onSave }) {
   const [mrp, setMrp] = useState(variant.mrp != null ? String(variant.mrp) : "");
   const [stock, setStock] = useState(String(variant.stock));
   const [barcode, setBarcode] = useState(variant.barcode || "");
+  const [offerEnabled, setOfferEnabled] = useState(variant.offer_enabled || false);
+  const [offerPrice, setOfferPrice] = useState(variant.offer_price != null ? String(variant.offer_price) : "");
+  const [offerStart, setOfferStart] = useState(toDatetimeLocal(variant.offer_starts_at));
+  const [offerEnd, setOfferEnd] = useState(toDatetimeLocal(variant.offer_ends_at));
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
   const discount = getDiscountInfo(mrp, price);
@@ -779,12 +796,24 @@ function EditVariantForm({ variant, onCancel, onSave }) {
     const priceNum = Number(price);
     const stockNum = Number(stock);
     const mrpNum = mrp.trim() === "" ? null : Number(mrp);
+    const offerPriceNum = offerPrice.trim() === "" ? null : Number(offerPrice);
     if (!label.trim() || !unit.trim()) { setFormError("Naam aur Unit khaali nahi ho sakte."); return; }
     if (price === "" || isNaN(priceNum) || priceNum <= 0) { setFormError("Price ek valid number hona chahiye, 0 se zyada."); return; }
     if (mrpNum !== null && (isNaN(mrpNum) || mrpNum <= 0)) { setFormError("MRP ek valid number hona chahiye, 0 se zyada."); return; }
     if (stock === "" || isNaN(stockNum) || stockNum < 0) { setFormError("Stock ek valid number hona chahiye (0 ya usse zyada)."); return; }
+    if (offerEnabled) {
+      if (offerPriceNum === null || isNaN(offerPriceNum) || offerPriceNum <= 0) { setFormError("Offer Price daalein, 0 se zyada."); return; }
+      if (offerPriceNum >= priceNum) { setFormError("Offer Price normal Selling Price se kam hona chahiye."); return; }
+      if (!offerStart || !offerEnd) { setFormError("Offer ki Start aur End date/time dono daalein."); return; }
+      if (new Date(offerEnd) <= new Date(offerStart)) { setFormError("Offer End time, Start time se baad ka hona chahiye."); return; }
+    }
     setSaving(true);
-    await onSave({ label, unit, price: priceNum, mrp: mrpNum, stock: stockNum, barcode: barcode.trim() || null });
+    await onSave({
+      label, unit, price: priceNum, mrp: mrpNum, stock: stockNum, barcode: barcode.trim() || null,
+      offer_enabled: offerEnabled, offer_price: offerEnabled ? offerPriceNum : null,
+      offer_starts_at: offerEnabled ? fromDatetimeLocal(offerStart) : null,
+      offer_ends_at: offerEnabled ? fromDatetimeLocal(offerEnd) : null,
+    });
     setSaving(false);
   };
 
@@ -804,6 +833,13 @@ function EditVariantForm({ variant, onCancel, onSave }) {
           </div>
         )}
         <Field label="Barcode (optional)" value={barcode} onChange={setBarcode} placeholder="jaise 8901234567890" />
+        <LimitedTimeDealFields
+          enabled={offerEnabled} onEnabledChange={setOfferEnabled}
+          offerPrice={offerPrice} onOfferPriceChange={setOfferPrice}
+          start={offerStart} onStartChange={setOfferStart}
+          end={offerEnd} onEndChange={setOfferEnd}
+          basePrice={price}
+        />
       </div>
       {formError && <div style={{ color: "#B3261E", fontSize: "11px", marginTop: "6px" }}>{formError}</div>}
       <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
@@ -816,6 +852,41 @@ function EditVariantForm({ variant, onCancel, onSave }) {
   );
 }
 
+// Shared Limited-Time Deal fields, dono NewVariantForm aur
+// EditVariantForm mein use hote hain.
+function LimitedTimeDealFields({ enabled, onEnabledChange, offerPrice, onOfferPriceChange, start, onStartChange, end, onEndChange, basePrice }) {
+  const pct = enabled && offerPrice && basePrice && Number(offerPrice) < Number(basePrice)
+    ? Math.round(((Number(basePrice) - Number(offerPrice)) / Number(basePrice)) * 100)
+    : null;
+  return (
+    <div style={{ border: "1px solid #F3C6C1", background: "#FFF9F5", borderRadius: "8px", padding: "10px" }}>
+      <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
+        <input type="checkbox" checked={enabled} onChange={(e) => onEnabledChange(e.target.checked)} style={{ width: 15, height: 15, cursor: "pointer" }} />
+        <span style={{ fontSize: "12px", fontWeight: 700, color: "#B3261E" }}>🔥 Limited-Time Deal Lagayein</span>
+      </label>
+      {enabled && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginTop: "8px" }}>
+          <Field label="Offer Price (₹)" value={offerPrice} onChange={(v) => onOfferPriceChange(v.replace(/[^\d.]/g, ""))} placeholder="Normal price se kam" />
+          <div style={{ display: "flex", gap: "6px" }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: "11px", fontWeight: 600, color: "#5C5747", marginBottom: "4px" }}>Shuru</div>
+              <input type="datetime-local" value={start} onChange={(e) => onStartChange(e.target.value)} style={{ width: "100%", border: "1px solid #E3DECF", borderRadius: "7px", padding: "8px 8px", fontSize: "11.5px", fontFamily: "inherit", outline: "none" }} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: "11px", fontWeight: 600, color: "#5C5747", marginBottom: "4px" }}>Khatam</div>
+              <input type="datetime-local" value={end} onChange={(e) => onEndChange(e.target.value)} style={{ width: "100%", border: "1px solid #E3DECF", borderRadius: "7px", padding: "8px 8px", fontSize: "11.5px", fontFamily: "inherit", outline: "none" }} />
+            </div>
+          </div>
+          {pct && (
+            <div style={{ fontSize: "11px", color: "#B3261E", fontWeight: 700 }}>🔥 Customer ko dikhega: <s style={{ color: "#8B8576" }}>₹{basePrice}</s> ₹{offerPrice} — {pct}% OFF (sirf tay kiye gaye time ke andar)</div>
+          )}
+          <div style={{ fontSize: "10px", color: "#8B8576" }}>Time khatam hote hi normal price apne aap wapas aa jaayega — kuch manually hataana nahi padega.</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function NewVariantForm({ onCancel, onSave, prefillBarcode }) {
   const [label, setLabel] = useState("");
   const [unit, setUnit] = useState("kg");
@@ -823,6 +894,10 @@ function NewVariantForm({ onCancel, onSave, prefillBarcode }) {
   const [mrp, setMrp] = useState("");
   const [stock, setStock] = useState("0");
   const [barcode, setBarcode] = useState(prefillBarcode || "");
+  const [offerEnabled, setOfferEnabled] = useState(false);
+  const [offerPrice, setOfferPrice] = useState("");
+  const [offerStart, setOfferStart] = useState("");
+  const [offerEnd, setOfferEnd] = useState("");
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
   const valid = label.trim() && unit.trim() && price;
@@ -833,11 +908,23 @@ function NewVariantForm({ onCancel, onSave, prefillBarcode }) {
     const priceNum = Number(price);
     const stockNum = Number(stock);
     const mrpNum = mrp.trim() === "" ? null : Number(mrp);
+    const offerPriceNum = offerPrice.trim() === "" ? null : Number(offerPrice);
     if (price === "" || isNaN(priceNum) || priceNum <= 0) { setFormError("Price ek valid number hona chahiye, 0 se zyada."); return; }
     if (mrpNum !== null && (isNaN(mrpNum) || mrpNum <= 0)) { setFormError("MRP ek valid number hona chahiye, 0 se zyada."); return; }
     if (stock !== "" && (isNaN(stockNum) || stockNum < 0)) { setFormError("Stock ek valid number hona chahiye (0 ya usse zyada)."); return; }
+    if (offerEnabled) {
+      if (offerPriceNum === null || isNaN(offerPriceNum) || offerPriceNum <= 0) { setFormError("Offer Price daalein, 0 se zyada."); return; }
+      if (offerPriceNum >= priceNum) { setFormError("Offer Price normal Selling Price se kam hona chahiye."); return; }
+      if (!offerStart || !offerEnd) { setFormError("Offer ki Start aur End date/time dono daalein."); return; }
+      if (new Date(offerEnd) <= new Date(offerStart)) { setFormError("Offer End time, Start time se baad ka hona chahiye."); return; }
+    }
     setSaving(true);
-    await onSave({ label, unit, price: priceNum, mrp: mrpNum, stock: stock === "" ? 0 : stockNum, barcode: barcode.trim() || null });
+    await onSave({
+      label, unit, price: priceNum, mrp: mrpNum, stock: stock === "" ? 0 : stockNum, barcode: barcode.trim() || null,
+      offer_enabled: offerEnabled, offer_price: offerEnabled ? offerPriceNum : null,
+      offer_starts_at: offerEnabled ? fromDatetimeLocal(offerStart) : null,
+      offer_ends_at: offerEnabled ? fromDatetimeLocal(offerEnd) : null,
+    });
     setSaving(false);
   };
 
@@ -862,6 +949,13 @@ function NewVariantForm({ onCancel, onSave, prefillBarcode }) {
           </div>
         )}
         <Field label="Barcode (optional)" value={barcode} onChange={setBarcode} placeholder="jaise 8901234567890" />
+        <LimitedTimeDealFields
+          enabled={offerEnabled} onEnabledChange={setOfferEnabled}
+          offerPrice={offerPrice} onOfferPriceChange={setOfferPrice}
+          start={offerStart} onStartChange={setOfferStart}
+          end={offerEnd} onEndChange={setOfferEnd}
+          basePrice={price}
+        />
       </div>
       {formError && <div style={{ color: "#B3261E", fontSize: "11px", marginTop: "6px" }}>{formError}</div>}
       <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
