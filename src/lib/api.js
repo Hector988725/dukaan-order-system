@@ -551,6 +551,67 @@ export async function bulkImportProducts(storeId, rows) {
   return results;
 }
 
+// Countdown timers ke liye — customer ke phone ki local clock galat ho
+// sakti hai, isliye server ka asli time ek baar fetch karke offset
+// nikalte hain (CustomerView mount hote hi).
+export async function fetchServerTime() {
+  const { data, error } = await supabase.rpc("get_server_time");
+  if (error) throw error;
+  return new Date(data);
+}
+
+// ============================================================
+// COMBO OFFER — multiple products ek bundle price par
+// ============================================================
+export async function fetchCombos(storeId) {
+  const { data, error } = await supabase
+    .from("combos")
+    .select("*, combo_items(id, qty, variants(id, label, unit, price, stock, product_id, products(id, name, emoji, image_url)))")
+    .eq("store_id", storeId)
+    .eq("active", true)
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return data || [];
+}
+
+// Admin panel mein sab combos dikhane ke liye (active + inactive dono)
+export async function fetchAllCombosForAdmin(storeId) {
+  const { data, error } = await supabase
+    .from("combos")
+    .select("*, combo_items(id, qty, variant_id, variants(id, label, unit, price, product_id, products(id, name, emoji)))")
+    .eq("store_id", storeId)
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function createCombo(storeId, { name, combo_price, image_url }, items) {
+  const { data, error } = await supabase.rpc("create_combo_with_items", {
+    p_store_id: storeId, p_name: name, p_combo_price: combo_price, p_image_url: image_url || null,
+    p_items: items.map((it) => ({ variant_id: it.variant_id, qty: it.qty })),
+  });
+  if (error) throw error;
+  return data; // combo id
+}
+
+export async function updateCombo(comboId, { name, combo_price, image_url }, items) {
+  const { error } = await supabase.rpc("update_combo_with_items", {
+    p_combo_id: comboId, p_name: name, p_combo_price: combo_price, p_image_url: image_url || null,
+    p_items: items.map((it) => ({ variant_id: it.variant_id, qty: it.qty })),
+  });
+  if (error) throw error;
+}
+
+export async function toggleComboActive(comboId, active) {
+  const { error } = await supabase.from("combos").update({ active }).eq("id", comboId);
+  if (error) throw error;
+}
+
+export async function deleteCombo(comboId) {
+  const { error } = await supabase.from("combos").delete().eq("id", comboId);
+  if (error) throw error;
+}
+
 // ============================================================
 // DELIVERY BOYS — dukaandar apna delivery staff khud manage karta hai
 // (hum delivery boy provide nahi karte, sirf management tool dete hain)

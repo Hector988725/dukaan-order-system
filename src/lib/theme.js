@@ -164,13 +164,13 @@ export function getDiscountInfo(mrp, price) {
 // check hota hai, isliye expire hote hi apne aap normal price dikhne
 // lagta hai.
 // ============================================================
-export function getVariantPricing(variant) {
+export function getVariantPricing(variant, nowOverride) {
   const price = Number(variant.price);
   const mrp = variant.mrp ? Number(variant.mrp) : null;
 
   let offerActive = false;
   if (variant.offer_enabled && variant.offer_price != null) {
-    const now = new Date();
+    const now = nowOverride || new Date();
     const start = variant.offer_starts_at ? new Date(variant.offer_starts_at) : null;
     const end = variant.offer_ends_at ? new Date(variant.offer_ends_at) : null;
     const offerPrice = Number(variant.offer_price);
@@ -188,6 +188,29 @@ export function getVariantPricing(variant) {
   if (discount) return { effectivePrice: price, strikePrice: discount.mrp, pct: discount.pct, isLimitedTimeOffer: false };
 
   return { effectivePrice: price, strikePrice: null, pct: null, isLimitedTimeOffer: false };
+}
+
+// Exact expiry date/time customer-friendly format mein — jaise
+// "10 Sep, 11:59 PM". IST mein dikhta hai (India ke liye app hai).
+export function formatOfferExpiry(isoString) {
+  if (!isoString) return "";
+  const d = new Date(isoString);
+  return d.toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit", hour12: true, timeZone: "Asia/Kolkata" });
+}
+
+// Countdown ke liye "Xd Xh Xm Xs" jaisa string banata hai. `now` server-
+// corrected time hona chahiye (customer ke phone ki galat clock par
+// depend nahi karna), taaki expiry sahi waqt par ho.
+export function getCountdownParts(endIso, now) {
+  const end = new Date(endIso).getTime();
+  const diff = end - now.getTime();
+  if (diff <= 0) return null; // expire ho chuka
+  const totalSeconds = Math.floor(diff / 1000);
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return { days, hours, minutes, seconds };
 }
 
 // ============================================================

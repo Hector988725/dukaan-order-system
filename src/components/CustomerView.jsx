@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Search, ChevronRight, X, Check, MessageCircle, Plus, Minus, Trash2, Loader2, Star, LayoutGrid } from "lucide-react";
-import { createOrder, fetchCustomerByPhone, upsertCustomerDetails } from "../lib/api";
-import { getTheme, getShoppingMode, getDiscountInfo, getVariantPricing, getQuantityDealPrice, getBestQuantityDealBadge } from "../lib/theme";
+import { createOrder, fetchCustomerByPhone, upsertCustomerDetails, fetchServerTime } from "../lib/api";
+import { getTheme, getShoppingMode, getDiscountInfo, getVariantPricing, getQuantityDealPrice, getBestQuantityDealBadge, formatOfferExpiry, getCountdownParts } from "../lib/theme";
 import { OrderTrackingModal } from "./OrderTracking";
 
 const PENDING_UPI_KEY = "dukaan_pending_upi_checkout";
@@ -32,6 +32,16 @@ export default function CustomerView({ store, products, onOrderPlaced }) {
   const [resumeCheckout, setResumeCheckout] = useState(null);
   const [flyingItems, setFlyingItems] = useState([]);
   const cartButtonRef = useRef(null);
+  // Countdown timers customer ke phone ki (possibly galat) local clock
+  // par depend nahi karte — ek baar server ka asli time le kar offset
+  // nikal lete hain, phir hamesha "Date.now() + offset" ko hi "abhi ka
+  // sahi time" maante hain.
+  const [serverOffsetMs, setServerOffsetMs] = useState(0);
+  useEffect(() => {
+    fetchServerTime()
+      .then((serverTime) => setServerOffsetMs(serverTime.getTime() - Date.now()))
+      .catch(() => {}); // fail ho to bhi app chalti rahe, bas timer thoda local-clock par depend karega
+  }, []);
 
   // UPI app khulne ke baad browser page reload/unload kar sakta hai, jisse
   // saara React state (cart, checkoutOpen, form) reset ho jaata hai. Isliye
@@ -323,108 +333,22 @@ export default function CustomerView({ store, products, onOrderPlaced }) {
             Koi product nahi mila.
           </div>
         )}
-        {filtered.map((p, idx) => {
-          const totalStock = p.variants.reduce((s, v) => s + v.stock, 0);
-          const outOfStock = totalStock <= 0;
-          const prices = p.variants.map((v) => v.price);
-          const minPrice = Math.min(...prices), maxPrice = Math.max(...prices);
-          const singleVariant = p.variants.length === 1;
-          const onlyVariant = singleVariant ? p.variants[0] : null;
-          const pricing = singleVariant ? getVariantPricing(onlyVariant) : null;
-          const qtyDealBadge = singleVariant ? getBestQuantityDealBadge(onlyVariant) : null;
-          const qtyInCart = singleVariant ? cart[onlyVariant.id] || 0 : 0;
-
-          // Photo hai to natural aspect-ratio leta hai (masonry variety khud
-          // ban jaati hai). Photo nahi hai to fallback tile ki height product
-          // index ke hisaab se 3 tiers mein deterministically vary hoti hai
-          // (taaki saare no-photo products ek jaisi boring height ke na dikhein).
-          const fallbackTiers = [120, 165, 145];
-          const fallbackHeight = fallbackTiers[idx % fallbackTiers.length];
-          const imageBoxStyle = p.image_url
-            ? { width: "100%", display: "block" }
-            : { width: "100%", height: p.featured ? 210 : fallbackHeight, display: "flex", alignItems: "center", justifyContent: "center" };
-
-          return (
-            <div
-              key={p.id}
-              className="ddemo-card ddemo-fade-in ddemo-masonry-item"
-              style={{ position: "relative", background: "white", border: "1px solid #E3DECF", borderRadius: "13px", padding: "0 0 13px", opacity: outOfStock ? 0.6 : 1, overflow: "hidden", cursor: isGalleryMode ? "pointer" : "default" }}
-              onClick={isGalleryMode ? () => setDetailProduct(p) : undefined}
-            >
-              {p.featured && (
-                <div style={{ position: "absolute", top: "8px", left: "8px", zIndex: 1, display: "flex", alignItems: "center", gap: "3px", background: theme.accent, color: "#123026", fontSize: "10px", fontWeight: 800, padding: "3px 8px", borderRadius: "999px" }}>
-                  <Star size={10} fill="#123026" /> Featured
-                </div>
-              )}
-              <div style={{
-                ...imageBoxStyle,
-                background: p.image_url ? undefined : "linear-gradient(135deg, #F3ECDC 0%, #E9DFC0 100%)",
-              }}>
-                {p.image_url
-                  ? <img src={p.image_url} alt={p.name} style={{ width: "100%", height: p.featured ? "260px" : "auto", objectFit: "cover", display: "block" }} />
-                  : <span style={{ fontSize: p.featured ? "60px" : "42px", lineHeight: 1 }}>{p.emoji || "📦"}</span>
-                }
-              </div>
-              <div style={{ padding: "8px 13px 0", display: "flex", flexDirection: "column", gap: "8px" }}>
-              <div>
-                <div style={{ fontWeight: 600, fontSize: "13px", lineHeight: 1.3 }}>{p.name}</div>
-                {singleVariant && pricing?.strikePrice ? (
-                  <div>
-                    {pricing.isLimitedTimeOffer && (
-                      <div style={{ fontSize: "9.5px", fontWeight: 800, color: "#B3261E", marginBottom: "2px" }}>🔥 Limited Time Deal</div>
-                    )}
-                    <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
-                      <span style={{ fontSize: "11px", color: "#A89F87", textDecoration: "line-through" }}>₹{pricing.strikePrice}</span>
-                      <span style={{ fontSize: "12.5px", fontWeight: 700, color: "#1A1A1A" }}>₹{pricing.effectivePrice}</span>
-                      <span style={{ fontSize: "10px", fontWeight: 800, color: "#178C42", background: "#E7F5EA", padding: "1px 6px", borderRadius: "5px" }}>{pricing.pct}% OFF</span>
-                    </div>
-                  </div>
-                ) : (
-                  <div style={{ fontSize: "11.5px", color: "#8B8576", marginTop: "2px" }}>
-                    {singleVariant ? `₹${onlyVariant.price} / ${onlyVariant.unit}` : minPrice === maxPrice ? `₹${minPrice}` : `₹${minPrice}–${maxPrice}`}
-                    {!singleVariant && <span style={{ color: "#A89F87" }}> · {p.variants.length} options</span>}
-                  </div>
-                )}
-                {qtyDealBadge && (
-                  <div style={{ marginTop: "3px", fontSize: "9.5px", fontWeight: 800, color: "#1B4332", background: "#E7F0EA", display: "inline-block", padding: "2px 6px", borderRadius: "5px" }}>
-                    📦 Buy {qtyDealBadge.qty} & Save ₹{qtyDealBadge.savings}
-                  </div>
-                )}
-              </div>
-
-              {isGalleryMode ? (
-                // Gallery-mode (Kapde/Footwear/Mobile jaise types) mein
-                // seedha grid se Add nahi hota — pehle photo/description/
-                // size dekhna zaroori hai, isliye poora card hi "Dekhein"
-                // ka kaam karta hai (onClick upar poore card pe hai).
-                outOfStock ? (
-                  <div style={{ fontSize: "11px", fontWeight: 700, color: "#B3261E", background: "#FDECEA", borderRadius: "7px", padding: "6px 0", textAlign: "center" }}>
-                    Stock Khatam
-                  </div>
-                ) : (
-                  <div style={{ fontSize: "11.5px", fontWeight: 700, color: theme.primary, display: "flex", alignItems: "center", gap: "4px" }}>
-                    Dekhein <ChevronRight size={13} />
-                  </div>
-                )
-              ) : outOfStock ? (
-                <div style={{ fontSize: "11px", fontWeight: 700, color: "#B3261E", background: "#FDECEA", borderRadius: "7px", padding: "6px 0", textAlign: "center" }}>
-                  Stock Khatam
-                </div>
-              ) : singleVariant ? (
-                qtyInCart === 0 ? (
-                  <button onClick={(e) => { addToCart(onlyVariant.id); triggerFlyToCart(e.currentTarget, p.image_url, p.emoji); }} className="ddemo-btn ddemo-add-btn" style={btnOutline(theme)}>+ Add</button>
-                ) : (
-                  <QtyStepper qty={qtyInCart} onInc={() => addToCart(onlyVariant.id)} onDec={() => decFromCart(onlyVariant.id)} />
-                )
-              ) : (
-                <button onClick={() => setVariantPicker(p)} className="ddemo-btn" style={{ ...btnOutline(theme), display: "flex", alignItems: "center", justifyContent: "center", gap: "5px" }}>
-                  Option Chunein <ChevronRight size={13} />
-                </button>
-              )}
-              </div>
-            </div>
-          );
-        })}
+        {filtered.map((p, idx) => (
+          <ProductCard
+            key={p.id}
+            product={p}
+            idx={idx}
+            theme={theme}
+            isGalleryMode={isGalleryMode}
+            cart={cart}
+            addToCart={addToCart}
+            decFromCart={decFromCart}
+            triggerFlyToCart={triggerFlyToCart}
+            setDetailProduct={setDetailProduct}
+            setVariantPicker={setVariantPicker}
+            serverOffsetMs={serverOffsetMs}
+          />
+        ))}
       </div>
 
       {variantPicker && (
@@ -492,6 +416,154 @@ export default function CustomerView({ store, products, onOrderPlaced }) {
       {orderPlaced && (
         <OrderConfirmedModal order={orderPlaced} storeName={store.name} whatsapp={store.whatsapp_number} theme={theme} store={store} onClose={() => setOrderPlaced(null)} />
       )}
+    </div>
+  );
+}
+
+// ============================================================
+// PRODUCT CARD — apna alag component hai (poore grid se nikaal ke)
+// taaki har card apna khud ka live countdown chala sake (React hooks
+// ek loop ke andar seedha nahi chal sakte, isliye extraction zaroori
+// thi).
+// ============================================================
+function ProductCard({ product: p, idx, theme, isGalleryMode, cart, addToCart, decFromCart, triggerFlyToCart, setDetailProduct, setVariantPicker, serverOffsetMs }) {
+  const totalStock = p.variants.reduce((s, v) => s + v.stock, 0);
+  const outOfStock = totalStock <= 0;
+  const prices = p.variants.map((v) => v.price);
+  const minPrice = Math.min(...prices), maxPrice = Math.max(...prices);
+  const singleVariant = p.variants.length === 1;
+  const onlyVariant = singleVariant ? p.variants[0] : null;
+  const qtyDealBadge = singleVariant ? getBestQuantityDealBadge(onlyVariant) : null;
+  const qtyInCart = singleVariant ? cart[onlyVariant.id] || 0 : 0;
+
+  // Live countdown — har second tick karta hai, aur jaise hi time
+  // khatam hota hai "offer khatam ho gaya" state khud-ba-khud ban jaati
+  // hai (kuch manually reset karne ki zaroorat nahi — agli baar
+  // getVariantPricing() khud "offer active nahi hai" bata dega).
+  const [nowTick, setNowTick] = useState(() => new Date(Date.now() + serverOffsetMs));
+  const hasOfferWindow = singleVariant && onlyVariant.offer_enabled && onlyVariant.offer_ends_at;
+  useEffect(() => {
+    if (!hasOfferWindow) return;
+    const interval = setInterval(() => setNowTick(new Date(Date.now() + serverOffsetMs)), 1000);
+    return () => clearInterval(interval);
+  }, [hasOfferWindow, serverOffsetMs]);
+
+  const pricing = singleVariant ? getVariantPricing(onlyVariant, nowTick) : null;
+  const countdown = pricing?.isLimitedTimeOffer ? getCountdownParts(onlyVariant.offer_ends_at, nowTick) : null;
+
+  // Buy More Save More ka exact tier detail (spec ke example "Buy 5 →
+  // ₹45" jaisa — per-piece price us tier par).
+  const qtyDealDetail = singleVariant && Array.isArray(onlyVariant.qty_deal_tiers) && onlyVariant.qty_deal_tiers.length > 0
+    ? [...onlyVariant.qty_deal_tiers].sort((a, b) => b.qty - a.qty)[0]
+    : null;
+  const qtyDealPerPiece = qtyDealDetail ? Math.round(qtyDealDetail.price / qtyDealDetail.qty) : null;
+
+  // Photo hai to natural aspect-ratio leta hai (masonry variety khud
+  // ban jaati hai). Photo nahi hai to fallback tile ki height product
+  // index ke hisaab se 3 tiers mein deterministically vary hoti hai
+  // (taaki saare no-photo products ek jaisi boring height ke na dikhein).
+  const fallbackTiers = [120, 165, 145];
+  const fallbackHeight = fallbackTiers[idx % fallbackTiers.length];
+  const imageBoxStyle = p.image_url
+    ? { width: "100%", display: "block" }
+    : { width: "100%", height: p.featured ? 210 : fallbackHeight, display: "flex", alignItems: "center", justifyContent: "center" };
+
+  return (
+    <div
+      className="ddemo-card ddemo-fade-in ddemo-masonry-item"
+      style={{ position: "relative", background: "white", border: "1px solid #E3DECF", borderRadius: "13px", padding: "0 0 13px", opacity: outOfStock ? 0.6 : 1, overflow: "hidden", cursor: isGalleryMode ? "pointer" : "default" }}
+      onClick={isGalleryMode ? () => setDetailProduct(p) : undefined}
+    >
+      {p.featured && (
+        <div style={{ position: "absolute", top: "8px", left: "8px", zIndex: 1, display: "flex", alignItems: "center", gap: "3px", background: theme.accent, color: "#123026", fontSize: "10px", fontWeight: 800, padding: "3px 8px", borderRadius: "999px" }}>
+          <Star size={10} fill="#123026" /> Featured
+        </div>
+      )}
+      <div style={{
+        ...imageBoxStyle,
+        background: p.image_url ? undefined : "linear-gradient(135deg, #F3ECDC 0%, #E9DFC0 100%)",
+      }}>
+        {p.image_url
+          ? <img src={p.image_url} alt={p.name} style={{ width: "100%", height: p.featured ? "260px" : "auto", objectFit: "cover", display: "block" }} />
+          : <span style={{ fontSize: p.featured ? "60px" : "42px", lineHeight: 1 }}>{p.emoji || "📦"}</span>
+        }
+      </div>
+      <div style={{ padding: "8px 13px 0", display: "flex", flexDirection: "column", gap: "8px" }}>
+      <div>
+        <div style={{ fontWeight: 600, fontSize: "13px", lineHeight: 1.3 }}>{p.name}</div>
+
+        {/* Limited-Time Offer block — header, exact expiry, aur live countdown */}
+        {pricing?.isLimitedTimeOffer && (
+          <div style={{ marginTop: "3px", background: "#FDECEA", border: "1px solid #F3C6C1", borderRadius: "7px", padding: "5px 7px" }}>
+            <div style={{ fontSize: "10px", fontWeight: 800, color: "#B3261E" }}>🔥 Limited-Time Offer</div>
+            <div style={{ fontSize: "9px", color: "#8B5A5A", marginTop: "1px" }}>Offer ends: {formatOfferExpiry(onlyVariant.offer_ends_at)}</div>
+            {countdown && (
+              <div style={{ fontSize: "10.5px", fontWeight: 800, color: "#B3261E", marginTop: "2px", fontVariantNumeric: "tabular-nums" }}>
+                Ends in: {String(countdown.days).padStart(2, "0")}d {String(countdown.hours).padStart(2, "0")}h {String(countdown.minutes).padStart(2, "0")}m {String(countdown.seconds).padStart(2, "0")}s
+              </div>
+            )}
+          </div>
+        )}
+
+        {singleVariant && pricing?.strikePrice ? (
+          <div style={{ marginTop: "4px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+              <span style={{ fontSize: "11px", color: "#A89F87", textDecoration: "line-through" }}>₹{pricing.strikePrice}</span>
+              <span style={{ fontSize: "12.5px", fontWeight: 700, color: "#1A1A1A" }}>₹{pricing.effectivePrice}</span>
+              <span style={{ fontSize: "10px", fontWeight: 800, color: "#178C42", background: "#E7F5EA", padding: "1px 6px", borderRadius: "5px" }}>{pricing.pct}% OFF</span>
+            </div>
+          </div>
+        ) : (
+          <div style={{ fontSize: "11.5px", color: "#8B8576", marginTop: "2px" }}>
+            {singleVariant ? `₹${onlyVariant.price} / ${onlyVariant.unit}` : minPrice === maxPrice ? `₹${minPrice}` : `₹${minPrice}–${maxPrice}`}
+            {!singleVariant && <span style={{ color: "#A89F87" }}> · {p.variants.length} options</span>}
+          </div>
+        )}
+
+        {/* Buy More Save More block — header + exact tier + savings, sab
+            card par hi visible, "Dekhein" khole bina. */}
+        {qtyDealBadge && qtyDealDetail && (
+          <div style={{ marginTop: "4px", background: "#F5FAF6", border: "1px solid #D4E4D9", borderRadius: "7px", padding: "5px 7px" }}>
+            <div style={{ fontSize: "10px", fontWeight: 800, color: "#1B4332" }}>📦 Buy More, Save More</div>
+            <div style={{ display: "flex", alignItems: "center", gap: "5px", flexWrap: "wrap", marginTop: "1px" }}>
+              <span style={{ fontSize: "10.5px", fontWeight: 700, color: "#1B4332" }}>Buy {qtyDealDetail.qty} → ₹{qtyDealPerPiece}/{onlyVariant.unit}</span>
+              <span style={{ fontSize: "9.5px", color: "#A89F87", textDecoration: "line-through" }}>₹{Math.round(pricing?.effectivePrice || onlyVariant.price)}</span>
+              <span style={{ fontSize: "9.5px", fontWeight: 800, color: "#178C42", background: "#E7F5EA", padding: "1px 5px", borderRadius: "5px" }}>Save ₹{qtyDealBadge.savings}</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {isGalleryMode ? (
+        // Gallery-mode (Kapde/Footwear/Mobile jaise types) mein
+        // seedha grid se Add nahi hota — pehle photo/description/
+        // size dekhna zaroori hai, isliye poora card hi "Dekhein"
+        // ka kaam karta hai (onClick upar poore card pe hai).
+        outOfStock ? (
+          <div style={{ fontSize: "11px", fontWeight: 700, color: "#B3261E", background: "#FDECEA", borderRadius: "7px", padding: "6px 0", textAlign: "center" }}>
+            Stock Khatam
+          </div>
+        ) : (
+          <div style={{ fontSize: "11.5px", fontWeight: 700, color: theme.primary, display: "flex", alignItems: "center", gap: "4px" }}>
+            Dekhein <ChevronRight size={13} />
+          </div>
+        )
+      ) : outOfStock ? (
+        <div style={{ fontSize: "11px", fontWeight: 700, color: "#B3261E", background: "#FDECEA", borderRadius: "7px", padding: "6px 0", textAlign: "center" }}>
+          Stock Khatam
+        </div>
+      ) : singleVariant ? (
+        qtyInCart === 0 ? (
+          <button onClick={(e) => { addToCart(onlyVariant.id); triggerFlyToCart(e.currentTarget, p.image_url, p.emoji); }} className="ddemo-btn ddemo-add-btn" style={btnOutline(theme)}>+ Add</button>
+        ) : (
+          <QtyStepper qty={qtyInCart} onInc={() => addToCart(onlyVariant.id)} onDec={() => decFromCart(onlyVariant.id)} />
+        )
+      ) : (
+        <button onClick={() => setVariantPicker(p)} className="ddemo-btn" style={{ ...btnOutline(theme), display: "flex", alignItems: "center", justifyContent: "center", gap: "5px" }}>
+          Option Chunein <ChevronRight size={13} />
+        </button>
+      )}
+      </div>
     </div>
   );
 }
