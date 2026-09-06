@@ -159,8 +159,22 @@ function OwnerArea() {
     // onAuthChange fire hota hai turant (current session ke saath) jab subscribe hota hai,
     // isliye sirf isी pe rely karte hain - yeh getCurrentUser() se zyada reliable hai
     // kyunki yeh login/logout ke baad bhi turant fire hota hai, koi race condition nahi.
+    // Supabase background mein har kuch der baad (aur tab dobara active
+    // hone par) session token "refresh" karta hai — yeh normal security
+    // behavior hai, isse user badalta nahi hai. Pehle hum har refresh
+    // par bhi poori dukaan dobara load kar dete the, jisse agar
+    // dukaandar koi form (Product/Variant edit) khola hua ho aur tab
+    // switch karke wapas aaye, to poora page "reset" ho jaata tha aur
+    // typed data khoo jaata tha. Ab hum sirf TASLI login/logout/user-
+    // change par hi reload karte hain, plain token-refresh par nahi.
+    const prevUserIdRef = { current: null };
     const unsubscribe = onAuthChange((u, event) => {
       authSettledRef.current = true;
+      const isSameUser = (u?.id || null) === prevUserIdRef.current;
+      prevUserIdRef.current = u?.id || null;
+      if (event === "TOKEN_REFRESHED" && isSameUser) {
+        return; // sirf token renew hua hai, kuch reload nahi karna
+      }
       setUser(u);
       setAuthEvent(event);
     });

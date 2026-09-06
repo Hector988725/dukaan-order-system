@@ -633,7 +633,7 @@ function ProductDetailModal({ product, cart, addToCart, decFromCart, theme, onCl
         <div style={{ padding: "16px" }}>
           <div style={{ fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: "18px" }}>{product.name}</div>
           {product.description && (
-            <div style={{ fontSize: "12.5px", color: "#5C5747", marginTop: "8px", lineHeight: 1.55 }}>{product.description}</div>
+            <div style={{ fontSize: "12.5px", color: "#1A1A1A", marginTop: "8px", lineHeight: 1.55 }}>{product.description}</div>
           )}
 
           <div style={{ marginTop: "16px", display: "flex", flexDirection: "column", gap: "8px" }}>
@@ -642,21 +642,26 @@ function ProductDetailModal({ product, cart, addToCart, decFromCart, theme, onCl
               const out = v.stock <= 0;
               const vPricing = getVariantPricing(v);
               const vQtyBadge = getBestQuantityDealBadge(v);
+              // Sirf ek hi variant ho to uska label (jo aksar "Standard"
+              // jaisa generic hota hai) dobara dikhana zaroori nahi —
+              // product ka naam upar already dikh raha hai. Do ya zyada
+              // variants (jaise "Small"/"Large") ho tabhi label dikhta hai.
+              const showLabel = product.variants.length > 1;
               return (
                 <div key={v.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", padding: "11px 13px", border: "1px solid #E3DECF", borderRadius: "10px" }}>
                   <div>
-                    <div style={{ fontWeight: 600, fontSize: "13.5px" }}>{v.label}</div>
+                    {showLabel && <div style={{ fontWeight: 600, fontSize: "13.5px", color: "#1A1A1A" }}>{v.label}</div>}
                     {vPricing.strikePrice ? (
                       <div>
                         {vPricing.isLimitedTimeOffer && <div style={{ fontSize: "9px", fontWeight: 800, color: "#B3261E" }}>🔥 Limited Time Deal</div>}
                         <div style={{ display: "flex", alignItems: "center", gap: "5px", marginTop: "1px" }}>
-                          <span style={{ fontSize: "10.5px", color: "#A89F87", textDecoration: "line-through" }}>₹{vPricing.strikePrice}</span>
-                          <span style={{ fontSize: "11.5px", fontWeight: 700 }}>₹{vPricing.effectivePrice}</span>
+                          <span style={{ fontSize: "10.5px", color: "#8B8576", textDecoration: "line-through" }}>₹{vPricing.strikePrice}</span>
+                          <span style={{ fontSize: "13px", fontWeight: 800, color: "#1565C0" }}>₹{vPricing.effectivePrice}</span>
                           <span style={{ fontSize: "9.5px", fontWeight: 800, color: "#178C42", background: "#E7F5EA", padding: "1px 5px", borderRadius: "5px" }}>{vPricing.pct}% OFF</span>
                         </div>
                       </div>
                     ) : (
-                      <div style={{ fontSize: "11.5px", color: "#8B8576" }}>₹{v.price} / {v.unit}</div>
+                      <div style={{ fontSize: "13px", fontWeight: 700, color: "#1565C0" }}>₹{v.price} <span style={{ fontSize: "11px", fontWeight: 500, color: "#1A1A1A" }}>/ {v.unit}</span></div>
                     )}
                     {vQtyBadge && (
                       <div style={{ marginTop: "3px", fontSize: "9.5px", fontWeight: 800, color: "#1B4332", background: "#E7F0EA", display: "inline-block", padding: "2px 6px", borderRadius: "5px" }}>
