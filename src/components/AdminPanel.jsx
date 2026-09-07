@@ -1,5 +1,5 @@
 import React, { useState, useRef } from "react";
-import { Settings, Package, Plus, Trash2, Edit2, X, Check, ChevronDown, ChevronUp, Save, Upload, Image, CreditCard, AlertCircle, Store, Star, ArrowUp, ArrowDown, Bike, FileSpreadsheet, UserCircle } from "lucide-react";
+import { Settings, Package, Plus, Trash2, Edit2, X, Check, ChevronDown, ChevronUp, Save, Upload, Image, CreditCard, AlertCircle, Store, Star, ArrowUp, ArrowDown, Bike, FileSpreadsheet, UserCircle, Gift } from "lucide-react";
 import {
   updateStoreSettings,
   createProduct, updateProduct, deleteProduct, updateProductFeatured, updateProductOrder,
@@ -11,6 +11,7 @@ import { slugify } from "./AuthGate";
 import DeliveryBoyManager from "./DeliveryBoyManager";
 import CsvBulkUploadModal from "./CsvBulkUpload";
 import AccountSettings from "./AccountSettings";
+import ComboManager from "./ComboManager";
 
 export default function AdminPanel({ store, products, user, onRefresh }) {
   return <AdminContent store={store} products={products} user={user} onRefresh={onRefresh} />;
@@ -21,6 +22,7 @@ function AdminContent({ store, products, user, onRefresh }) {
 
   const tabs = [
     { id: "products", label: "Products", icon: <Package size={14} /> },
+    { id: "combos", label: "Combos", icon: <Gift size={14} /> },
     { id: "delivery", label: "Delivery Staff", icon: <Bike size={14} /> },
     { id: "settings", label: "Store Settings", icon: <Settings size={14} /> },
     { id: "account", label: "Account", icon: <UserCircle size={14} /> },
@@ -44,6 +46,7 @@ function AdminContent({ store, products, user, onRefresh }) {
       </div>
 
       {tab === "products" && <ProductManager store={store} products={products} onRefresh={onRefresh} />}
+      {tab === "combos" && <ComboManager store={store} products={products} />}
       {tab === "delivery" && <DeliveryBoyManager store={store} />}
       {tab === "settings" && <StoreSettingsForm store={store} onRefresh={onRefresh} />}
       {tab === "account" && <AccountSettings user={user} />}

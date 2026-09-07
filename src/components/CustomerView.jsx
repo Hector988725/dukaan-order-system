@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Search, ChevronRight, X, Check, MessageCircle, Plus, Minus, Trash2, Loader2, Star, LayoutGrid } from "lucide-react";
-import { createOrder, fetchCustomerByPhone, upsertCustomerDetails, fetchServerTime } from "../lib/api";
+import { createOrder, fetchCustomerByPhone, upsertCustomerDetails, fetchServerTime, fetchCombos } from "../lib/api";
 import { getTheme, getShoppingMode, getDiscountInfo, getVariantPricing, getQuantityDealPrice, getBestQuantityDealBadge, formatOfferExpiry, getCountdownParts } from "../lib/theme";
 import { OrderTrackingModal } from "./OrderTracking";
 
@@ -17,6 +17,16 @@ function computeDeliveryFee(store, orderType, cartTotal) {
   return fee;
 }
 
+// Combo mein jitni baar bundle liya jaa sakta hai, uski limit — har
+// underlying variant ke stock se decide hoti hai (jo variant sabse pehle
+// khatam ho jayega, wahi bottleneck hai). Isse customer ko combo utni hi
+// baar add karne diya jaata hai jitna dukaan ke paas asal mein stock hai.
+function getComboMaxQty(combo) {
+  const items = combo.combo_items || [];
+  if (items.length === 0) return 0;
+  return Math.min(...items.map((ci) => Math.floor((ci.variants?.stock ?? 0) / ci.qty)));
+}
+
 export default function CustomerView({ store, products, onOrderPlaced }) {
   const theme = getTheme(store.business_type);
   const isGalleryMode = getShoppingMode(store.business_type) === "gallery";
@@ -24,6 +34,11 @@ export default function CustomerView({ store, products, onOrderPlaced }) {
   const [activeCategory, setActiveCategory] = useState("All");
   const [search, setSearch] = useState("");
   const [cart, setCart] = useState({}); // variantId -> qty
+  // Combo cart alag state mein rakha hai (regular `cart` se mix nahi
+  // karte) kyunki combo ki pricing bundle-based hai (₹combo_price per
+  // bundle), variant-wise price se bilkul alag calculation.
+  const [comboCart, setComboCart] = useState({}); // comboId -> qty
+  const [combos, setCombos] = useState([]);
   const [cartOpen, setCartOpen] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [orderPlaced, setOrderPlaced] = useState(null);
@@ -43,6 +58,11 @@ export default function CustomerView({ store, products, onOrderPlaced }) {
       .catch(() => {}); // fail ho to bhi app chalti rahe, bas timer thoda local-clock par depend karega
   }, []);
 
+  useEffect(() => {
+    fetchCombos(store.id).then(setCombos).catch(() => {}); // fail ho to bhi dukaan chalti rahe, bas combo section nahi dikhega
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [store.id]);
+
   // UPI app khulne ke baad browser page reload/unload kar sakta hai, jisse
   // saara React state (cart, checkoutOpen, form) reset ho jaata hai. Isliye
   // agar pending UPI checkout mila (same store ke liye), to checkout modal
@@ -54,6 +74,7 @@ export default function CustomerView({ store, products, onOrderPlaced }) {
         const data = JSON.parse(saved);
         if (data.storeId === store.id) {
           setCart(data.cart || {});
+          setComboCart(data.comboCart || {});
           setResumeCheckout(data.form);
           setCartOpen(false);
           setCheckoutOpen(true);
@@ -127,14 +148,36 @@ export default function CustomerView({ store, products, onOrderPlaced }) {
       .filter(Boolean);
   }, [cart, variantIndex]);
 
-  const cartTotal = cartItems.reduce((sum, it) => {
+  const regularCartTotal = cartItems.reduce((sum, it) => {
     // Buy More Save More: agar is variant ke liye quantity-tiers hain
     // aur cart mein li gayi quantity kisi tier ko match karti hai, to
     // uska special (kam) total use hota hai — warna normal price * qty.
     const deal = getQuantityDealPrice(it, it.qty);
     return sum + (deal ? deal.total : it.price * it.qty);
   }, 0);
-  const cartCount = cartItems.reduce((sum, it) => sum + it.qty, 0);
+
+  // Combo lookup: comboId -> combo (name, combo_price, combo_items with
+  // underlying variants), aur comboCart (comboId -> qty) se cart mein
+  // maujood combos ki poori list banate hain.
+  const comboIndex = useMemo(() => {
+    const idx = {};
+    combos.forEach((c) => { idx[c.id] = c; });
+    return idx;
+  }, [combos]);
+
+  const comboCartItems = useMemo(() => {
+    return Object.entries(comboCart)
+      .map(([comboId, qty]) => (comboIndex[comboId] ? { ...comboIndex[comboId], qty } : null))
+      .filter(Boolean);
+  }, [comboCart, comboIndex]);
+
+  const comboCartTotal = comboCartItems.reduce((sum, c) => sum + Number(c.combo_price) * c.qty, 0);
+
+  // cartTotal/cartCount ab regular items + combos dono ko count karte
+  // hain — yahi single source of truth checkout, cart drawer, aur
+  // floating cart button sab jagah use hota hai.
+  const cartTotal = regularCartTotal + comboCartTotal;
+  const cartCount = cartItems.reduce((sum, it) => sum + it.qty, 0) + comboCartItems.reduce((sum, c) => sum + c.qty, 0);
 
   const addToCart = (variantId) => {
     const entry = variantIndex[variantId];
@@ -177,12 +220,55 @@ export default function CustomerView({ store, products, onOrderPlaced }) {
     });
   };
 
+  const addComboToCart = (comboId) => {
+    const combo = comboIndex[comboId];
+    if (!combo) return;
+    const maxQty = getComboMaxQty(combo);
+    setComboCart((c) => {
+      const current = c[comboId] || 0;
+      if (current >= maxQty) return c; // underlying stock khatam
+      return { ...c, [comboId]: current + 1 };
+    });
+  };
+  const decComboFromCart = (comboId) => {
+    setComboCart((c) => {
+      const newQty = (c[comboId] || 0) - 1;
+      const copy = { ...c };
+      if (newQty <= 0) delete copy[comboId];
+      else copy[comboId] = newQty;
+      return copy;
+    });
+  };
+  const removeComboFromCart = (comboId) => {
+    setComboCart((c) => {
+      const copy = { ...c };
+      delete copy[comboId];
+      return copy;
+    });
+  };
+
   const placeOrder = async (form) => {
     setSubmitting(true);
     try {
       const orderNumber = "ORD" + Math.floor(1000 + Math.random() * 9000);
       const isUpi = form.payment === "UPI";
       const deliveryFee = computeDeliveryFee(store, form.orderType, cartTotal);
+      // Combo ko place_order RPC ke liye uske underlying variants mein
+      // "expand" karte hain — har component ek normal item ban jaata hai
+      // (price: 0, kyunki combo ka total already `cartTotal` ke through
+      // alag se sahi diya ja raha hai). Ismein sirf stock decrement ho
+      // jaaye isliye variant_id/qty zaroori hai — place_order khud kabhi
+      // combo ke baare mein jaanta hi nahi.
+      const comboExpandedItems = comboCartItems.flatMap((c) =>
+        (c.combo_items || []).map((ci) => ({
+          variant_id: ci.variants?.id,
+          name: `${ci.variants?.products?.name || "Item"} (combo: ${c.name})`,
+          variant: ci.variants?.label,
+          qty: ci.qty * c.qty,
+          unit: ci.variants?.unit,
+          price: 0,
+        }))
+      );
       const payload = {
         store_id: store.id,
         order_number: orderNumber,
@@ -201,7 +287,10 @@ export default function CustomerView({ store, products, onOrderPlaced }) {
         // hai, chahe payment COD ho ya UPI.
         payment_status: isUpi ? "Pending Verification" : "Cash on Delivery",
         status: "New",
-        items: cartItems.map((it) => ({ variant_id: it.id, name: it.productName, variant: it.label, qty: it.qty, unit: it.unit, price: it.price })),
+        items: [
+          ...cartItems.map((it) => ({ variant_id: it.id, name: it.productName, variant: it.label, qty: it.qty, unit: it.unit, price: it.price })),
+          ...comboExpandedItems,
+        ],
         total: cartTotal + deliveryFee,
       };
       const saved = await createOrder(payload);
@@ -232,6 +321,7 @@ export default function CustomerView({ store, products, onOrderPlaced }) {
       sessionStorage.removeItem(PENDING_UPI_KEY);
       setOrderPlaced(saved);
       setCart({});
+      setComboCart({});
       setCheckoutOpen(false);
       setCartOpen(false);
       onOrderPlaced?.();
@@ -321,6 +411,28 @@ export default function CustomerView({ store, products, onOrderPlaced }) {
         </div>
       </div>
 
+      {/* Combo Deals — alag-alag products ko ek fixed bundle price par
+          bechne wale offers, horizontal-scroll strip mein category
+          chips jaisa hi feel deta hai. Sirf tab dikhta hai jab dukaandar
+          ne kam se kam ek active combo banaya ho. */}
+      {combos.length > 0 && (
+        <div style={{ padding: "6px 18px 4px" }}>
+          <div style={{ fontSize: "13px", fontWeight: 700, marginBottom: "10px", fontFamily: "'Fraunces', serif" }}>🔥 Combo Deals</div>
+          <div style={{ display: "flex", gap: "10px", overflowX: "auto", paddingBottom: "6px" }}>
+            {combos.map((combo) => (
+              <ComboCard
+                key={combo.id}
+                combo={combo}
+                qty={comboCart[combo.id] || 0}
+                onAdd={() => addComboToCart(combo.id)}
+                onDec={() => decComboFromCart(combo.id)}
+                theme={theme}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Product grid — masonry-style: photo apna natural aspect ratio leta hai
           (chhota/bada), aur "Featured" products bade/taller dikhte hain.
           Ismein purana bug repeat nahi ho raha: photo + no-photo dono states
@@ -402,15 +514,17 @@ export default function CustomerView({ store, products, onOrderPlaced }) {
       {cartOpen && (
         <CartDrawer
           cartItems={cartItems}
+          comboCartItems={comboCartItems}
           cartTotal={cartTotal}
           onClose={() => setCartOpen(false)}
           onRemove={removeFromCart}
+          onRemoveCombo={removeComboFromCart}
           onCheckout={() => { setCartOpen(false); setCheckoutOpen(true); }}
         />
       )}
 
       {checkoutOpen && (
-        <CheckoutModal store={store} cartTotal={cartTotal} submitting={submitting} resumeData={resumeCheckout} cart={cart} onClose={() => { setCheckoutOpen(false); sessionStorage.removeItem(PENDING_UPI_KEY); }} onSubmit={placeOrder} />
+        <CheckoutModal store={store} cartTotal={cartTotal} submitting={submitting} resumeData={resumeCheckout} cart={cart} comboCart={comboCart} onClose={() => { setCheckoutOpen(false); sessionStorage.removeItem(PENDING_UPI_KEY); }} onSubmit={placeOrder} />
       )}
 
       {orderPlaced && (
@@ -426,6 +540,44 @@ export default function CustomerView({ store, products, onOrderPlaced }) {
 // ek loop ke andar seedha nahi chal sakte, isliye extraction zaroori
 // thi).
 // ============================================================
+// ============================================================
+// COMBO CARD — horizontal-scroll strip mein ek combo ki tile.
+// ============================================================
+function ComboCard({ combo, qty, onAdd, onDec, theme }) {
+  const maxQty = getComboMaxQty(combo);
+  const soldOut = maxQty <= 0;
+  const itemsLabel = (combo.combo_items || []).map((ci) => ci.variants?.products?.name).filter(Boolean).join(" + ");
+
+  return (
+    <div style={{ flexShrink: 0, width: "150px", background: "white", border: "1px solid #E3DECF", borderRadius: "12px", overflow: "hidden" }}>
+      <div style={{ width: "100%", height: "96px", background: combo.image_url ? undefined : "linear-gradient(135deg, #F3ECDC 0%, #E9DFC0 100%)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        {combo.image_url
+          ? <img src={combo.image_url} alt={combo.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          : <span style={{ fontSize: "30px" }}>🎁</span>
+        }
+      </div>
+      <div style={{ padding: "8px 10px 10px" }}>
+        <div style={{ fontWeight: 700, fontSize: "12.5px", marginBottom: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{combo.name}</div>
+        <div style={{ fontSize: "10px", color: "#8B8576", marginBottom: "6px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{itemsLabel}</div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <span style={{ fontWeight: 800, fontSize: "13.5px", color: theme.primary }}>₹{combo.combo_price}</span>
+          {soldOut ? (
+            <span style={{ fontSize: "10px", color: "#B3261E", fontWeight: 700 }}>Sold Out</span>
+          ) : qty === 0 ? (
+            <button onClick={onAdd} className="ddemo-add-btn" style={{ background: theme.primary, color: "white", border: "none", borderRadius: "7px", padding: "5px 12px", fontSize: "11.5px", fontWeight: 700, cursor: "pointer" }}>Add</button>
+          ) : (
+            <div style={{ display: "flex", alignItems: "center", gap: "6px", background: theme.primary, borderRadius: "7px", padding: "3px 6px" }}>
+              <button onClick={onDec} style={{ background: "none", border: "none", color: "white", cursor: "pointer", display: "flex", padding: 0 }}><Minus size={13} /></button>
+              <span style={{ color: "white", fontWeight: 700, fontSize: "12px", minWidth: "12px", textAlign: "center" }}>{qty}</span>
+              <button onClick={onAdd} disabled={qty >= maxQty} style={{ background: "none", border: "none", color: "white", cursor: qty >= maxQty ? "not-allowed" : "pointer", opacity: qty >= maxQty ? 0.5 : 1, display: "flex", padding: 0 }}><Plus size={13} /></button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ProductCard({ product: p, idx, theme, isGalleryMode, cart, addToCart, decFromCart, triggerFlyToCart, setDetailProduct, setVariantPicker, serverOffsetMs }) {
   const totalStock = p.variants.reduce((s, v) => s + v.stock, 0);
   const outOfStock = totalStock <= 0;
@@ -754,7 +906,7 @@ function VariantPickerModal({ product, cart, addToCart, decFromCart, theme, onCl
   );
 }
 
-function CartDrawer({ cartItems, cartTotal, onClose, onRemove, onCheckout }) {
+function CartDrawer({ cartItems, comboCartItems = [], cartTotal, onClose, onRemove, onRemoveCombo, onCheckout }) {
   return (
     <div style={overlayBottomStyle}>
       <div style={{ background: "#F7F5F0", width: "100%", maxWidth: "480px", borderRadius: "16px 16px 0 0", maxHeight: "85%", display: "flex", flexDirection: "column", animation: "ddemoSlideUp 0.25s ease" }}>
@@ -763,6 +915,24 @@ function CartDrawer({ cartItems, cartTotal, onClose, onRemove, onCheckout }) {
           <button onClick={onClose} style={closeBtnStyle}><X size={20} /></button>
         </div>
         <div style={{ overflowY: "auto", padding: "10px 18px", flex: 1 }}>
+          {comboCartItems.map((c) => (
+            <div key={"combo-" + c.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid #E3DECF" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                {c.image_url
+                  ? <img src={c.image_url} alt={c.name} style={{ width: 36, height: 36, objectFit: "cover", borderRadius: "7px", flexShrink: 0 }} />
+                  : <span style={{ width: 36, height: 36, borderRadius: "7px", background: "linear-gradient(135deg, #F3ECDC 0%, #E9DFC0 100%)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "18px", flexShrink: 0 }}>🎁</span>
+                }
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: "13px" }}>🔥 {c.name}</div>
+                  <div style={{ fontSize: "11.5px", color: "#8B8576" }}>Combo · {c.qty} × ₹{c.combo_price}</div>
+                </div>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <span style={{ fontWeight: 700, fontSize: "13px" }}>₹{c.combo_price * c.qty}</span>
+                <button onClick={() => onRemoveCombo(c.id)} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#B3261E" }}><Trash2 size={15} /></button>
+              </div>
+            </div>
+          ))}
           {cartItems.map((it) => {
             const deal = getQuantityDealPrice(it, it.qty);
             const lineTotal = deal ? deal.total : it.price * it.qty;
@@ -802,7 +972,7 @@ function CartDrawer({ cartItems, cartTotal, onClose, onRemove, onCheckout }) {
   );
 }
 
-function CheckoutModal({ store, cartTotal, submitting, resumeData, cart, onClose, onSubmit }) {
+function CheckoutModal({ store, cartTotal, submitting, resumeData, cart, comboCart, onClose, onSubmit }) {
   const theme = getTheme(store.business_type);
   const [orderType, setOrderType] = useState(resumeData?.orderType || "Delivery");
   const [name, setName] = useState(resumeData?.name || "");
@@ -882,6 +1052,7 @@ function CheckoutModal({ store, cartTotal, submitting, resumeData, cart, onClose
       sessionStorage.setItem(PENDING_UPI_KEY, JSON.stringify({
         storeId: store.id,
         cart,
+        comboCart,
         form: { orderType, name, phone, address, landmark, pincode, payment: "UPI" },
       }));
     } catch {}
@@ -902,6 +1073,7 @@ function CheckoutModal({ store, cartTotal, submitting, resumeData, cart, onClose
         sessionStorage.setItem(PENDING_UPI_KEY, JSON.stringify({
           storeId: store.id,
           cart,
+          comboCart,
           form: { orderType, name, phone, address, landmark, pincode, payment: "UPI" },
         }));
       } catch {}
