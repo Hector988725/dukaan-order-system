@@ -410,7 +410,7 @@ function ProductManager({ store, products, onRefresh }) {
         <div style={{ fontSize: "12px", color: "#8B8576" }}>{products.length} products · ⭐ ya ↑↓ se apni dukaan saja sakte hain</div>
         <div style={{ display: "flex", gap: "6px" }}>
           <button onClick={() => setShowCsvUpload(true)} className="ddemo-btn" style={{ display: "flex", alignItems: "center", gap: "5px", background: "white", border: "1px solid #1B4332", color: "#1B4332", borderRadius: "8px", padding: "8px 11px", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}>
-            <FileSpreadsheet size={13} /> CSV
+            <FileSpreadsheet size={13} /> Bulk Upload
           </button>
           <button onClick={() => setAdding(true)} className="ddemo-btn" style={{ display: "flex", alignItems: "center", gap: "6px", background: "#1B4332", color: "white", border: "none", borderRadius: "8px", padding: "8px 14px", fontSize: "12.5px", fontWeight: 700, cursor: "pointer" }}>
             <Plus size={14} /> Naya Product
