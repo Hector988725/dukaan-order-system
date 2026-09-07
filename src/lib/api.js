@@ -528,6 +528,7 @@ export async function bulkImportProducts(storeId, rows) {
         category: row.category.trim(),
         description: row.description || null,
         emoji: row.emoji || "📦",
+        image_url: row.image_url || undefined,
         sort_order: 0,
       });
       for (const vr of variantRows) {
