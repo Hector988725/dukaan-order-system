@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { Store, ShoppingCart, LayoutGrid, Loader2, AlertTriangle, ShieldCheck, LogOut, Pill, Wrench, Smartphone, Shirt, BookOpen, Cake, Scissors, UtensilsCrossed, Footprints, Plus, BookText } from "lucide-react";
+import { Store, ShoppingCart, LayoutGrid, Loader2, AlertTriangle, ShieldCheck, LogOut, Pill, Wrench, Smartphone, Shirt, BookOpen, Cake, Scissors, UtensilsCrossed, Footprints, Plus, BookText, Zap } from "lucide-react";
 import { getTheme, getHeaderBackground } from "./lib/theme";
 
 // Business-type icon naam (theme.js mein string ke roop mein) ko
@@ -14,6 +14,7 @@ import {
 import CustomerView from "./components/CustomerView";
 import DashboardView from "./components/DashboardView";
 import AdminPanel from "./components/AdminPanel";
+import QuickBill from "./components/QuickBill";
 import KhataPanel from "./components/KhataPanel";
 import CustomerKhataButton from "./components/CustomerKhata";
 import OrderTrackingButton from "./components/OrderTracking";
@@ -338,13 +339,16 @@ function OwnerArea() {
 
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           <div className="ddemo-toggle-track">
-            <div className="ddemo-toggle-bg" style={{ left: `calc(${["dashboard", "khata", "admin"].indexOf(view)} * 33.333% + 4px)`, width: "calc(33.333% - 5px)" }} />
+            <div className="ddemo-toggle-bg" style={{ left: `calc(${["dashboard", "khata", "quickbill", "admin"].indexOf(view)} * 25% + 3px)`, width: "calc(25% - 6px)" }} />
             <button className={`ddemo-toggle-btn ${view === "dashboard" ? "active" : ""}`} onClick={() => setView("dashboard")}>
               <LayoutGrid size={13} /> Orders
               {newOrderCount > 0 && <span style={{ background: "#B3261E", color: "white", fontSize: "10px", fontWeight: 700, borderRadius: "999px", padding: "1px 6px" }}>{newOrderCount}</span>}
             </button>
             <button className={`ddemo-toggle-btn ${view === "khata" ? "active" : ""}`} onClick={() => setView("khata")}>
               <BookText size={13} /> Khata
+            </button>
+            <button className={`ddemo-toggle-btn ${view === "quickbill" ? "active" : ""}`} onClick={() => setView("quickbill")}>
+              <Zap size={13} /> Bill
             </button>
             <button className={`ddemo-toggle-btn ${view === "admin" ? "active" : ""}`} onClick={() => setView("admin")}>
               <ShieldCheck size={13} /> Admin
@@ -362,6 +366,7 @@ function OwnerArea() {
 
       {view === "dashboard" && <DashboardView store={store} products={products} orders={orders} deliveryBoys={deliveryBoys} hasMoreOrders={hasMoreOrders} loadingMoreOrders={loadingMoreOrders} onLoadMoreOrders={loadMoreOrders} onRefresh={silentRefresh} />}
       {view === "khata" && <div style={{ padding: "16px 0 40px" }}><KhataPanel store={store} /></div>}
+      {view === "quickbill" && <div style={{ maxWidth: "600px", margin: "0 auto", padding: "16px 18px 40px" }}><QuickBill store={store} products={products} onOrderPlaced={silentRefresh} /></div>}
       {view === "admin" && <AdminPanel store={store} products={products} user={user} onRefresh={silentRefresh} />}
     </div>
   );
