@@ -593,6 +593,16 @@ function GlobalStyles() {
       .ddemo-toggle-btn { position: relative; z-index: 1; padding: 8px 14px; border-radius: 999px; font-size: 12.5px; font-weight: 600; cursor: pointer; border: none; background: transparent; color: rgba(255,255,255,0.75); display: flex; align-items: center; gap: 6px; transition: color 0.2s; white-space: nowrap; }
       .ddemo-toggle-btn.active { color: #123026; }
       .ddemo-toggle-bg { position: absolute; top: 4px; bottom: 4px; border-radius: 999px; background: #D4A24C; transition: left 0.25s, width 0.25s; z-index: 0; }
+      /* Mobile par 4 tabs (Orders/Khata/Bill/Admin) ka text+icon mila ke
+         itni width ban jaati thi ki poori row viewport se bahar chali
+         jaati thi, aur logout button (sabse aakhri) screen ke edge se
+         katta hua dikhta tha. Fix: chhoti screen par sirf icons dikhao,
+         text hata do — row bahut chhoti ho jaati hai, sab kuch (logout
+         samet) viewport ke andar aa jaata hai. */
+      @media (max-width: 520px) {
+        .ddemo-toggle-btn { padding: 8px 9px; gap: 0; font-size: 0; }
+        .ddemo-toggle-btn span { font-size: 10px; }
+      }
     `}</style>
   );
 }
