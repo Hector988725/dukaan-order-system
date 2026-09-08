@@ -139,6 +139,17 @@ function SubscriptionPanel({ store, onRefresh }) {
 // ============================================================
 // STORE SETTINGS
 // ============================================================
+function formatTimeRange(opensAt, closesAt) {
+  const fmt = (t) => {
+    if (!t) return "";
+    const [h, m] = t.split(":").map(Number);
+    const period = h >= 12 ? "PM" : "AM";
+    const h12 = h % 12 === 0 ? 12 : h % 12;
+    return `${String(h12).padStart(2, "0")}:${String(m).padStart(2, "0")} ${period}`;
+  };
+  return `${fmt(opensAt)} To ${fmt(closesAt)}`;
+}
+
 function StoreSettingsForm({ store, onRefresh }) {
   const [name, setName] = useState(store.name);
   const [whatsapp, setWhatsapp] = useState(store.whatsapp_number);
@@ -160,7 +171,8 @@ function StoreSettingsForm({ store, onRefresh }) {
     setSaved(false);
     try {
       await updateStoreSettings(store.id, {
-        name, whatsapp_number: whatsapp, upi_id: upi, address, logo_url: logoUrl || null, tagline: tagline || null, timings: timings || null,
+        name, whatsapp_number: whatsapp, upi_id: upi, address, logo_url: logoUrl || null, tagline: tagline || null,
+        timings: autoHours ? formatTimeRange(opensAt, closesAt) : (timings || null),
         delivery_fee: Number(deliveryFee) || 0,
         free_delivery_above: freeDeliveryAbove.trim() === "" ? null : Number(freeDeliveryAbove),
         auto_hours_enabled: autoHours,
@@ -188,7 +200,16 @@ function StoreSettingsForm({ store, onRefresh }) {
       <Field label="WhatsApp Number (91 ke saath, jaise 919876543210)" value={whatsapp} onChange={setWhatsapp} />
       <Field label="UPI ID (jaise dukaan@upi)" value={upi} onChange={setUpi} placeholder="abhi optional hai" />
       <Field label="Address" value={address} onChange={setAddress} textarea />
-      <Field label="Khulne-Band hone ka Time (customer ko dikhega, optional)" value={timings} onChange={setTimings} placeholder="jaise Roz subah 8 - raat 10 baje tak" textarea />
+      {autoHours ? (
+        <div>
+          <div style={{ fontSize: "12px", fontWeight: 600, color: "#5C5747", marginBottom: "4px" }}>Khulne-Band hone ka Time (customer ko dikhega)</div>
+          <div style={{ width: "100%", border: "1px solid #E3DECF", borderRadius: "8px", padding: "9px 11px", fontSize: "13px", background: "#F7F5F0", color: "#8B8576" }}>
+            {formatTimeRange(opensAt, closesAt)} <span style={{ fontSize: "10.5px" }}>(automatic time se khud ban raha hai, neeche se badlein)</span>
+          </div>
+        </div>
+      ) : (
+        <Field label="Khulne-Band hone ka Time (customer ko dikhega, optional)" value={timings} onChange={setTimings} placeholder="jaise Roz subah 8 - raat 10 baje tak" textarea />
+      )}
       <div style={{ borderTop: "1px solid #E3DECF", paddingTop: "12px", marginTop: "2px" }}>
         <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", marginBottom: autoHours ? "10px" : 0 }}>
           <input type="checkbox" checked={autoHours} onChange={(e) => setAutoHours(e.target.checked)} style={{ width: "16px", height: "16px" }} />
