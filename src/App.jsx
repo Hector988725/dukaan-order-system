@@ -45,6 +45,14 @@ export default function App() {
       </div>
     );
   }
+  if (path === "demo" || path === "demos") {
+    return (
+      <div style={shellStyle}>
+        <GlobalStyles />
+        <DemoLandingPage />
+      </div>
+    );
+  }
 
   const slug = getSlugFromUrl();
 
@@ -55,6 +63,67 @@ export default function App() {
 
   // Warna yeh homepage hai - dukaandar ka login/signup/admin area
   return <OwnerArea />;
+}
+
+// ============================================================
+// DEMO LANDING PAGE (/demo) — sab business-type demo dukaanon ki ek
+// jagah list, taaki alag-alag links yaad na rakhne padein. Prospective
+// dukandaar ko sirf ek link do (dukaan-order-system.vercel.app/demo),
+// wahan se apni type ki dukaan chun lega.
+// ============================================================
+const DEMO_STORES = [
+  { businessType: "kirana", slug: "demo-kirana", name: "Ganesh Kirana Store" },
+  { businessType: "medical", slug: "demo-medical", name: "Sharma Medical Store" },
+  { businessType: "clothing", slug: "demo-kapde", name: "Fashion Point" },
+  { businessType: "mobile", slug: "demo-mobile", name: "Digital World" },
+  { businessType: "hardware", slug: "demo-hardware", name: "Shakti Hardware" },
+  { businessType: "footwear", slug: "demo-footwear", name: "Step Up Footwear" },
+  { businessType: "stationery", slug: "demo-stationery", name: "Vidya Book Depot" },
+  { businessType: "bakery", slug: "demo-bakery", name: "Sweet Corner Bakery" },
+  { businessType: "restaurant", slug: "demo-restaurant", name: "Annapurna Dhaba" },
+  { businessType: "salon", slug: "demo-salon", name: "Glamour Salon & Spa" },
+];
+
+const DEMO_ICONS = { Store, Pill, Wrench, Smartphone, Shirt, BookOpen, Cake, Scissors, UtensilsCrossed, Footprints };
+
+function DemoLandingPage() {
+  return (
+    <div style={{ minHeight: "100vh" }}>
+      <div style={{ background: "linear-gradient(135deg, #1B4332 0%, #123026 100%)", padding: "32px 20px 26px", textAlign: "center" }}>
+        <div style={{ color: "white", fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: "22px", marginBottom: "6px" }}>Apni Dukaan Online Le Jaayein</div>
+        <div style={{ color: "rgba(255,255,255,0.7)", fontSize: "13px" }}>Neeche apni dukaan ki type chunein, dekhein kaisi dikhegi</div>
+      </div>
+      <div style={{
+        display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: "12px",
+        padding: "20px", maxWidth: "720px", margin: "0 auto",
+      }}>
+        {DEMO_STORES.map((d) => {
+          const theme = getTheme(d.businessType);
+          const Icon = DEMO_ICONS[theme.icon] || Store;
+          return (
+            <a
+              key={d.slug}
+              href={`/${d.slug}`}
+              style={{
+                display: "flex", flexDirection: "column", alignItems: "center", gap: "8px",
+                background: "white", border: "1px solid #E3DECF", borderRadius: "14px", padding: "18px 10px",
+                textDecoration: "none", boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+              }}
+            >
+              <div style={{ width: 44, height: 44, borderRadius: "50%", background: theme.primary, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Icon size={20} color="white" />
+              </div>
+              <div style={{ fontSize: "12.5px", fontWeight: 700, color: "#1A1A1A", textAlign: "center" }}>{theme.label}</div>
+              <div style={{ fontSize: "10.5px", color: "#8B8576", textAlign: "center" }}>{d.name}</div>
+            </a>
+          );
+        })}
+      </div>
+      <div style={{ textAlign: "center", padding: "10px 20px 30px", fontSize: "11px", color: "#8B8576" }}>
+        Yeh sab sample dukaanein hain — asli dukaan bhi bilkul aisi hi dikhegi, aapke apne products ke saath.
+      </div>
+    </div>
+  );
 }
 
 // ============================================================
