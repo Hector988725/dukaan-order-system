@@ -161,20 +161,31 @@ function OwnerArea() {
     // isliye sirf isी pe rely karte hain - yeh getCurrentUser() se zyada reliable hai
     // kyunki yeh login/logout ke baad bhi turant fire hota hai, koi race condition nahi.
     // Supabase background mein har kuch der baad (aur tab dobara active
-    // hone par) session token "refresh" karta hai — yeh normal security
-    // behavior hai, isse user badalta nahi hai. Pehle hum har refresh
-    // par bhi poori dukaan dobara load kar dete the, jisse agar
-    // dukaandar koi form (Product/Variant edit) khola hua ho aur tab
-    // switch karke wapas aaye, to poora page "reset" ho jaata tha aur
-    // typed data khoo jaata tha. Ab hum sirf TASLI login/logout/user-
-    // change par hi reload karte hain, plain token-refresh par nahi.
+    // hone par) session token check/refresh karta hai — yeh normal
+    // security behavior hai, isse user badalta nahi hai. Yeh sirf
+    // "TOKEN_REFRESHED" hi nahi bhejta — kabhi-kabhi tab wapas focus
+    // mein aane par same user ke liye "SIGNED_IN" bhi dobara fire kar
+    // deta hai (Supabase JS client ka apna internal visibility-recheck
+    // behavior hai, koi asli naya login nahi). Pehle hum sirf
+    // TOKEN_REFRESHED ko ignore karte the, isliye SIGNED_IN wale case
+    // mein bhi poori dukaan reload ho jaati thi aur khula hua
+    // form/edit reset ho jaata tha. Ab hum event ke naam ke bajaye
+    // "kya user wahi purana hai" check karte hain — agar haan, to koi
+    // bhi event ho, reload nahi karte (PASSWORD_RECOVERY ko chhodkar,
+    // jo hamesha handle karna zaroori hai).
     const prevUserIdRef = { current: null };
     const unsubscribe = onAuthChange((u, event) => {
       authSettledRef.current = true;
-      const isSameUser = (u?.id || null) === prevUserIdRef.current;
-      prevUserIdRef.current = u?.id || null;
-      if (event === "TOKEN_REFRESHED" && isSameUser) {
-        return; // sirf token renew hua hai, kuch reload nahi karna
+      const newUserId = u?.id || null;
+      const isSameUser = newUserId === prevUserIdRef.current;
+      prevUserIdRef.current = newUserId;
+
+      if (event === "PASSWORD_RECOVERY") {
+        setAuthEvent(event);
+        return;
+      }
+      if (isSameUser) {
+        return; // background session-check hai, asli login/logout nahi — kuch reload nahi karna
       }
       setUser(u);
       setAuthEvent(event);
@@ -338,7 +349,7 @@ function OwnerArea() {
         <StoreHeaderBrand store={store} editable onToggleOpen={handleToggleOpen} />
 
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-          <div className="ddemo-toggle-track">
+          <div className="ddemo-toggle-track" style={{ overflowX: "auto", WebkitOverflowScrolling: "touch", flexShrink: 1 }}>
             <div className="ddemo-toggle-bg" style={{ left: `calc(${["dashboard", "khata", "quickbill", "admin"].indexOf(view)} * 25% + 3px)`, width: "calc(25% - 6px)" }} />
             <button className={`ddemo-toggle-btn ${view === "dashboard" ? "active" : ""}`} onClick={() => setView("dashboard")}>
               <LayoutGrid size={13} /> Orders
@@ -354,7 +365,7 @@ function OwnerArea() {
               <ShieldCheck size={13} /> Admin
             </button>
           </div>
-          <button onClick={signOut} title="Logout" style={{ background: "rgba(255,255,255,0.12)", border: "none", borderRadius: "8px", width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "white" }}>
+          <button onClick={signOut} title="Logout" style={{ background: "rgba(255,255,255,0.12)", border: "none", borderRadius: "8px", width: 34, height: 34, minWidth: 34, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "white" }}>
             <LogOut size={15} />
           </button>
         </div>
