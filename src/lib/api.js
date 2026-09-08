@@ -122,9 +122,9 @@ export async function updateStoreSlug(storeId, newSlug) {
   if (error) throw error;
 }
 
-const FOUNDING_MEMBER_LIMIT = 20;
-const FOUNDING_PRICE = 99;
-const REGULAR_PRICE = 199;
+const FOUNDING_MEMBER_LIMIT = 1000;
+const FOUNDING_PRICE = 49;
+const REGULAR_PRICE = 99;
 
 export async function createStore(userId, { slug, name, business_type, whatsapp_number, upi_id, address }) {
   // Pehli 20 dukaano ko founding-member price (₹99/month, hamesha ke
