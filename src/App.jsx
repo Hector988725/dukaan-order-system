@@ -469,9 +469,34 @@ function StoreHeader({ store }) {
   );
 }
 
+// Store ke opens_at/closes_at (Postgres "HH:MM:SS" text) aur abhi ke
+// time se decide karta hai dukaan khuli hai ya nahi. Raat paar hone
+// wale hours (jaise 6pm se 2am) ko bhi sahi handle karta hai.
+function computeAutoOpenStatus(opensAt, closesAt) {
+  if (!opensAt || !closesAt) return true; // time set hi nahi hai to default open dikhao
+  const now = new Date();
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const [oh, om] = opensAt.split(":").map(Number);
+  const [ch, cm] = closesAt.split(":").map(Number);
+  const openMin = oh * 60 + (om || 0);
+  const closeMin = ch * 60 + (cm || 0);
+  if (closeMin > openMin) return nowMin >= openMin && nowMin < closeMin;
+  return nowMin >= openMin || nowMin < closeMin; // raat paar (overnight) hours
+}
+
 function StoreHeaderBrand({ store, editable, onToggleOpen }) {
   const theme = getTheme(store.business_type);
-  const isOpen = store.is_open !== false;
+  const isAuto = !!store.auto_hours_enabled;
+  const [, forceTick] = useState(0);
+  useEffect(() => {
+    if (!isAuto) return;
+    // Har 30 second mein re-check karte hain taaki opening/closing time
+    // cross hote hi badge khud ba khud flip ho jaaye, page refresh na
+    // karna pade.
+    const id = setInterval(() => forceTick((t) => t + 1), 30000);
+    return () => clearInterval(id);
+  }, [isAuto]);
+  const isOpen = isAuto ? computeAutoOpenStatus(store.opens_at, store.closes_at) : store.is_open !== false;
   return (
     <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
       {/* Dukaan ka apna logo — primary identity, left mein (jahan pehle
@@ -498,19 +523,20 @@ function StoreHeaderBrand({ store, editable, onToggleOpen }) {
               tap karne se turant toggle bhi ho jaata hai (settings mein
               jaane ki zaroorat nahi). */}
           <button
-            onClick={editable ? onToggleOpen : undefined}
-            disabled={!editable}
-            className={editable ? "ddemo-btn" : undefined}
+            onClick={editable && !isAuto ? onToggleOpen : undefined}
+            disabled={!editable || isAuto}
+            title={isAuto ? "Automatic hai (Store Settings mein set kiya hua time)" : undefined}
+            className={editable && !isAuto ? "ddemo-btn" : undefined}
             style={{
               display: "flex", alignItems: "center", gap: "4px",
               background: isOpen ? "rgba(76,175,80,0.22)" : "rgba(211,47,47,0.25)",
               color: isOpen ? "#8FE398" : "#FF9B9B",
               border: "none", borderRadius: "999px", padding: "2px 8px 2px 6px",
-              fontSize: "9.5px", fontWeight: 800, cursor: editable ? "pointer" : "default",
+              fontSize: "9.5px", fontWeight: 800, cursor: editable && !isAuto ? "pointer" : "default",
             }}
           >
             <span style={{ width: 5, height: 5, borderRadius: "50%", background: isOpen ? "#4CAF50" : "#D32F2F" }} />
-            {isOpen ? "OPEN" : "BAND HAI"}
+            {isOpen ? "OPEN" : "BAND HAI"}{isAuto ? " 🕐" : ""}
           </button>
         </div>
       </div>

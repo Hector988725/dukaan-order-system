@@ -147,6 +147,9 @@ function StoreSettingsForm({ store, onRefresh }) {
   const [logoUrl, setLogoUrl] = useState(store.logo_url || "");
   const [tagline, setTagline] = useState(store.tagline || "");
   const [timings, setTimings] = useState(store.timings || "");
+  const [autoHours, setAutoHours] = useState(!!store.auto_hours_enabled);
+  const [opensAt, setOpensAt] = useState(store.opens_at ? store.opens_at.slice(0, 5) : "09:00");
+  const [closesAt, setClosesAt] = useState(store.closes_at ? store.closes_at.slice(0, 5) : "21:00");
   const [deliveryFee, setDeliveryFee] = useState(String(store.delivery_fee || 0));
   const [freeDeliveryAbove, setFreeDeliveryAbove] = useState(store.free_delivery_above != null ? String(store.free_delivery_above) : "");
   const [saving, setSaving] = useState(false);
@@ -160,6 +163,9 @@ function StoreSettingsForm({ store, onRefresh }) {
         name, whatsapp_number: whatsapp, upi_id: upi, address, logo_url: logoUrl || null, tagline: tagline || null, timings: timings || null,
         delivery_fee: Number(deliveryFee) || 0,
         free_delivery_above: freeDeliveryAbove.trim() === "" ? null : Number(freeDeliveryAbove),
+        auto_hours_enabled: autoHours,
+        opens_at: autoHours ? opensAt : null,
+        closes_at: autoHours ? closesAt : null,
       });
       setSaved(true);
       onRefresh();
@@ -183,6 +189,27 @@ function StoreSettingsForm({ store, onRefresh }) {
       <Field label="UPI ID (jaise dukaan@upi)" value={upi} onChange={setUpi} placeholder="abhi optional hai" />
       <Field label="Address" value={address} onChange={setAddress} textarea />
       <Field label="Khulne-Band hone ka Time (customer ko dikhega, optional)" value={timings} onChange={setTimings} placeholder="jaise Roz subah 8 - raat 10 baje tak" textarea />
+      <div style={{ borderTop: "1px solid #E3DECF", paddingTop: "12px", marginTop: "2px" }}>
+        <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", marginBottom: autoHours ? "10px" : 0 }}>
+          <input type="checkbox" checked={autoHours} onChange={(e) => setAutoHours(e.target.checked)} style={{ width: "16px", height: "16px" }} />
+          <span style={{ fontSize: "12px", fontWeight: 700, color: "#1A1A1A" }}>🕐 Automatic Open/Close (samay ke hisaab se khud badle)</span>
+        </label>
+        <div style={{ fontSize: "10.5px", color: "#8B8576", marginBottom: autoHours ? "10px" : 0 }}>
+          On karne par OPEN/BAND HAI badge apne aap set time ke hisaab se badlega — dashboard se manually tap karke badalna band ho jaayega.
+        </div>
+        {autoHours && (
+          <div style={{ display: "flex", gap: "8px" }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: "11px", fontWeight: 600, color: "#5C5747", marginBottom: "4px" }}>Khulne ka Time</div>
+              <input type="time" value={opensAt} onChange={(e) => setOpensAt(e.target.value)} style={{ width: "100%", border: "1px solid #E3DECF", borderRadius: "8px", padding: "9px 11px", fontSize: "12.5px", fontFamily: "inherit", outline: "none" }} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: "11px", fontWeight: 600, color: "#5C5747", marginBottom: "4px" }}>Band hone ka Time</div>
+              <input type="time" value={closesAt} onChange={(e) => setClosesAt(e.target.value)} style={{ width: "100%", border: "1px solid #E3DECF", borderRadius: "8px", padding: "9px 11px", fontSize: "12.5px", fontFamily: "inherit", outline: "none" }} />
+            </div>
+          </div>
+        )}
+      </div>
       <div style={{ borderTop: "1px solid #E3DECF", paddingTop: "12px", marginTop: "2px" }}>
         <div style={{ fontSize: "12px", fontWeight: 700, color: "#1A1A1A", marginBottom: "10px" }}>🛵 Delivery Charge</div>
         <div style={{ display: "flex", gap: "8px" }}>
