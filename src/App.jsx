@@ -15,6 +15,7 @@ import CustomerView from "./components/CustomerView";
 import DashboardView from "./components/DashboardView";
 import AdminPanel from "./components/AdminPanel";
 import QuickBill from "./components/QuickBill";
+import { TERMS_CONTENT, PRIVACY_CONTENT, REFUND_CONTENT, PLATFORM_NAME } from "./legalContent";
 import KhataPanel from "./components/KhataPanel";
 import CustomerKhataButton from "./components/CustomerKhata";
 import OrderTrackingButton from "./components/OrderTracking";
@@ -53,6 +54,30 @@ export default function App() {
       </div>
     );
   }
+  if (path === "terms") {
+    return (
+      <div style={shellStyle}>
+        <GlobalStyles />
+        <LegalPage title="Terms of Service" content={TERMS_CONTENT} />
+      </div>
+    );
+  }
+  if (path === "privacy") {
+    return (
+      <div style={shellStyle}>
+        <GlobalStyles />
+        <LegalPage title="Privacy Policy" content={PRIVACY_CONTENT} />
+      </div>
+    );
+  }
+  if (path === "refund-policy") {
+    return (
+      <div style={shellStyle}>
+        <GlobalStyles />
+        <LegalPage title="Refund & Cancellation Policy" content={REFUND_CONTENT} />
+      </div>
+    );
+  }
 
   const slug = getSlugFromUrl();
 
@@ -63,6 +88,34 @@ export default function App() {
 
   // Warna yeh homepage hai - dukaandar ka login/signup/admin area
   return <OwnerArea />;
+}
+
+// ============================================================
+// LEGAL PAGES (/terms, /privacy, /refund-policy) — plain readable
+// document, no login chahiye.
+// ============================================================
+function LegalPage({ title, content }) {
+  return (
+    <div style={{ maxWidth: "720px", margin: "0 auto", padding: "28px 20px 60px" }}>
+      <a href="/" style={{ fontSize: "12.5px", color: "#8B8576", textDecoration: "none", display: "inline-block", marginBottom: "14px" }}>← Home par jaayein</a>
+      <div style={{ fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: "24px", color: "#1A1A1A", marginBottom: "4px" }}>{title}</div>
+      <div style={{ fontSize: "12px", color: "#8B8576", marginBottom: "24px" }}>{PLATFORM_NAME} · Last updated: {new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}</div>
+      {content.map((section, i) => (
+        <div key={i} style={{ marginBottom: "22px" }}>
+          <div style={{ fontWeight: 700, fontSize: "14.5px", color: "#1B4332", marginBottom: "8px" }}>{section.heading}</div>
+          {Array.isArray(section.body) ? (
+            <ul style={{ margin: 0, paddingLeft: "20px", display: "flex", flexDirection: "column", gap: "6px" }}>
+              {section.body.map((line, j) => (
+                <li key={j} style={{ fontSize: "13px", color: "#5C5747", lineHeight: 1.6 }}>{line}</li>
+              ))}
+            </ul>
+          ) : (
+            <div style={{ fontSize: "13px", color: "#5C5747", lineHeight: 1.7, whiteSpace: "pre-line" }}>{section.body}</div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
 }
 
 // ============================================================
