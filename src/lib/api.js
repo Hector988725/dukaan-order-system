@@ -361,10 +361,10 @@ export async function deleteVariant(variantId) {
 }
 
 // ---- Store Settings ----
-export async function updateStoreSettings(storeId, { name, whatsapp_number, upi_id, address, logo_url, tagline, timings, delivery_fee, free_delivery_above, auto_hours_enabled, opens_at, closes_at }) {
+export async function updateStoreSettings(storeId, { name, whatsapp_number, upi_id, address, logo_url, tagline, timings, delivery_fee, free_delivery_above, auto_hours_enabled, opens_at, closes_at, banner_images }) {
   const { error } = await supabase
     .from("stores")
-    .update({ name, whatsapp_number, upi_id, address, logo_url, tagline, timings, delivery_fee, free_delivery_above, auto_hours_enabled, opens_at, closes_at })
+    .update({ name, whatsapp_number, upi_id, address, logo_url, tagline, timings, delivery_fee, free_delivery_above, auto_hours_enabled, opens_at, closes_at, banner_images })
     .eq("id", storeId);
   if (error) throw error;
 }

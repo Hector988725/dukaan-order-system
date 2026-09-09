@@ -163,6 +163,7 @@ function StoreSettingsForm({ store, onRefresh }) {
   const [closesAt, setClosesAt] = useState(store.closes_at ? store.closes_at.slice(0, 5) : "21:00");
   const [deliveryFee, setDeliveryFee] = useState(String(store.delivery_fee || 0));
   const [freeDeliveryAbove, setFreeDeliveryAbove] = useState(store.free_delivery_above != null ? String(store.free_delivery_above) : "");
+  const [bannerImages, setBannerImages] = useState(store.banner_images || []);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -178,6 +179,7 @@ function StoreSettingsForm({ store, onRefresh }) {
         auto_hours_enabled: autoHours,
         opens_at: autoHours ? opensAt : null,
         closes_at: autoHours ? closesAt : null,
+        banner_images: bannerImages.length > 0 ? bannerImages : null,
       });
       setSaved(true);
       onRefresh();
@@ -210,6 +212,13 @@ function StoreSettingsForm({ store, onRefresh }) {
       ) : (
         <Field label="Khulne-Band hone ka Time (customer ko dikhega, optional)" value={timings} onChange={setTimings} placeholder="jaise Roz subah 8 - raat 10 baje tak" textarea />
       )}
+      <div style={{ borderTop: "1px solid #E3DECF", paddingTop: "12px", marginTop: "2px" }}>
+        <div style={{ fontSize: "12px", fontWeight: 700, color: "#1A1A1A", marginBottom: "4px" }}>🖼️ Promotional Banners (customer ko top par dikhenge, optional)</div>
+        <div style={{ fontSize: "10.5px", color: "#8B8576", marginBottom: "10px" }}>
+          2-4 photos daalein (offers, naye products, festival greeting) — customer storefront ke top par ghoomti rahengi. Apni khud khichi photo hi daalein.
+        </div>
+        <MultiImagePicker images={bannerImages} storeId={store.id} onChange={setBannerImages} />
+      </div>
       <div style={{ borderTop: "1px solid #E3DECF", paddingTop: "12px", marginTop: "2px" }}>
         <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", marginBottom: autoHours ? "10px" : 0 }}>
           <input type="checkbox" checked={autoHours} onChange={(e) => setAutoHours(e.target.checked)} style={{ width: "16px", height: "16px" }} />

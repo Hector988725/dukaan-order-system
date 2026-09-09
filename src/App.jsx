@@ -129,6 +129,31 @@ function DemoLandingPage() {
 // ============================================================
 // CUSTOMER-FACING STOREFRONT (public, koi login nahi chahiye)
 // ============================================================
+// Dukaandar ki apni uploaded photos ka auto-rotating banner — agar
+// koi banner nahi hai to yeh render hi nahi hota (parent fallback
+// emoji-strip dikha deta hai).
+function PromoBannerCarousel({ images }) {
+  const [idx, setIdx] = useState(0);
+  useEffect(() => {
+    if (images.length <= 1) return;
+    const id = setInterval(() => setIdx((i) => (i + 1) % images.length), 4000);
+    return () => clearInterval(id);
+  }, [images.length]);
+
+  return (
+    <div style={{ position: "relative", width: "100%", aspectRatio: "16/6", background: "#EFE9D8", overflow: "hidden" }}>
+      <img src={images[idx]} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+      {images.length > 1 && (
+        <div style={{ position: "absolute", bottom: "8px", left: "50%", transform: "translateX(-50%)", display: "flex", gap: "5px" }}>
+          {images.map((_, i) => (
+            <span key={i} style={{ width: 6, height: 6, borderRadius: "50%", background: i === idx ? "white" : "rgba(255,255,255,0.5)" }} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CustomerStorefrontPage({ slug }) {
   const [store, setStore] = useState(null);
   const [products, setProducts] = useState([]);
@@ -204,18 +229,22 @@ function CustomerStorefrontPage({ slug }) {
           🕒 {store.timings}
         </div>
       )}
-      {/* Business-type explainer strip — bina products dikhe bhi turant
-          pata chal jaata hai yeh kis tarah ki dukaan hai (color, icon,
-          emojis, ek line description), naye/demo stores ke liye khaas kaam ka. */}
-      <div style={{
-        background: `linear-gradient(90deg, ${theme.primary}14 0%, ${theme.accent}22 100%)`,
-        borderBottom: `1px solid ${theme.primary}22`,
-        padding: "10px 24px",
-        display: "flex", alignItems: "center", gap: "10px",
-      }}>
-        <span style={{ fontSize: "18px", display: "flex", gap: "2px" }}>{(theme.emojis || []).join(" ")}</span>
-        <span style={{ fontSize: "11.5px", fontWeight: 600, color: theme.primaryDark }}>{theme.description}</span>
-      </div>
+      {store.banner_images && store.banner_images.length > 0 ? (
+        <PromoBannerCarousel images={store.banner_images} />
+      ) : (
+        /* Business-type explainer strip — bina products dikhe bhi turant
+           pata chal jaata hai yeh kis tarah ki dukaan hai (color, icon,
+           emojis, ek line description), naye/demo stores ke liye khaas kaam ka. */
+        <div style={{
+          background: `linear-gradient(90deg, ${theme.primary}14 0%, ${theme.accent}22 100%)`,
+          borderBottom: `1px solid ${theme.primary}22`,
+          padding: "10px 24px",
+          display: "flex", alignItems: "center", gap: "10px",
+        }}>
+          <span style={{ fontSize: "18px", display: "flex", gap: "2px" }}>{(theme.emojis || []).join(" ")}</span>
+          <span style={{ fontSize: "11.5px", fontWeight: 600, color: theme.primaryDark }}>{theme.description}</span>
+        </div>
+      )}
       <CustomerView store={store} products={products} onOrderPlaced={() => load(true)} />
     </div>
   );
