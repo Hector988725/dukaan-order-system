@@ -284,12 +284,19 @@ function OwnerArea() {
     // "kya user wahi purana hai" check karte hain — agar haan, to koi
     // bhi event ho, reload nahi karte (PASSWORD_RECOVERY ko chhodkar,
     // jo hamesha handle karna zaroori hai).
-    const prevUserIdRef = { current: null };
+    let hasInitialized = false;
+    let prevUserId = null;
     const unsubscribe = onAuthChange((u, event) => {
       authSettledRef.current = true;
       const newUserId = u?.id || null;
-      const isSameUser = newUserId === prevUserIdRef.current;
-      prevUserIdRef.current = newUserId;
+      // Pehla event hamesha process karo, chahe user null hi kyun na ho —
+      // warna (jab koi logged-in nahi hai) newUserId aur prevUserId dono
+      // null match ho jaate the, "same user" samajh kar setUser kabhi
+      // call hi nahi hota tha, aur app "Check ho raha hai..." par
+      // hamesha ke liye atki reh jaati thi (naya bug tha, ab fix).
+      const isSameUser = hasInitialized && newUserId === prevUserId;
+      hasInitialized = true;
+      prevUserId = newUserId;
 
       if (event === "PASSWORD_RECOVERY") {
         setAuthEvent(event);
