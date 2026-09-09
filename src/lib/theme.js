@@ -24,6 +24,8 @@ export const BUSINESS_THEMES = {
     accent: "#D4A24C",
     accentDark: "#B37F2E",
     icon: "Store",
+    description: "Aata, chawal, tel, masale — roz ka raashan ek hi jagah",
+    emojis: ["🌾", "🧂", "🛢️", "🍚"],
   },
   medical: {
     label: "Medical / Pharmacy",
@@ -33,6 +35,8 @@ export const BUSINESS_THEMES = {
     accentDark: "#33917F",
     icon: "Pill",
     badge: "cross", // white circle + bold red plus — Indian pharmacy convention
+    description: "Dawaiyan, first-aid aur health care — bharosemand seva",
+    emojis: ["💊", "🩹", "🌡️"],
   },
   hardware: {
     label: "Hardware Shop",
@@ -41,6 +45,8 @@ export const BUSINESS_THEMES = {
     accent: "#E0812F",
     accentDark: "#B35F1D",
     icon: "Wrench",
+    description: "Auzaar, paint, plumbing — ghar-dukaan ki har zaroorat",
+    emojis: ["🔨", "🪛", "🔧"],
   },
   mobile: {
     label: "Mobile / Electronics",
@@ -49,6 +55,8 @@ export const BUSINESS_THEMES = {
     accent: "#4CC9F0",
     accentDark: "#2A93B5",
     icon: "Smartphone",
+    description: "Mobile, accessories aur gadgets — best price guarantee",
+    emojis: ["📱", "🎧", "🔌"],
   },
   clothing: {
     label: "Kapde / Boutique",
@@ -57,6 +65,8 @@ export const BUSINESS_THEMES = {
     accent: "#D4A24C",
     accentDark: "#B37F2E",
     icon: "Shirt",
+    description: "Latest fashion, har size mein, har budget mein",
+    emojis: ["👕", "👗", "👖"],
   },
   stationery: {
     label: "Stationery / Books",
@@ -65,6 +75,8 @@ export const BUSINESS_THEMES = {
     accent: "#E8B84B",
     accentDark: "#C99A2E",
     icon: "BookOpen",
+    description: "Kitabein, copy, pen — bachon ki padhai ka poora saman",
+    emojis: ["📓", "✏️", "📐"],
   },
   bakery: {
     label: "Bakery / Mithai",
@@ -73,6 +85,8 @@ export const BUSINESS_THEMES = {
     accent: "#F0A86E",
     accentDark: "#D1824A",
     icon: "Cake",
+    description: "Taaza cake, cookies aur mithai — har khushi ke liye",
+    emojis: ["🎂", "🍪", "🍞"],
   },
   salon: {
     label: "Salon / Beauty Parlour",
@@ -81,6 +95,8 @@ export const BUSINESS_THEMES = {
     accent: "#E8A3B0",
     accentDark: "#C97A8A",
     icon: "Scissors",
+    description: "Haircut se facial tak — aapki khubsurati ka khayal",
+    emojis: ["💇", "💅", "✨"],
   },
   restaurant: {
     label: "Restaurant / Dhaba",
@@ -89,6 +105,8 @@ export const BUSINESS_THEMES = {
     accent: "#E0A93A",
     accentDark: "#B8841F",
     icon: "UtensilsCrossed",
+    description: "Garam-garam khana, ghar jaisa swaad, seedha table tak",
+    emojis: ["🍛", "🍲", "🥤"],
   },
   footwear: {
     label: "Jute / Footwear Shop",
@@ -97,6 +115,8 @@ export const BUSINESS_THEMES = {
     accent: "#C98A4B",
     accentDark: "#A66B34",
     icon: "Footprints",
+    description: "Har kadam ke liye sahi jode — style aur comfort dono",
+    emojis: ["👟", "👡", "👞"],
   },
   general: {
     label: "Koi Aur Business",
@@ -105,6 +125,8 @@ export const BUSINESS_THEMES = {
     accent: "#D4A24C",
     accentDark: "#B37F2E",
     icon: "Store",
+    description: "Aapki zaroorat ka har saman, ek hi jagah",
+    emojis: ["🛍️", "📦"],
   },
 };
 

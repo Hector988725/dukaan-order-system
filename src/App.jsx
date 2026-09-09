@@ -194,6 +194,7 @@ function CustomerStorefrontPage({ slug }) {
     );
   }
 
+  const theme = getTheme(store.business_type);
   return (
     <div style={shellStyle}>
       <GlobalStyles />
@@ -203,6 +204,18 @@ function CustomerStorefrontPage({ slug }) {
           🕒 {store.timings}
         </div>
       )}
+      {/* Business-type explainer strip — bina products dikhe bhi turant
+          pata chal jaata hai yeh kis tarah ki dukaan hai (color, icon,
+          emojis, ek line description), naye/demo stores ke liye khaas kaam ka. */}
+      <div style={{
+        background: `linear-gradient(90deg, ${theme.primary}14 0%, ${theme.accent}22 100%)`,
+        borderBottom: `1px solid ${theme.primary}22`,
+        padding: "10px 24px",
+        display: "flex", alignItems: "center", gap: "10px",
+      }}>
+        <span style={{ fontSize: "18px", display: "flex", gap: "2px" }}>{(theme.emojis || []).join(" ")}</span>
+        <span style={{ fontSize: "11.5px", fontWeight: 600, color: theme.primaryDark }}>{theme.description}</span>
+      </div>
       <CustomerView store={store} products={products} onOrderPlaced={() => load(true)} />
     </div>
   );
