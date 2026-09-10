@@ -44,6 +44,14 @@ export function AuthGate({ onAuthed }) {
       {mode === "login" && <LoginForm onAuthed={onAuthed} onForgotPassword={() => setMode("forgot")} />}
       {mode === "signup" && <SignupForm onAuthed={onAuthed} />}
       {mode === "forgot" && <ForgotPasswordForm onBack={() => setMode("login")} />}
+
+      <div style={{ textAlign: "center", marginTop: "20px", fontSize: "10.5px", color: "#8B8576" }}>
+        <a href="/terms" style={{ color: "#8B8576", textDecoration: "underline" }}>Terms</a>
+        {" · "}
+        <a href="/privacy" style={{ color: "#8B8576", textDecoration: "underline" }}>Privacy Policy</a>
+        {" · "}
+        <a href="/refund-policy" style={{ color: "#8B8576", textDecoration: "underline" }}>Refund Policy</a>
+      </div>
     </div>
   );
 }
