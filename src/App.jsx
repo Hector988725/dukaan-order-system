@@ -517,7 +517,7 @@ function OwnerArea() {
         backgroundImage: `${getHeaderBackground(getTheme(store.business_type))}, repeating-linear-gradient(135deg, rgba(255,255,255,0.05) 0px, rgba(255,255,255,0.05) 1px, transparent 1px, transparent 12px)`,
         padding: "14px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", flexWrap: "wrap",
       }}>
-        <StoreHeaderBrand store={store} editable onToggleOpen={handleToggleOpen} />
+        <StoreHeaderBrand store={store} editable onToggleOpen={handleToggleOpen} showTagline={false} />
 
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           <div className="ddemo-toggle-track" style={{ overflowX: "auto", WebkitOverflowScrolling: "touch", flexShrink: 1 }}>
@@ -541,6 +541,8 @@ function OwnerArea() {
           </button>
         </div>
       </div>
+
+      {(store.tagline || store.address) && <ScrollingTicker text={store.tagline || store.address} />}
 
       <div style={{ maxWidth: "900px", margin: "0 auto", padding: "10px 18px 0" }}>
         <StoreLinkShareButton store={store} />
@@ -655,7 +657,20 @@ function computeAutoOpenStatus(opensAt, closesAt) {
   return nowMin >= openMin || nowMin < closeMin; // raat paar (overnight) hours
 }
 
-function StoreHeaderBrand({ store, editable, onToggleOpen }) {
+// Ek line ka continuous scrolling ticker — right se enter hoke left se
+// exit hota hai, phir loop ho jaata hai (news-channel jaisa). Store ki
+// tagline dikhane ke liye, jab wo header mein jagah nahi le sakti.
+function ScrollingTicker({ text }) {
+  return (
+    <div style={{ background: "#EFE9D8", overflow: "hidden", whiteSpace: "nowrap", padding: "6px 0" }}>
+      <div className="ddemo-ticker-text" style={{ display: "inline-block", fontSize: "11.5px", fontWeight: 600, color: "#5C5747" }}>
+        {text}
+      </div>
+    </div>
+  );
+}
+
+function StoreHeaderBrand({ store, editable, onToggleOpen, showTagline = true }) {
   const theme = getTheme(store.business_type);
   const isAuto = !!store.auto_hours_enabled;
   const [, forceTick] = useState(0);
@@ -692,7 +707,9 @@ function StoreHeaderBrand({ store, editable, onToggleOpen }) {
             buttons ko bhi squeeze kar deta tha. */}
         <div style={{ color: "white", fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: "15px", lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{store.name}</div>
         <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "2px", minWidth: 0 }}>
-          <div style={{ color: "rgba(255,255,255,0.6)", fontSize: "10.5px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>{store.tagline || store.address}</div>
+          {showTagline && (
+            <div style={{ color: "rgba(255,255,255,0.6)", fontSize: "10.5px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>{store.tagline || store.address}</div>
+          )}
           {/* Open/Closed status — customer ko turant pata chale abhi order
               lene ke liye khuli hai ya nahi. Dukaandar ke liye yehi pill
               tap karne se turant toggle bhi ho jaata hai (settings mein
@@ -811,6 +828,14 @@ function GlobalStyles() {
       @media (max-width: 480px) {
         .ddemo-header-action-btn { padding: 7px 8px !important; }
         .ddemo-header-action-label { display: none; }
+      }
+      /* Scrolling ticker — text right se shuru hoke (padding-left:100%
+         se poori tarah screen ke bahar) left tak poori width jitna
+         khisakta hai, phir seamlessly loop ho jaata hai. */
+      .ddemo-ticker-text { padding-left: 100%; animation: ddemoTickerScroll 13s linear infinite; }
+      @keyframes ddemoTickerScroll {
+        from { transform: translateX(0); }
+        to { transform: translateX(-100%); }
       }
     `}</style>
   );
