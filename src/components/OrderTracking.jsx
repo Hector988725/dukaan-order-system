@@ -31,10 +31,10 @@ export default function OrderTrackingButton({ store }) {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="ddemo-btn"
+        className="ddemo-btn ddemo-header-action-btn"
         style={{ display: "flex", alignItems: "center", gap: "6px", background: "rgba(255,255,255,0.14)", color: "white", border: "none", borderRadius: "8px", padding: "7px 12px", fontSize: "11.5px", fontWeight: 700, cursor: "pointer" }}
       >
-        <PackageSearch size={13} /> Order Track Karein
+        <PackageSearch size={13} /> <span className="ddemo-header-action-label">Order Track Karein</span>
       </button>
       {open && <OrderTrackingModal store={store} onClose={() => setOpen(false)} />}
     </>

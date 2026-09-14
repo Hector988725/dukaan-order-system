@@ -16,10 +16,10 @@ export default function CustomerKhataButton({ store }) {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="ddemo-btn"
+        className="ddemo-btn ddemo-header-action-btn"
         style={{ display: "flex", alignItems: "center", gap: "6px", background: "rgba(255,255,255,0.14)", color: "white", border: "none", borderRadius: "8px", padding: "7px 12px", fontSize: "11.5px", fontWeight: 700, cursor: "pointer" }}
       >
-        <BookText size={13} /> Mera Khata
+        <BookText size={13} /> <span className="ddemo-header-action-label">Mera Khata</span>
       </button>
       {open && <CustomerKhataModal store={store} onClose={() => setOpen(false)} />}
     </>

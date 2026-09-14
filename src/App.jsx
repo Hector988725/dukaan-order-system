@@ -615,7 +615,7 @@ function StoreHeader({ store }) {
       padding: "14px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px",
     }}>
       <StoreHeaderBrand store={store} />
-      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "6px", flexShrink: 0 }}>
         <OrderTrackingButton store={store} />
         <CustomerKhataButton store={store} />
         {/* Business-type ka permanent symbol — hamesha yahan, right corner
@@ -669,7 +669,7 @@ function StoreHeaderBrand({ store, editable, onToggleOpen }) {
   }, [isAuto]);
   const isOpen = isAuto ? computeAutoOpenStatus(store.opens_at, store.closes_at) : store.is_open !== false;
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+    <div style={{ display: "flex", alignItems: "center", gap: "10px", flex: 1, minWidth: 0 }}>
       {/* Dukaan ka apna logo — primary identity, left mein (jahan pehle
           nazar jaati hai). Logo na ho to neutral placeholder tile. */}
       <div style={{
@@ -685,10 +685,14 @@ function StoreHeaderBrand({ store, editable, onToggleOpen }) {
         }
       </div>
 
-      <div>
-        <div style={{ color: "white", fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: "15px", lineHeight: 1.1 }}>{store.name}</div>
-        <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "2px" }}>
-          <div style={{ color: "rgba(255,255,255,0.6)", fontSize: "10.5px" }}>{store.tagline || store.address}</div>
+      <div style={{ minWidth: 0, flex: 1 }}>
+        {/* Naam lambi ho to bhi single line mein hi rahe (ellipsis se
+            "..." kat jaaye) — pehle koi width-limit na hone se yeh
+            2-3 lines mein bikhar jaata tha mobile par, dusre header
+            buttons ko bhi squeeze kar deta tha. */}
+        <div style={{ color: "white", fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: "15px", lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{store.name}</div>
+        <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "2px", minWidth: 0 }}>
+          <div style={{ color: "rgba(255,255,255,0.6)", fontSize: "10.5px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>{store.tagline || store.address}</div>
           {/* Open/Closed status — customer ko turant pata chale abhi order
               lene ke liye khuli hai ya nahi. Dukaandar ke liye yehi pill
               tap karne se turant toggle bhi ho jaata hai (settings mein
@@ -699,7 +703,7 @@ function StoreHeaderBrand({ store, editable, onToggleOpen }) {
             title={isAuto ? "Automatic hai (Store Settings mein set kiya hua time)" : undefined}
             className={editable && !isAuto ? "ddemo-btn" : undefined}
             style={{
-              display: "flex", alignItems: "center", gap: "4px",
+              display: "flex", alignItems: "center", gap: "4px", flexShrink: 0,
               background: isOpen ? "rgba(76,175,80,0.22)" : "rgba(211,47,47,0.25)",
               color: isOpen ? "#8FE398" : "#FF9B9B",
               border: "none", borderRadius: "999px", padding: "2px 8px 2px 6px",
@@ -799,6 +803,14 @@ function GlobalStyles() {
       @media (max-width: 520px) {
         .ddemo-toggle-btn { padding: 8px 9px; gap: 0; font-size: 0; }
         .ddemo-toggle-btn span { font-size: 10px; }
+      }
+      /* Customer-facing header ke "Order Track Karein" / "Mera Khata"
+         buttons — mobile par sirf icon dikhta hai (text hide), taaki
+         store ka naam/tagline ko squeeze na kare aur woh 2-3 lines mein
+         bikhar na jaaye. */
+      @media (max-width: 480px) {
+        .ddemo-header-action-btn { padding: 7px 8px !important; }
+        .ddemo-header-action-label { display: none; }
       }
     `}</style>
   );
