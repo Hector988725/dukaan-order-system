@@ -4,19 +4,23 @@ import { loadRazorpayScript, activateSubscription, RAZORPAY_KEY_ID, RAZORPAY_PLA
 
 // ============================================================
 // RAZORPAY SUBSCRIPTION PAYMENT PAGE
-// Dukaandar yahan se ₹199/mahine UPI Autopay setup karta hai
+// Dukaandar yahan se subscription activate karta hai — Basic/Premium
+// tier aur billing-cycle (1/3/6/12 mahine) dono choose kar sakta hai
 // ============================================================
 export default function RazorpaySubscription({ store, user, onSuccess }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [selectedPlan, setSelectedPlan] = useState("monthly");
+  const [selectedTier, setSelectedTier] = useState(store.plan_tier || "basic");
 
-  // Base price dukaan ke signup ke waqt hi decide ho chuka tha
-  // (createStore() mein) — pehli 20 dukaano ko ₹99/month hamesha ke
-  // liye lock milta hai, uske baad ₹199/month. Multi-month bundles
-  // ka discount % wahi rakha hai jo original ₹199 pricing mein tha,
-  // taaki dono groups ko fair/consistent discount mile.
-  const basePrice = store.subscription_base_price || 199;
+  const isFounding = !!store.founding_member;
+  // Founding Shops (pehli 1000): Basic ₹49, Premium ₹499 — hamesha lock
+  // (jab tak subscription active rahe, grace-period follow ho).
+  // Regular customers: Basic ₹299, Premium ₹999.
+  const basicPrice = isFounding ? 49 : 299;
+  const premiumPrice = isFounding ? 499 : 999;
+  const basePrice = selectedTier === "premium" ? premiumPrice : basicPrice;
+
   const discountPct = { quarterly: 48 / 597, halfyearly: 195 / 1194, yearly: 589 / 2388 };
   const plans = [
     { id: "monthly", label: "1 Mahina", months: 1, amount: basePrice, popular: false },
@@ -93,6 +97,7 @@ export default function RazorpaySubscription({ store, user, onSuccess }) {
           store_id: store.id,
           store_slug: store.slug,
           plan: selectedPlan,
+          tier: selectedTier,
           months: String(selected.months),
         },
         theme: { color: "#1B4332" },
@@ -106,12 +111,14 @@ export default function RazorpaySubscription({ store, user, onSuccess }) {
             await activateSubscription(
               store.id,
               response.razorpay_payment_id,
-              selected.months
+              selected.months,
+              selectedTier,
+              basePrice
             );
             const expiry = new Date();
             expiry.setMonth(expiry.getMonth() + selected.months);
             const msg = encodeURIComponent(
-              `✅ *Dukaan Order System — Payment Confirmed*\n\nDukaan: ${store.name}\nPlan: ${selected.label}\nAmount: ₹${selected.amount}\nPayment ID: ${response.razorpay_payment_id}\nValid Till: ${expiry.toLocaleDateString("en-IN")}\n\nAapki dukaan active ho gayi hai! 🎉`
+              `✅ *Dukaan Order System — Payment Confirmed*\n\nDukaan: ${store.name}\nTier: ${selectedTier === "premium" ? "Premium" : "Basic"}\nPlan: ${selected.label}\nAmount: ₹${selected.amount}\nPayment ID: ${response.razorpay_payment_id}\nValid Till: ${expiry.toLocaleDateString("en-IN")}\n\nAapki dukaan active ho gayi hai! 🎉`
             );
             window.open(`https://wa.me/${store.whatsapp_number}?text=${msg}`, "_blank");
             onSuccess?.();
@@ -155,11 +162,33 @@ export default function RazorpaySubscription({ store, user, onSuccess }) {
         <div style={{ fontSize: "12.5px", color: "#8B8576", marginTop: "4px" }}>
           {store.name} — UPI se pay karein, koi card nahi chahiye
         </div>
-        {store.founding_member && (
+        {isFounding && (
           <div style={{ display: "inline-flex", alignItems: "center", gap: "5px", marginTop: "10px", background: "#FFF4DB", color: "#8A6A0F", fontSize: "11px", fontWeight: 800, padding: "5px 12px", borderRadius: "999px" }}>
-            ⭐ Founding Member — ₹{store.subscription_base_price || 99}/month hamesha ke liye lock
+            ⭐ Founding Shop — ₹{basicPrice}/month Basic hamesha ke liye lock
           </div>
         )}
+      </div>
+
+      {/* Basic vs Premium tier selector */}
+      <div style={{ display: "flex", gap: "8px", marginBottom: "16px" }}>
+        {[
+          { id: "basic", label: "Basic", price: basicPrice, note: "Sab zaroori features" },
+          { id: "premium", label: "Premium", price: premiumPrice, note: "Extra premium features" },
+        ].map((tier) => (
+          <button
+            key={tier.id}
+            onClick={() => setSelectedTier(tier.id)}
+            style={{
+              flex: 1, padding: "12px", borderRadius: "10px", textAlign: "left", cursor: "pointer",
+              border: selectedTier === tier.id ? "2px solid #1B4332" : "1px solid #E3DECF",
+              background: selectedTier === tier.id ? "#E7F0EA" : "white",
+            }}
+          >
+            <div style={{ fontWeight: 700, fontSize: "13px", color: "#1A1A1A" }}>{tier.label}</div>
+            <div style={{ fontWeight: 800, fontSize: "16px", color: "#1B4332", marginTop: "2px" }}>₹{tier.price}<span style={{ fontSize: "10.5px", fontWeight: 600, color: "#8B8576" }}>/month</span></div>
+            <div style={{ fontSize: "10px", color: "#8B8576", marginTop: "2px" }}>{tier.note}</div>
+          </button>
+        ))}
       </div>
 
       {/* Plan selector */}
@@ -236,6 +265,12 @@ export default function RazorpaySubscription({ store, user, onSuccess }) {
         <Shield size={13} color="#8B8576" />
         <span style={{ fontSize: "11px", color: "#8B8576" }}>Razorpay ke through secure payment — aapki details safe hain</span>
       </div>
+
+      {isFounding && (
+        <div style={{ fontSize: "10.5px", color: "#8B8576", textAlign: "center", marginTop: "10px", lineHeight: 1.5 }}>
+          Payment due date ke baad 7-din grace period milta hai. Uske baad bhi inactive rahi to ₹{basicPrice} lifetime-lock khatam ho jaata hai. Yeh price sirf SaaS subscription ke liye hai — domain, payment-gateway fees, SMS/WhatsApp jaisi third-party costs alag ho sakti hain.
+        </div>
+      )}
     </div>
   );
 }

@@ -99,6 +99,14 @@ export async function fetchStoreBySlug(slug) {
 }
 
 export async function fetchStoreByUserId(userId) {
+  // Founding-member grace-period check — agar payment due-date se 7+
+  // din nikal chuke hain aur abhi bhi founding_member hai, to yahin
+  // permanently regular price par revert ho jaata hai. Best-effort:
+  // fail ho to bhi login block nahi hota, agli baar phir try hoga.
+  try {
+    await supabase.rpc("check_and_apply_founding_expiry", { p_user_id: userId });
+  } catch {}
+
   const { data, error } = await supabase
     .from("stores")
     .select("*")
@@ -123,11 +131,16 @@ export async function updateStoreSlug(storeId, newSlug) {
 }
 
 const FOUNDING_MEMBER_LIMIT = 1000;
-const FOUNDING_PRICE = 49;
-const REGULAR_PRICE = 99;
+const FOUNDING_BASIC_PRICE = 49;
+const REGULAR_BASIC_PRICE = 299;
+const FOUNDING_PREMIUM_PRICE = 499;
+const REGULAR_PREMIUM_PRICE = 999;
+// Grace period ki asli enforcement DB RPC (check_and_apply_founding_expiry)
+// mein hai — yeh sirf UI mein message dikhane ke kaam aata hai.
+const GRACE_PERIOD_DAYS = 7;
 
 export async function createStore(userId, { slug, name, business_type, whatsapp_number, upi_id, address }) {
-  // Pehli 20 dukaano ko founding-member price (₹99/month, hamesha ke
+  // Pehli 1000 dukaano ko founding-shop price (₹49/month Basic, hamesha ke
   // liye lock) milta hai — yeh signup ke waqt hi decide ho jaata hai
   // total existing (real) stores count karke, aur permanently store ho
   // jaata hai. `is_test_store=true` wali dukaane (jaise owner ki apni
@@ -147,7 +160,8 @@ export async function createStore(userId, { slug, name, business_type, whatsapp_
     .insert({
       user_id: userId, slug, name, business_type, whatsapp_number, upi_id, address,
       founding_member: isFoundingMember,
-      subscription_base_price: isFoundingMember ? FOUNDING_PRICE : REGULAR_PRICE,
+      subscription_base_price: isFoundingMember ? FOUNDING_BASIC_PRICE : REGULAR_BASIC_PRICE,
+      plan_tier: "basic",
       // Koi free trial nahi — signup hote hi store inactive rehta hai,
       // dashboard turant payment screen dikhata hai. Pehle yahan koi
       // is_active/subscription_expires_at nahi diya jaata tha, isliye
@@ -766,20 +780,38 @@ export function loadRazorpayScript() {
 }
 
 // Subscription activate karna after payment
-export async function activateSubscription(storeId, razorpaySubscriptionId, months = 1) {
+export async function activateSubscription(storeId, razorpaySubscriptionId, months = 1, planTier, newBasePrice) {
   const newExpiry = new Date();
   newExpiry.setMonth(newExpiry.getMonth() + months);
 
+  const updatePayload = {
+    is_active: true,
+    subscription_expires_at: newExpiry.toISOString(),
+    razorpay_subscription_id: razorpaySubscriptionId || null,
+  };
+  // Agar dukaandar ne Basic se Premium (ya vice-versa) switch kiya hai,
+  // to naya tier aur uska current per-month price bhi save karte hain —
+  // taaki agli renewal isi naye price/tier se calculate ho.
+  if (planTier) updatePayload.plan_tier = planTier;
+  if (newBasePrice) updatePayload.subscription_base_price = newBasePrice;
+
   const { error } = await supabase
     .from("stores")
-    .update({
-      is_active: true,
-      subscription_expires_at: newExpiry.toISOString(),
-      razorpay_subscription_id: razorpaySubscriptionId || null,
-    })
+    .update(updatePayload)
     .eq("id", storeId);
   if (error) throw error;
   return newExpiry;
+}
+
+// Founding Shop Terms & Pricing Lock — pehli baar payment se pehle
+// dukaandar ko yeh padh ke accept karna zaroori hai (sirf founding
+// members ke liye). Ek baar accept hone ke baad dobara nahi dikhta.
+export async function acceptFoundingTerms(storeId) {
+  const { error } = await supabase
+    .from("stores")
+    .update({ founding_terms_accepted_at: new Date().toISOString() })
+    .eq("id", storeId);
+  if (error) throw error;
 }
 
 // Super admin ke liye - sab stores ki list
