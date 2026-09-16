@@ -8,7 +8,7 @@ const BUSINESS_ICONS = { Store, Pill, Wrench, Smartphone, Shirt, BookOpen, Cake,
 import { getSlugFromUrl, isSupabaseConfigured } from "./lib/supabase";
 import {
   fetchStoreBySlug, fetchStoreByUserId, fetchProducts, fetchOrders,
-  fetchDeliveryBoys, toggleStoreOpen,
+  fetchDeliveryBoys, toggleStoreOpen, getCurrentUser,
   subscribeToOrders, onAuthChange, signOut,
 } from "./lib/api";
 import CustomerView from "./components/CustomerView";
@@ -213,6 +213,7 @@ function CustomerStorefrontPage({ slug }) {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isOwnerPreview, setIsOwnerPreview] = useState(false);
 
   const load = useCallback(async (silent = false) => {
     try {
@@ -222,6 +223,16 @@ function CustomerStorefrontPage({ slug }) {
       const productsData = await fetchProducts(storeData.id);
       setProducts(productsData);
       setError(null);
+      // Agar koi dukaandar apni hi dukaan ko customer-view mein dekh raha
+      // hai (jaise apna link khud khol ke check kar raha ho), to use
+      // wapas apne Admin Panel mein jaane ka rasta dikhate hain — warna
+      // "X" band karne ke alawa koi tareeka nahi milta tha wapas jaane ka.
+      try {
+        const currentUser = await getCurrentUser();
+        setIsOwnerPreview(!!currentUser && currentUser.id === storeData.user_id);
+      } catch {
+        setIsOwnerPreview(false);
+      }
     } catch (e) {
       setError("Yeh dukaan nahi mili. Link check karein.");
     } finally {
@@ -277,6 +288,14 @@ function CustomerStorefrontPage({ slug }) {
   return (
     <div style={shellStyle}>
       <GlobalStyles />
+      {isOwnerPreview && (
+        <div style={{ background: "#1B4332", padding: "8px 18px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
+          <span style={{ fontSize: "11.5px", color: "rgba(255,255,255,0.75)" }}>👀 Aap apni dukaan customer ki tarah dekh rahe hain</span>
+          <a href="/" style={{ fontSize: "11.5px", fontWeight: 700, color: "white", background: "rgba(255,255,255,0.16)", padding: "4px 12px", borderRadius: "999px", textDecoration: "none" }}>
+            ← Apne Dukaan Panel mein Jaayein
+          </a>
+        </div>
+      )}
       <StoreHeader store={store} />
       {store.timings && (
         <div style={{ background: "#EFE9D8", padding: "6px 24px", textAlign: "center", fontSize: "11.5px", color: "#5C5747", fontWeight: 600 }}>
@@ -723,6 +742,13 @@ function StoreHeaderBrand({ store, editable, onToggleOpen, showTagline = true })
         <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "2px", minWidth: 0 }}>
           {showTagline && (
             <div style={{ color: "rgba(255,255,255,0.6)", fontSize: "10.5px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>{store.tagline || store.address}</div>
+          )}
+          {/* Founding Shop # — dukaandar ko roz dashboard khulte hi apna
+              lifetime-lock number yaad rahe (urgency/pride, dono). */}
+          {editable && store.founding_member && store.founding_number && (
+            <span style={{ flexShrink: 0, background: "rgba(212,162,76,0.28)", color: "#FFE2A8", fontSize: "9.5px", fontWeight: 800, padding: "2px 7px", borderRadius: "999px" }}>
+              ⭐ #{store.founding_number}
+            </span>
           )}
           {/* Open/Closed status — customer ko turant pata chale abhi order
               lene ke liye khuli hai ya nahi. Dukaandar ke liye yehi pill

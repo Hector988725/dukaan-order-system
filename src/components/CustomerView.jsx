@@ -113,6 +113,25 @@ export default function CustomerView({ store, products, onOrderPlaced }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [store.id]);
 
+  // BUG FIX: UPI app se "back" button/gesture se wapas aane par (tab-switch
+  // se nahi), kuch mobile browsers page ko apni "back-forward cache"
+  // (bfcache) se dikha dete hain — ismein page ka bilkul purana JS state
+  // wapas aa jaata hai (jaise order place hone se PEHLE wala), bina kisi
+  // reload/visibilitychange ke. Isse order place ho chuka hone ke baad
+  // bhi purani screen dikhti rehti thi aur naya order place karna atak
+  // jaata tha. Fix: jab bhi browser bfcache se page restore kare
+  // (`event.persisted === true`), turant asli fresh reload karwa dete
+  // hain — taaki state hamesha sahi/latest ho.
+  useEffect(() => {
+    const handlePageShow = (event) => {
+      if (event.persisted) {
+        window.location.reload();
+      }
+    };
+    window.addEventListener("pageshow", handlePageShow);
+    return () => window.removeEventListener("pageshow", handlePageShow);
+  }, []);
+
   const categories = ["All", ...Array.from(new Set(products.map((p) => p.category)))];
   const filtered = products.filter(
     (p) => (activeCategory === "All" || p.category === activeCategory) && p.name.toLowerCase().includes(search.toLowerCase())
