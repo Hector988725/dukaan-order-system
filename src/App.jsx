@@ -1,10 +1,15 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { Store, ShoppingCart, LayoutGrid, Loader2, AlertTriangle, ShieldCheck, LogOut, Pill, Wrench, Smartphone, Shirt, BookOpen, Cake, Scissors, UtensilsCrossed, Footprints, Plus, BookText, Zap } from "lucide-react";
+import { Store, ShoppingCart, LayoutGrid, Loader2, AlertTriangle, ShieldCheck, LogOut, Pill, Wrench, Smartphone, Shirt, BookOpen, Cake, Scissors, UtensilsCrossed, Footprints, Plus, BookText, Zap, Eye } from "lucide-react";
 import { getTheme, getHeaderBackground } from "./lib/theme";
 
 // Business-type icon naam (theme.js mein string ke roop mein) ko
 // asli lucide component se map karta hai.
 const BUSINESS_ICONS = { Store, Pill, Wrench, Smartphone, Shirt, BookOpen, Cake, Scissors, UtensilsCrossed, Footprints };
+
+// Owner Area ke top nav tabs, EXACT usi order mein jis order mein buttons
+// render hote hain — sliding highlight background isi array se apni
+// position/width calculate karta hai.
+const NAV_TABS = ["dashboard", "khata", "quickbill", "storepreview", "admin"];
 import { getSlugFromUrl, isSupabaseConfigured } from "./lib/supabase";
 import {
   fetchStoreBySlug, fetchStoreByUserId, fetchProducts, fetchOrders,
@@ -528,6 +533,48 @@ function OwnerArea() {
     );
   }
 
+  // Shopkeeper apni dukaan "customer ki tarah" dekhna chahta hai — pehle
+  // iske liye asli link kholni padti thi (app se bahar), ab yeh sirf ek
+  // local view hai: already-loaded store/products hi reuse hote hain, koi
+  // naya fetch/navigation/reload nahi hota, "Wapas Admin" bhi instant hai.
+  if (view === "storepreview") {
+    const previewTheme = getTheme(store.business_type);
+    return (
+      <div style={shellStyle}>
+        <GlobalStyles />
+        <div style={{ background: "#1B4332", padding: "8px 18px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", flexWrap: "wrap" }}>
+          <span style={{ fontSize: "11.5px", color: "rgba(255,255,255,0.75)" }}>👀 Customers ko aapki dukaan aisi dikhti hai</span>
+          <button
+            onClick={() => setView("dashboard")}
+            style={{ fontSize: "11.5px", fontWeight: 700, color: "white", background: "rgba(255,255,255,0.16)", border: "none", padding: "4px 12px", borderRadius: "999px", cursor: "pointer" }}
+          >
+            ← Wapas Admin Panel Mein Jaayein
+          </button>
+        </div>
+        <StoreHeader store={store} />
+        {store.timings && (
+          <div style={{ background: "#EFE9D8", padding: "6px 24px", textAlign: "center", fontSize: "11.5px", color: "#5C5747", fontWeight: 600 }}>
+            🕒 {store.timings}
+          </div>
+        )}
+        {store.banner_images && store.banner_images.length > 0 ? (
+          <PromoBannerCarousel images={store.banner_images} />
+        ) : (
+          <div style={{
+            background: `linear-gradient(90deg, ${previewTheme.primary}14 0%, ${previewTheme.accent}22 100%)`,
+            borderBottom: `1px solid ${previewTheme.primary}22`,
+            padding: "10px 24px",
+            display: "flex", alignItems: "center", gap: "10px",
+          }}>
+            <span style={{ fontSize: "18px", display: "flex", gap: "2px" }}>{(previewTheme.emojis || []).join(" ")}</span>
+            <span style={{ fontSize: "11.5px", fontWeight: 600, color: previewTheme.primaryDark }}>{previewTheme.description}</span>
+          </div>
+        )}
+        <CustomerView store={store} products={products} onOrderPlaced={() => loadStoreData(true)} />
+      </div>
+    );
+  }
+
   const newOrderCount = orders.filter((o) => o.status === "New").length;
   const silentRefresh = () => loadStoreData(true);
 
@@ -554,7 +601,7 @@ function OwnerArea() {
 
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           <div className="ddemo-toggle-track" style={{ overflowX: "auto", WebkitOverflowScrolling: "touch", flexShrink: 1 }}>
-            <div className="ddemo-toggle-bg" style={{ left: `calc(${["dashboard", "khata", "quickbill", "admin"].indexOf(view)} * 25% + 3px)`, width: "calc(25% - 6px)" }} />
+            <div className="ddemo-toggle-bg" style={{ left: `calc(${NAV_TABS.indexOf(view)} * ${100 / NAV_TABS.length}% + 3px)`, width: `calc(${100 / NAV_TABS.length}% - 6px)` }} />
             <button className={`ddemo-toggle-btn ${view === "dashboard" ? "active" : ""}`} onClick={() => setView("dashboard")}>
               <LayoutGrid size={13} /> Orders
               {newOrderCount > 0 && <span style={{ background: "#B3261E", color: "white", fontSize: "10px", fontWeight: 700, borderRadius: "999px", padding: "1px 6px" }}>{newOrderCount}</span>}
@@ -564,6 +611,14 @@ function OwnerArea() {
             </button>
             <button className={`ddemo-toggle-btn ${view === "quickbill" ? "active" : ""}`} onClick={() => setView("quickbill")}>
               <Zap size={13} /> Bill
+            </button>
+            {/* Shopkeeper apni dukaan ko customer ki nazar se, isi SPA ke andar,
+                bina kisi navigation/reload ke dekh sake — pehle sirf link
+                share/copy hoti thi, dekhne ke liye app se bahar jaana padta
+                tha. Ab yeh sirf ek local view-switch hai (jaisa Orders/Khata/
+                Bill/Admin tabs), turant "Wapas" bhi usi tarah instant hai. */}
+            <button className={`ddemo-toggle-btn ${view === "storepreview" ? "active" : ""}`} onClick={() => setView("storepreview")}>
+              <Eye size={13} /> Dukaan
             </button>
             <button className={`ddemo-toggle-btn ${view === "admin" ? "active" : ""}`} onClick={() => setView("admin")}>
               <ShieldCheck size={13} /> Admin
