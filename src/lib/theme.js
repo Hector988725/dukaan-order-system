@@ -150,6 +150,33 @@ export function getShoppingMode(businessType) {
   return GALLERY_MODE_TYPES.has(businessType) ? "gallery" : "quick";
 }
 
+// ============================================================
+// UNIT PRESETS — pehle Unit ek free-text box tha ("kg, litre, piece"
+// placeholder), jisse dukaandar kabhi "kg" kabhi "Kg" kabhi "kilo"
+// likh deta tha aur customer ko confuse kar sakta tha. Ab business
+// type ke hisaab se ek clear dropdown milta hai (Kirana → kg/litre/
+// piece, Footwear → pair, Salon → service, etc), taaki charge-basis
+// hamesha consistent rahe. "Custom" option abhi bhi hai un cheezon ke
+// liye jo list mein nahi hain.
+// ============================================================
+const UNIT_PRESETS_BY_TYPE = {
+  kirana: ["kg", "gram", "litre", "ml", "piece", "packet", "dozen", "box"],
+  medical: ["piece", "strip", "bottle", "tube", "box"],
+  hardware: ["piece", "kg", "metre", "packet", "box"],
+  mobile: ["piece"],
+  clothing: ["piece"],
+  stationery: ["piece", "packet", "box", "dozen", "ream"],
+  bakery: ["piece", "kg", "gram", "box", "dozen"],
+  salon: ["service"],
+  restaurant: ["plate", "piece", "bowl", "kg"],
+  footwear: ["pair"],
+  general: ["piece", "kg", "gram", "litre", "ml", "packet", "box", "dozen"],
+};
+
+export function getUnitPresets(businessType) {
+  return UNIT_PRESETS_BY_TYPE[businessType] || UNIT_PRESETS_BY_TYPE.general;
+}
+
 // Header ke liye ek subtle diagonal gradient — flat single color se
 // zyada rich/premium lagta hai, bina kisi image/asset ke.
 export function getHeaderBackground(theme) {

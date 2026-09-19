@@ -213,6 +213,7 @@ export default function DashboardView({ store, products, orders, deliveryBoys, h
               <OrderCard
                 key={o.id}
                 order={o}
+                store={store}
                 deliveryBoys={deliveryBoys || []}
                 onAdvance={() => handleAdvance(o)}
                 onPaymentConfirm={() => handlePaymentConfirm(o)}
@@ -288,7 +289,7 @@ function StatCard({ icon, label, value, highlight }) {
   );
 }
 
-function OrderCard({ order, deliveryBoys, onAdvance, onPaymentConfirm, onAssignDeliveryBoy, onDelete }) {
+function OrderCard({ order, store, deliveryBoys, onAdvance, onPaymentConfirm, onAssignDeliveryBoy, onDelete }) {
   const meta = statusMeta[order.status] || statusMeta.New;
   const payMeta = paymentStatusMeta[order.payment_status] || paymentStatusMeta["Cash on Delivery"];
   const needsPaymentVerification = order.payment_method === "UPI" && order.payment_status === "Pending Verification";
@@ -296,6 +297,31 @@ function OrderCard({ order, deliveryBoys, onAdvance, onPaymentConfirm, onAssignD
   const nextLabel = getNextLabel(order);
 
   const isNew = order.status === "New";
+
+  // Packing checklist — dukaandar order pack karte waqt har item tick
+  // kar sakta hai, phir usi ticked list ka ek chhota bill/invoice bana
+  // ke (dukaan ke naam ke saath) seedha customer ko WhatsApp par bhej
+  // sakta hai, delivery ke baad. Yeh sirf is card ke andar local state
+  // hai (DB mein save nahi hota) — packing ke waqt istemaal ke liye
+  // kaafi hai.
+  const [showChecklist, setShowChecklist] = useState(false);
+  const [checklist, setChecklist] = useState(() => order.items.map(() => false));
+  const toggleChecklistItem = (idx) => setChecklist((c) => c.map((v, i) => (i === idx ? !v : v)));
+  const checkedCount = checklist.filter(Boolean).length;
+
+  const sendBillOnWhatsapp = () => {
+    const lines = [
+      `🧾 ${store.name}`,
+      `Order: ${order.order_number}`,
+      ``,
+      ...order.items.map((it, i) => `${checklist[i] ? "✅" : "▫️"} ${it.qty}${it.unit} × ${it.name}${it.variant ? " (" + it.variant + ")" : ""}`),
+      ``,
+      `Total: ₹${order.total}`,
+      order.status === "Delivered" ? `Deliver ho gaya hai — Dhanyawad! 🙏` : `Dhanyawad! 🙏`,
+    ];
+    const text = encodeURIComponent(lines.join("\n"));
+    window.open(`https://wa.me/91${order.customer_phone}?text=${text}`, "_blank");
+  };
 
   // Delivery order jab "Ready" ho jaaye, tabhi delivery boy assign karne
   // ka option dikhta hai (Pickup orders ko delivery boy ki zaroorat nahi).
@@ -335,6 +361,29 @@ function OrderCard({ order, deliveryBoys, onAdvance, onPaymentConfirm, onAssignD
           <span key={i}>{it.name}{it.variant ? ` (${it.variant})` : ""} – {it.qty}{it.unit}{i < order.items.length - 1 ? ", " : ""}</span>
         ))}
       </div>
+
+      <button
+        onClick={() => setShowChecklist((s) => !s)}
+        style={{ border: "none", background: "transparent", color: "#1B4332", fontSize: "11px", fontWeight: 700, cursor: "pointer", padding: 0, marginBottom: "8px" }}
+      >
+        📋 {showChecklist ? "Checklist band karein" : `Packing Checklist${checkedCount > 0 ? ` (${checkedCount}/${checklist.length} tick)` : ""}`}
+      </button>
+
+      {showChecklist && (
+        <div style={{ background: "#F7F5F0", borderRadius: "9px", padding: "6px 10px", marginBottom: "10px" }}>
+          {order.items.map((it, i) => (
+            <label key={i} style={{ display: "flex", alignItems: "center", gap: "9px", fontSize: "12px", padding: "5px 0", cursor: "pointer" }}>
+              <input type="checkbox" checked={checklist[i] || false} onChange={() => toggleChecklistItem(i)} style={{ width: 15, height: 15, flexShrink: 0 }} />
+              <span style={{ textDecoration: checklist[i] ? "line-through" : "none", color: checklist[i] ? "#8B8576" : "#1A1A1A" }}>
+                {it.name}{it.variant ? ` (${it.variant})` : ""} – {it.qty}{it.unit}
+              </span>
+            </label>
+          ))}
+          <button onClick={sendBillOnWhatsapp} className="ddemo-btn" style={{ marginTop: "6px", width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", background: "#178C42", color: "white", border: "none", fontSize: "12px", fontWeight: 700, borderRadius: "8px", padding: "9px 0", cursor: "pointer" }}>
+            <Receipt size={14} /> Bill WhatsApp Karein
+          </button>
+        </div>
+      )}
 
       {/* Pickup/Delivery badge — customer ne checkout par jo chuna tha */}
       <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "6px" }}>

@@ -56,7 +56,7 @@ function AdminContent({ store, products, user, onRefresh }) {
 }
 
 import RazorpaySubscription from "./RazorpaySubscription";
-import { getShoppingMode, getDiscountInfo } from "../lib/theme";
+import { getShoppingMode, getDiscountInfo, getUnitPresets } from "../lib/theme";
 
 // ============================================================
 // SUBSCRIPTION PANEL — Razorpay se real payment
@@ -730,10 +730,11 @@ function ProductRow({ product, storeId, businessType, expanded, onToggle, onRefr
       {expanded && (
         <div style={{ borderTop: "1px solid #E3DECF", padding: "12px 13px", background: "#FBFAF6" }}>
           {product.variants.map((v) => (
-            <VariantRow key={v.id} variant={v} onRefresh={onRefresh} />
+            <VariantRow key={v.id} variant={v} businessType={businessType} onRefresh={onRefresh} />
           ))}
           {addingVariant ? (
             <NewVariantForm
+              businessType={businessType}
               onCancel={() => setAddingVariant(false)}
               onSave={async (form) => { await createVariant(product.id, form); setAddingVariant(false); onRefresh(); }}
             />
@@ -788,7 +789,7 @@ function EditProductForm({ product, storeId, businessType, onCancel, onSave }) {
 // ============================================================
 // VARIANT MANAGEMENT
 // ============================================================
-function VariantRow({ variant, onRefresh }) {
+function VariantRow({ variant, businessType, onRefresh }) {
   const [editing, setEditing] = useState(false);
 
   const handleDelete = async () => {
@@ -801,6 +802,7 @@ function VariantRow({ variant, onRefresh }) {
     return (
       <EditVariantForm
         variant={variant}
+        businessType={businessType}
         onCancel={() => setEditing(false)}
         onSave={async (form) => { await updateVariant(variant.id, form); setEditing(false); onRefresh(); }}
       />
@@ -836,7 +838,7 @@ function fromDatetimeLocal(localStr) {
   return localStr ? new Date(localStr).toISOString() : null;
 }
 
-function EditVariantForm({ variant, onCancel, onSave }) {
+function EditVariantForm({ variant, businessType, onCancel, onSave }) {
   const [label, setLabel] = useState(variant.label);
   const [unit, setUnit] = useState(variant.unit);
   const [price, setPrice] = useState(String(variant.price));
@@ -898,7 +900,7 @@ function EditVariantForm({ variant, onCancel, onSave }) {
       <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
         <Field label="Naam/Brand" value={label} onChange={setLabel} />
         <div style={{ display: "flex", gap: "6px" }}>
-          <div style={{ flex: 1 }}><Field label="Unit" value={unit} onChange={setUnit} placeholder="kg, litre, piece" /></div>
+          <div style={{ flex: 1 }}><UnitField businessType={businessType} value={unit} onChange={setUnit} /></div>
           <div style={{ flex: 1 }}><Field label="MRP (₹, optional)" value={mrp} onChange={(v) => setMrp(v.replace(/[^\d.]/g, ""))} placeholder="jaise 100" /></div>
           <div style={{ flex: 1 }}><Field label="Selling Price (₹)" value={price} onChange={(v) => setPrice(v.replace(/[^\d.]/g, ""))} /></div>
           <div style={{ flex: 1 }}><Field label="Stock" value={stock} onChange={(v) => setStock(v.replace(/\D/g, ""))} /></div>
@@ -1018,9 +1020,9 @@ function QuantityDealFields({ tiers, onChange, basePrice }) {
   );
 }
 
-function NewVariantForm({ onCancel, onSave, prefillBarcode }) {
+function NewVariantForm({ businessType, onCancel, onSave, prefillBarcode }) {
   const [label, setLabel] = useState("");
-  const [unit, setUnit] = useState("kg");
+  const [unit, setUnit] = useState(getUnitPresets(businessType)[0]);
   const [price, setPrice] = useState("");
   const [mrp, setMrp] = useState("");
   const [stock, setStock] = useState("0");
@@ -1083,7 +1085,7 @@ function NewVariantForm({ onCancel, onSave, prefillBarcode }) {
       <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
         <Field label="Naam/Brand" value={label} onChange={setLabel} placeholder="jaise Normal, Premium, 1kg" />
         <div style={{ display: "flex", gap: "6px" }}>
-          <div style={{ flex: 1 }}><Field label="Unit" value={unit} onChange={setUnit} placeholder="kg, litre, piece" /></div>
+          <div style={{ flex: 1 }}><UnitField businessType={businessType} value={unit} onChange={setUnit} /></div>
           <div style={{ flex: 1 }}><Field label="MRP (₹, optional)" value={mrp} onChange={(v) => setMrp(v.replace(/[^\d.]/g, ""))} placeholder="jaise 100" /></div>
           <div style={{ flex: 1 }}><Field label="Selling Price (₹)" value={price} onChange={(v) => setPrice(v.replace(/[^\d.]/g, ""))} /></div>
           <div style={{ flex: 1 }}><Field label="Stock" value={stock} onChange={(v) => setStock(v.replace(/\D/g, ""))} /></div>
@@ -1125,6 +1127,42 @@ function Field({ label, value, onChange, placeholder, textarea }) {
         <textarea value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} rows={2} style={inputStyle} />
       ) : (
         <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} style={inputStyle} />
+      )}
+    </div>
+  );
+}
+
+// Pehle Unit sirf free-text tha ("kg, litre, piece" placeholder) — ab
+// business type ke hisaab se ek dropdown milta hai, taaki charge-basis
+// (kg/litre/piece/pair/service/etc) hamesha consistent likha jaaye.
+// "Custom" abhi bhi hai un cheezon ke liye jo list mein nahi hain.
+function UnitField({ businessType, value, onChange }) {
+  const presets = getUnitPresets(businessType);
+  const [customMode, setCustomMode] = useState(value ? !presets.includes(value) : false);
+
+  return (
+    <div>
+      <div style={{ fontSize: "11px", fontWeight: 600, color: "#5C5747", marginBottom: "4px" }}>Unit</div>
+      {customMode ? (
+        <div style={{ display: "flex", gap: "4px" }}>
+          <input value={value} onChange={(e) => onChange(e.target.value)} placeholder="jaise quintal, meter" style={inputStyle} />
+          <button type="button" onClick={() => { setCustomMode(false); onChange(presets[0]); }} title="List se chunein" style={{ ...iconBtnStyle, flexShrink: 0 }}>
+            <ChevronDown size={14} />
+          </button>
+        </div>
+      ) : (
+        <select
+          value={presets.includes(value) ? value : ""}
+          onChange={(e) => {
+            if (e.target.value === "__custom__") { setCustomMode(true); onChange(""); }
+            else onChange(e.target.value);
+          }}
+          style={inputStyle}
+        >
+          <option value="" disabled>Chunein</option>
+          {presets.map((u) => <option key={u} value={u}>{u}</option>)}
+          <option value="__custom__">Other (khud likhein)</option>
+        </select>
       )}
     </div>
   );
