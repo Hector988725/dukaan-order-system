@@ -160,6 +160,7 @@ export async function createStore(userId, { slug, name, business_type, whatsapp_
     .insert({
       user_id: userId, slug, name, business_type, whatsapp_number, upi_id, address,
       founding_member: isFoundingMember,
+      founding_number: isFoundingMember ? (count || 0) + 1 : null,
       subscription_base_price: isFoundingMember ? FOUNDING_BASIC_PRICE : REGULAR_BASIC_PRICE,
       plan_tier: "basic",
       // Koi free trial nahi — signup hote hi store inactive rehta hai,
@@ -812,6 +813,32 @@ export async function acceptFoundingTerms(storeId) {
     .update({ founding_terms_accepted_at: new Date().toISOString() })
     .eq("id", storeId);
   if (error) throw error;
+}
+
+// ============================================================
+// AUTOPAY (UPI e-mandate, recurring) — Razorpay Subscriptions API,
+// one-time-payment (Orders API) se bilkul alag flow. Dono Edge
+// Function calls "manage-razorpay-subscription" ko hit karte hain.
+// ============================================================
+async function callSubscriptionFunction(payload) {
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+  const res = await fetch(`${supabaseUrl}/functions/v1/manage-razorpay-subscription`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${supabaseKey}`, apikey: supabaseKey },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  if (!res.ok || data.error) throw new Error(data.error || "Request fail hui");
+  return data;
+}
+
+export async function createRazorpaySubscription(storeId, tier) {
+  return callSubscriptionFunction({ action: "create", store_id: storeId, tier });
+}
+
+export async function cancelRazorpaySubscription(storeId) {
+  return callSubscriptionFunction({ action: "cancel", store_id: storeId });
 }
 
 // Super admin ke liye - sab stores ki list

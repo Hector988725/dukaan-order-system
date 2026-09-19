@@ -164,6 +164,10 @@ function StoreSettingsForm({ store, onRefresh }) {
   const [deliveryFee, setDeliveryFee] = useState(String(store.delivery_fee || 0));
   const [freeDeliveryAbove, setFreeDeliveryAbove] = useState(store.free_delivery_above != null ? String(store.free_delivery_above) : "");
   const [bannerImages, setBannerImages] = useState(store.banner_images || []);
+  const [facebookUrl, setFacebookUrl] = useState(store.facebook_url || "");
+  const [instagramUrl, setInstagramUrl] = useState(store.instagram_url || "");
+  const [youtubeUrl, setYoutubeUrl] = useState(store.youtube_url || "");
+  const [gmbUrl, setGmbUrl] = useState(store.gmb_url || "");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -180,6 +184,10 @@ function StoreSettingsForm({ store, onRefresh }) {
         opens_at: autoHours ? opensAt : null,
         closes_at: autoHours ? closesAt : null,
         banner_images: bannerImages.length > 0 ? bannerImages : null,
+        facebook_url: facebookUrl.trim() || null,
+        instagram_url: instagramUrl.trim() || null,
+        youtube_url: youtubeUrl.trim() || null,
+        gmb_url: gmbUrl.trim() || null,
       });
       setSaved(true);
       onRefresh();
@@ -252,6 +260,18 @@ function StoreSettingsForm({ store, onRefresh }) {
         </div>
         <div style={{ fontSize: "10.5px", color: "#8B8576", marginTop: "4px" }}>
           Yeh sirf Home Delivery orders par lagta hai — Pickup (dukaan se khud lena) orders par kabhi nahi.
+        </div>
+      </div>
+      <div style={{ borderTop: "1px solid #E3DECF", paddingTop: "12px", marginTop: "2px" }}>
+        <div style={{ fontSize: "12px", fontWeight: 700, color: "#1A1A1A", marginBottom: "4px" }}>📱 Social Media Links (agar ho to, sab optional)</div>
+        <div style={{ fontSize: "10.5px", color: "#8B8576", marginBottom: "10px" }}>
+          Jo bhi bhar dein, uska icon customer storefront ke neeche (footer mein) dikhega. Khaali chhoda hua icon nahi dikhega.
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+          <Field label="Facebook Page Link" value={facebookUrl} onChange={setFacebookUrl} placeholder="https://facebook.com/aapki-dukaan" />
+          <Field label="Instagram Link" value={instagramUrl} onChange={setInstagramUrl} placeholder="https://instagram.com/aapki-dukaan" />
+          <Field label="YouTube Channel Link" value={youtubeUrl} onChange={setYoutubeUrl} placeholder="https://youtube.com/@aapki-dukaan" />
+          <Field label="Google Business Profile Link" value={gmbUrl} onChange={setGmbUrl} placeholder="Google Maps par dukaan ki listing ka link" />
         </div>
       </div>
       <button onClick={handleSave} disabled={saving} className="ddemo-btn" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", background: saved ? "#1B4332" : "#D4A24C", color: saved ? "white" : "#123026", fontWeight: 800, fontSize: "13.5px", border: "none", borderRadius: "10px", padding: "12px 0", cursor: "pointer", marginTop: "6px" }}>

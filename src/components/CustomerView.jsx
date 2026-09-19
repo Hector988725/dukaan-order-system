@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, forwardRef, useImperativeHandle } from "react";
-import { Search, ChevronRight, X, Check, MessageCircle, Plus, Minus, Trash2, Loader2, Star, LayoutGrid } from "lucide-react";
+import { Search, ChevronRight, X, Check, MessageCircle, Plus, Minus, Trash2, Loader2, Star, LayoutGrid, Facebook, Instagram, Youtube, MapPin } from "lucide-react";
 import { createOrder, fetchCustomerByPhone, upsertCustomerDetails, fetchServerTime, fetchCombos } from "../lib/api";
 import { getTheme, getShoppingMode, getDiscountInfo, getVariantPricing, getQuantityDealPrice, getBestQuantityDealBadge, formatOfferExpiry, getCountdownParts } from "../lib/theme";
 import { OrderTrackingModal } from "./OrderTracking";
@@ -500,6 +500,37 @@ const CustomerView = forwardRef(function CustomerView({ store, products, onOrder
           />
         ))}
       </div>
+
+      {/* Social links footer — sirf woh icon dikhta hai jiski link
+          dukaandar ne Store Settings mein bhari hai. Koi bhi link na ho
+          to yeh poora block hi nahi dikhta. */}
+      {(store.facebook_url || store.instagram_url || store.youtube_url || store.gmb_url) && (
+        <div style={{ padding: "6px 18px 24px", textAlign: "center", borderTop: "1px solid #E3DECF", marginTop: "-4px" }}>
+          <div style={{ fontSize: "10.5px", fontWeight: 700, color: "#8B8576", letterSpacing: "0.5px", margin: "14px 0 10px" }}>FOLLOW US</div>
+          <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
+            {store.facebook_url && (
+              <a href={store.facebook_url} target="_blank" rel="noreferrer" style={{ width: 36, height: 36, borderRadius: "50%", background: "#1877F2", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Facebook size={16} color="white" fill="white" />
+              </a>
+            )}
+            {store.instagram_url && (
+              <a href={store.instagram_url} target="_blank" rel="noreferrer" style={{ width: 36, height: 36, borderRadius: "50%", background: "linear-gradient(45deg, #F58529, #DD2A7B, #8134AF, #515BD4)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Instagram size={16} color="white" />
+              </a>
+            )}
+            {store.youtube_url && (
+              <a href={store.youtube_url} target="_blank" rel="noreferrer" style={{ width: 36, height: 36, borderRadius: "50%", background: "#FF0000", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Youtube size={16} color="white" fill="white" />
+              </a>
+            )}
+            {store.gmb_url && (
+              <a href={store.gmb_url} target="_blank" rel="noreferrer" title="Find us on Google" style={{ width: 36, height: 36, borderRadius: "50%", background: "#4285F4", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <MapPin size={16} color="white" />
+              </a>
+            )}
+          </div>
+        </div>
+      )}
 
       {variantPicker && (
         <VariantPickerModal product={variantPicker} cart={cart} addToCart={addToCart} decFromCart={decFromCart} theme={theme} onClose={() => setVariantPicker(null)} triggerFlyToCart={triggerFlyToCart} cartCount={cartCount} cartTotal={cartTotal} onGoToCart={() => { setVariantPicker(null); setDetailProduct(null); setCartOpen(true); }} />
