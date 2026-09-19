@@ -168,6 +168,7 @@ function StoreSettingsForm({ store, onRefresh }) {
   const [instagramUrl, setInstagramUrl] = useState(store.instagram_url || "");
   const [youtubeUrl, setYoutubeUrl] = useState(store.youtube_url || "");
   const [gmbUrl, setGmbUrl] = useState(store.gmb_url || "");
+  const [mapsLink, setMapsLink] = useState(store.maps_link || "");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -188,6 +189,7 @@ function StoreSettingsForm({ store, onRefresh }) {
         instagram_url: instagramUrl.trim() || null,
         youtube_url: youtubeUrl.trim() || null,
         gmb_url: gmbUrl.trim() || null,
+        maps_link: mapsLink.trim() || null,
       });
       setSaved(true);
       onRefresh();
@@ -210,6 +212,12 @@ function StoreSettingsForm({ store, onRefresh }) {
       <Field label="WhatsApp Number (91 ke saath, jaise 919876543210)" value={whatsapp} onChange={setWhatsapp} />
       <Field label="UPI ID (jaise dukaan@upi)" value={upi} onChange={setUpi} placeholder="abhi optional hai" />
       <Field label="Address" value={address} onChange={setAddress} textarea />
+      <div>
+        <Field label="Google Maps Link (customer ko 'Get Directions' button dikhega, optional)" value={mapsLink} onChange={setMapsLink} placeholder="Google Maps app kholein → apni dukaan ki location par jaayein → Share karein → yahan paste karein" />
+        <div style={{ fontSize: "10px", color: "#8B8576", marginTop: "3px" }}>
+          Agar yeh khaali chhoda to Address se hi ek approximate map-link ban jaayega — exact pin ke liye yeh bharna behtar hai.
+        </div>
+      </div>
       {autoHours ? (
         <div>
           <div style={{ fontSize: "12px", fontWeight: 600, color: "#5C5747", marginBottom: "4px" }}>Khulne-Band hone ka Time (customer ko dikhega)</div>
