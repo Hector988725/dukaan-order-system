@@ -506,7 +506,7 @@ const CustomerView = forwardRef(function CustomerView({ store, products, onOrder
       )}
 
       {detailProduct && (
-        <ProductDetailModal product={detailProduct} cart={cart} addToCart={addToCart} decFromCart={decFromCart} theme={theme} onClose={() => setDetailProduct(null)} triggerFlyToCart={triggerFlyToCart} cartCount={cartCount} cartTotal={cartTotal} onGoToCart={() => { setDetailProduct(null); setVariantPicker(null); setCartOpen(true); }} />
+        <ProductDetailModal product={detailProduct} cart={cart} addToCart={addToCart} decFromCart={decFromCart} onBuyNow={(vid) => { setDetailProduct(null); buyNow(vid); }} theme={theme} onClose={() => setDetailProduct(null)} triggerFlyToCart={triggerFlyToCart} cartCount={cartCount} cartTotal={cartTotal} onGoToCart={() => { setDetailProduct(null); setVariantPicker(null); setCartOpen(true); }} />
       )}
 
       {cartCount > 0 && !cartOpen && (
@@ -785,7 +785,7 @@ function QtyStepper({ qty, onInc, onDec }) {
 // Gallery-mode products (Kapde/Footwear/Mobile) mein poora card isse
 // kholta hai. Quick-mode products (Kirana/Medical/etc) mein sirf photo
 // par tap karne se yeh khulta hai — Add/Buy buttons alag hi rehte hain.
-function ProductDetailModal({ product, cart, addToCart, decFromCart, theme, onClose, triggerFlyToCart, cartCount, cartTotal, onGoToCart }) {
+function ProductDetailModal({ product, cart, addToCart, decFromCart, onBuyNow, theme, onClose, triggerFlyToCart, cartCount, cartTotal, onGoToCart }) {
   const [activePhoto, setActivePhoto] = useState(0);
   const photos = product.image_urls && product.image_urls.length > 0
     ? product.image_urls
@@ -851,34 +851,61 @@ function ProductDetailModal({ product, cart, addToCart, decFromCart, theme, onCl
               // product ka naam upar already dikh raha hai. Do ya zyada
               // variants (jaise "Small"/"Large") ho tabhi label dikhta hai.
               const showLabel = product.variants.length > 1;
+              // Single-variant product mein pehle price left, ek chhota
+              // "+Add" right — beech mein bahut khaali jagah bachti thi
+              // jo "adhoora/cut hua" lagta tha. Ab single-variant ke liye
+              // price upar poori width leta hai, Add+Buy dono buttons
+              // neeche ek poori-width row mein — box hamesha bhara-bhara
+              // dikhta hai, chahe kitna bhi khaali space ho.
+              const isSingleVariant = product.variants.length === 1;
               return (
-                <div key={v.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", padding: "11px 13px", border: "1px solid #E3DECF", borderRadius: "10px" }}>
-                  <div>
-                    {showLabel && <div style={{ fontWeight: 600, fontSize: "13.5px", color: "#1A1A1A" }}>{v.label}</div>}
-                    {vPricing.strikePrice ? (
-                      <div>
-                        {vPricing.isLimitedTimeOffer && <div style={{ fontSize: "9px", fontWeight: 800, color: "#B3261E" }}>🔥 Limited Time Deal</div>}
-                        <div style={{ display: "flex", alignItems: "center", gap: "5px", marginTop: "1px" }}>
-                          <span style={{ fontSize: "10.5px", color: "#8B8576", textDecoration: "line-through" }}>₹{vPricing.strikePrice}</span>
-                          <span style={{ fontSize: "13px", fontWeight: 800, color: "#1565C0" }}>₹{vPricing.effectivePrice}</span>
-                          <span style={{ fontSize: "9.5px", fontWeight: 800, color: "#178C42", background: "#E7F5EA", padding: "1px 5px", borderRadius: "5px" }}>{vPricing.pct}% OFF</span>
+                <div key={v.id} style={{ padding: "12px 13px", border: "1px solid #E3DECF", borderRadius: "10px" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px" }}>
+                    <div>
+                      {showLabel && <div style={{ fontWeight: 600, fontSize: "13.5px", color: "#1A1A1A" }}>{v.label}</div>}
+                      {vPricing.strikePrice ? (
+                        <div>
+                          {vPricing.isLimitedTimeOffer && <div style={{ fontSize: "9px", fontWeight: 800, color: "#B3261E" }}>🔥 Limited Time Deal</div>}
+                          <div style={{ display: "flex", alignItems: "center", gap: "5px", marginTop: "1px" }}>
+                            <span style={{ fontSize: "10.5px", color: "#8B8576", textDecoration: "line-through" }}>₹{vPricing.strikePrice}</span>
+                            <span style={{ fontSize: "13px", fontWeight: 800, color: "#1565C0" }}>₹{vPricing.effectivePrice}</span>
+                            <span style={{ fontSize: "9.5px", fontWeight: 800, color: "#178C42", background: "#E7F5EA", padding: "1px 5px", borderRadius: "5px" }}>{vPricing.pct}% OFF</span>
+                          </div>
                         </div>
-                      </div>
-                    ) : (
-                      <div style={{ fontSize: "13px", fontWeight: 700, color: "#1565C0" }}>₹{v.price} <span style={{ fontSize: "11px", fontWeight: 500, color: "#1A1A1A" }}>/ {v.unit}</span></div>
-                    )}
-                    {vQtyBadge && (
-                      <div style={{ marginTop: "3px", fontSize: "9.5px", fontWeight: 800, color: "#1B4332", background: "#E7F0EA", display: "inline-block", padding: "2px 6px", borderRadius: "5px" }}>
-                        📦 Buy {vQtyBadge.qty} & Save ₹{vQtyBadge.savings}
-                      </div>
+                      ) : (
+                        <div style={{ fontSize: "13px", fontWeight: 700, color: "#1565C0" }}>₹{v.price} <span style={{ fontSize: "11px", fontWeight: 500, color: "#1A1A1A" }}>/ {v.unit}</span></div>
+                      )}
+                      {vQtyBadge && (
+                        <div style={{ marginTop: "3px", fontSize: "9.5px", fontWeight: 800, color: "#1B4332", background: "#E7F0EA", display: "inline-block", padding: "2px 6px", borderRadius: "5px" }}>
+                          📦 Buy {vQtyBadge.qty} & Save ₹{vQtyBadge.savings}
+                        </div>
+                      )}
+                    </div>
+                    {!isSingleVariant && (
+                      out ? (
+                        <span style={{ fontSize: "11px", fontWeight: 700, color: "#B3261E" }}>Out of Stock</span>
+                      ) : qty === 0 ? (
+                        <button onClick={(e) => { addToCart(v.id); triggerFlyToCart(e.currentTarget, product.image_urls?.[0] || product.image_url, product.emoji); }} className="ddemo-btn ddemo-add-btn" style={{ ...btnOutline(theme), width: "auto", padding: "7px 18px" }}>+ Add</button>
+                      ) : (
+                        <QtyStepper qty={qty} onInc={() => addToCart(v.id)} onDec={() => decFromCart(v.id)} />
+                      )
                     )}
                   </div>
-                  {out ? (
-                    <span style={{ fontSize: "11px", fontWeight: 700, color: "#B3261E" }}>Out of Stock</span>
-                  ) : qty === 0 ? (
-                    <button onClick={(e) => { addToCart(v.id); triggerFlyToCart(e.currentTarget, product.image_urls?.[0] || product.image_url, product.emoji); }} className="ddemo-btn ddemo-add-btn" style={{ ...btnOutline(theme), width: "auto", padding: "7px 18px" }}>+ Add</button>
-                  ) : (
-                    <QtyStepper qty={qty} onInc={() => addToCart(v.id)} onDec={() => decFromCart(v.id)} />
+                  {isSingleVariant && (
+                    out ? (
+                      <div style={{ marginTop: "10px", fontSize: "11px", fontWeight: 700, color: "#B3261E", background: "#FDECEA", borderRadius: "7px", padding: "8px 0", textAlign: "center" }}>
+                        Out of Stock
+                      </div>
+                    ) : qty === 0 ? (
+                      <div style={{ display: "flex", gap: "8px", marginTop: "10px" }}>
+                        <button onClick={(e) => { addToCart(v.id); triggerFlyToCart(e.currentTarget, product.image_urls?.[0] || product.image_url, product.emoji); }} className="ddemo-btn ddemo-add-btn" style={{ ...btnOutline(theme), flex: 1 }}>+ Add</button>
+                        <button onClick={() => onBuyNow(v.id)} className="ddemo-btn" style={{ flex: 1, background: theme.primary, color: "white", border: "none", borderRadius: "8px", fontSize: "12.5px", fontWeight: 700, padding: "7px 0", cursor: "pointer" }}>Buy</button>
+                      </div>
+                    ) : (
+                      <div style={{ marginTop: "10px" }}>
+                        <QtyStepper qty={qty} onInc={() => addToCart(v.id)} onDec={() => decFromCart(v.id)} />
+                      </div>
+                    )
                   )}
                 </div>
               );
