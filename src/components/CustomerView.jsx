@@ -797,11 +797,14 @@ function ProductDetailModal({ product, cart, addToCart, decFromCart, onBuyNow, t
         <div style={{ overflowY: "auto", flex: 1 }}>
         <div style={{ position: "relative", background: "#F3ECDC" }}>
           {photos.length > 0 ? (
-            // objectFit "contain" — poori photo dikhti hai (letterbox ho
-            // sakta hai upar-neeche khaali jagah), "cover" ki tarah katti
-            // nahi. Product-detail view mein customer ko poora product
-            // dekhna chahiye, jaisa Amazon/Flipkart product pages karte hain.
-            <img src={photos[activePhoto]} alt={product.name} style={{ width: "100%", height: "280px", objectFit: "contain", display: "block" }} />
+            // Pehle fixed height (280px) + "contain" tha — agar photo ka
+            // apna aspect-ratio alag hota, upar-neeche cream letterbox
+            // dikhta tha jo background jaisa hi color hone ki wajah se
+            // "photo upar se kati hui hai" jaisa lagta tha. Ab photo apni
+            // natural height leti hai (poori width, koi crop nahi, koi
+            // letterbox-confusion nahi) — bas bahut lambi photo ho to
+            // maxHeight cap lag jaata hai.
+            <img src={photos[activePhoto]} alt={product.name} style={{ width: "100%", maxHeight: "360px", height: "auto", objectFit: "contain", display: "block", margin: "0 auto" }} />
           ) : (
             <div style={{ width: "100%", height: "220px", display: "flex", alignItems: "center", justifyContent: "center" }}>
               <span style={{ fontSize: "64px" }}>{product.emoji || "📦"}</span>
