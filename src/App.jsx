@@ -267,8 +267,8 @@ function CustomerStorefrontPage({ slug }) {
     themeMeta.content = theme.primary;
   }, [store]);
 
-  if (loading) return <LoadingScreen text="Dukaan load ho rahi hai..." />;
-  if (error || !store) return <ErrorScreen message={error || "Dukaan nahi mili."} />;
+  if (loading) return <LoadingScreen text="Loading store..." />;
+  if (error || !store) return <ErrorScreen message={error || "Store not found."} />;
 
   // Subscription check - inactive store
   if (store.is_active === false) {
@@ -283,8 +283,8 @@ function CustomerStorefrontPage({ slug }) {
         </div>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "12px", padding: "60px 24px", textAlign: "center" }}>
           <div style={{ fontSize: "40px" }}>🔒</div>
-          <div style={{ fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: "18px", color: "#1A1A1A" }}>Yeh dukaan abhi available nahi hai</div>
-          <div style={{ fontSize: "13px", color: "#8B8576", maxWidth: "300px" }}>Is dukaan ka subscription khatam ho gaya hai. Dukaandar se sampark karein.</div>
+          <div style={{ fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: "18px", color: "#1A1A1A" }}>This store isn't available right now</div>
+          <div style={{ fontSize: "13px", color: "#8B8576", maxWidth: "300px" }}>This store's subscription has expired. Please contact the shop owner.</div>
         </div>
       </div>
     );

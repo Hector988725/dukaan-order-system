@@ -363,7 +363,7 @@ const CustomerView = forwardRef(function CustomerView({ store, products, onOrder
       setCartOpen(false);
       onOrderPlaced?.();
     } catch (e) {
-      alert("Order save nahi ho paaya: " + e.message);
+      alert("Order could not be saved: " + e.message);
     } finally {
       setSubmitting(false);
     }
@@ -405,7 +405,7 @@ const CustomerView = forwardRef(function CustomerView({ store, products, onOrder
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Saaman khojein..."
+            placeholder="Search products..."
             style={{ border: "none", outline: "none", fontSize: "13.5px", width: "100%", background: "transparent", fontFamily: "inherit" }}
           />
         </div>
@@ -479,7 +479,7 @@ const CustomerView = forwardRef(function CustomerView({ store, products, onOrder
       <div className="ddemo-masonry" style={{ padding: "8px 18px 90px" }}>
         {filtered.length === 0 && (
           <div style={{ textAlign: "center", padding: "40px 0", color: "#8B8576", fontSize: "13px" }}>
-            Koi product nahi mila.
+            No products found.
           </div>
         )}
         {filtered.map((p, idx) => (
@@ -742,16 +742,16 @@ function ProductCard({ product: p, idx, theme, isGalleryMode, cart, addToCart, d
         // ka kaam karta hai (onClick upar poore card pe hai).
         outOfStock ? (
           <div style={{ fontSize: "11px", fontWeight: 700, color: "#B3261E", background: "#FDECEA", borderRadius: "7px", padding: "6px 0", textAlign: "center" }}>
-            Stock Khatam
+            Out of Stock
           </div>
         ) : (
           <div style={{ fontSize: "11.5px", fontWeight: 700, color: theme.primary, display: "flex", alignItems: "center", gap: "4px" }}>
-            Dekhein <ChevronRight size={13} />
+            View <ChevronRight size={13} />
           </div>
         )
       ) : outOfStock ? (
         <div style={{ fontSize: "11px", fontWeight: 700, color: "#B3261E", background: "#FDECEA", borderRadius: "7px", padding: "6px 0", textAlign: "center" }}>
-          Stock Khatam
+          Out of Stock
         </div>
       ) : singleVariant ? (
         qtyInCart === 0 ? (
@@ -764,7 +764,7 @@ function ProductCard({ product: p, idx, theme, isGalleryMode, cart, addToCart, d
         )
       ) : (
         <button onClick={() => setVariantPicker(p)} className="ddemo-btn" style={{ ...btnOutline(theme), display: "flex", alignItems: "center", justifyContent: "center", gap: "5px" }}>
-          Option Chunein <ChevronRight size={13} />
+          Choose Option <ChevronRight size={13} />
         </button>
       )}
       </div>
@@ -874,7 +874,7 @@ function ProductDetailModal({ product, cart, addToCart, decFromCart, theme, onCl
                     )}
                   </div>
                   {out ? (
-                    <span style={{ fontSize: "11px", fontWeight: 700, color: "#B3261E" }}>Stock Khatam</span>
+                    <span style={{ fontSize: "11px", fontWeight: 700, color: "#B3261E" }}>Out of Stock</span>
                   ) : qty === 0 ? (
                     <button onClick={(e) => { addToCart(v.id); triggerFlyToCart(e.currentTarget, product.image_urls?.[0] || product.image_url, product.emoji); }} className="ddemo-btn ddemo-add-btn" style={{ ...btnOutline(theme), width: "auto", padding: "7px 18px" }}>+ Add</button>
                   ) : (
@@ -893,8 +893,8 @@ function ProductDetailModal({ product, cart, addToCart, decFromCart, theme, onCl
             hai — ek hi tap mein checkout ki taraf aage badh jaate hain. */}
         {cartCount > 0 && (
           <button onClick={onGoToCart} className="ddemo-btn" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", background: theme.primary, color: "white", border: "none", padding: "14px 18px", fontSize: "13.5px", fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>
-            <span>🛒 Cart mein {cartCount} item{cartCount > 1 ? "s" : ""}</span>
-            <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>₹{cartTotal} — Aage Badhein <ChevronRight size={15} /></span>
+            <span>🛒 {cartCount} item{cartCount > 1 ? "s" : ""} in Cart</span>
+            <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>₹{cartTotal} — Proceed <ChevronRight size={15} /></span>
           </button>
         )}
       </div>
@@ -929,11 +929,11 @@ function VariantPickerModal({ product, cart, addToCart, decFromCart, theme, onCl
                         <span style={{ fontSize: "10.5px", color: "#A89F87", textDecoration: "line-through" }}>₹{vPricing.strikePrice}</span>
                         <span style={{ fontSize: "11.5px", fontWeight: 700 }}>₹{vPricing.effectivePrice}</span>
                         <span style={{ fontSize: "9.5px", fontWeight: 800, color: "#178C42", background: "#E7F5EA", padding: "1px 5px", borderRadius: "5px" }}>{vPricing.pct}% OFF</span>
-                        {out && <span style={{ fontSize: "10.5px", color: "#B3261E" }}>· Stock Khatam</span>}
+                        {out && <span style={{ fontSize: "10.5px", color: "#B3261E" }}>· Out of Stock</span>}
                       </div>
                     </div>
                   ) : (
-                    <div style={{ fontSize: "11.5px", color: "#8B8576", marginTop: "2px" }}>₹{v.price} / {v.unit}{out && " · Stock Khatam"}</div>
+                    <div style={{ fontSize: "11.5px", color: "#8B8576", marginTop: "2px" }}>₹{v.price} / {v.unit}{out && " · Out of Stock"}</div>
                   )}
                 </div>
                 {out ? (
@@ -949,8 +949,8 @@ function VariantPickerModal({ product, cart, addToCart, decFromCart, theme, onCl
         </div>
         {cartCount > 0 && (
           <button onClick={onGoToCart} className="ddemo-btn" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", background: theme.primary, color: "white", border: "none", padding: "14px 18px", fontSize: "13.5px", fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>
-            <span>🛒 Cart mein {cartCount} item{cartCount > 1 ? "s" : ""}</span>
-            <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>₹{cartTotal} — Aage Badhein <ChevronRight size={15} /></span>
+            <span>🛒 {cartCount} item{cartCount > 1 ? "s" : ""} in Cart</span>
+            <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>₹{cartTotal} — Proceed <ChevronRight size={15} /></span>
           </button>
         )}
       </div>
@@ -963,7 +963,7 @@ function CartDrawer({ cartItems, comboCartItems = [], cartTotal, onClose, onRemo
     <div style={overlayBottomStyle}>
       <div style={{ background: "#F7F5F0", width: "100%", maxWidth: "480px", borderRadius: "16px 16px 0 0", maxHeight: "85%", display: "flex", flexDirection: "column", animation: "ddemoSlideUp 0.25s ease" }}>
         <div style={{ ...drawerHeaderStyle, borderBottom: "1px solid #E3DECF" }}>
-          <div style={{ fontWeight: 700, fontSize: "15px", fontFamily: "'Fraunces', serif" }}>Aapka Cart</div>
+          <div style={{ fontWeight: 700, fontSize: "15px", fontFamily: "'Fraunces', serif" }}>Your Cart</div>
           <button onClick={onClose} style={closeBtnStyle}><X size={20} /></button>
         </div>
         <div style={{ overflowY: "auto", padding: "10px 18px", flex: 1 }}>
@@ -999,7 +999,7 @@ function CartDrawer({ cartItems, comboCartItems = [], cartTotal, onClose, onRemo
                     <div style={{ fontWeight: 600, fontSize: "13px" }}>{it.productName}</div>
                     <div style={{ fontSize: "11.5px", color: "#8B8576" }}>{it.label} · {it.qty} {it.unit} × ₹{it.price}</div>
                     {deal && deal.savings > 0 && (
-                      <div style={{ fontSize: "10.5px", color: "#178C42", fontWeight: 700 }}>📦 Deal laga: ₹{deal.savings} bacha</div>
+                      <div style={{ fontSize: "10.5px", color: "#178C42", fontWeight: 700 }}>📦 Deal applied: saved ₹{deal.savings}</div>
                     )}
                   </div>
                 </div>
@@ -1016,7 +1016,7 @@ function CartDrawer({ cartItems, comboCartItems = [], cartTotal, onClose, onRemo
             <span>Total</span><span>₹{cartTotal}</span>
           </div>
           <button onClick={onCheckout} className="ddemo-btn" style={{ width: "100%", background: "#D4A24C", color: "#123026", fontWeight: 800, fontSize: "14px", border: "none", borderRadius: "10px", padding: "13px 0", cursor: "pointer" }}>
-            Order Place Karein
+            Place Order
           </button>
         </div>
       </div>
@@ -1145,13 +1145,13 @@ function CheckoutModal({ store, cartTotal, submitting, resumeData, cart, comboCa
           {/* Order Type — Pickup ya Delivery. Yeh sabse pehle poochte hain
               kyunki isी se decide hota hai neeche address zaroori hai ya nahi. */}
           <div>
-            <div style={{ fontSize: "11.5px", fontWeight: 600, color: "#5C5747", marginBottom: "6px" }}>Order Kaise Chahiye?</div>
+            <div style={{ fontSize: "11.5px", fontWeight: 600, color: "#5C5747", marginBottom: "6px" }}>How would you like your order?</div>
             <div style={{ display: "flex", gap: "8px" }}>
               <button onClick={() => setOrderType("Delivery")} style={{ flex: 1, padding: "10px 0", borderRadius: "9px", border: orderType === "Delivery" ? `1.5px solid ${theme.primary}` : "1px solid #E3DECF", background: orderType === "Delivery" ? "#E7F0EA" : "white", color: orderType === "Delivery" ? theme.primary : "#5C5747", fontWeight: 700, fontSize: "12.5px", cursor: "pointer" }}>
                 🛵 Home Delivery
               </button>
               <button onClick={() => setOrderType("Pickup")} style={{ flex: 1, padding: "10px 0", borderRadius: "9px", border: orderType === "Pickup" ? `1.5px solid ${theme.primary}` : "1px solid #E3DECF", background: orderType === "Pickup" ? "#E7F0EA" : "white", color: orderType === "Pickup" ? theme.primary : "#5C5747", fontWeight: 700, fontSize: "12.5px", cursor: "pointer" }}>
-                🏪 Dukaan se Khud Lena Hai
+                🏪 Store Pickup
               </button>
             </div>
           </div>
@@ -1159,27 +1159,27 @@ function CheckoutModal({ store, cartTotal, submitting, resumeData, cart, comboCa
           <Field label="Mobile Number" value={phone} onChange={(v) => setPhone(v.replace(/\D/g, "").slice(0, 10))} placeholder="10 digit number" type="tel" />
           {lookupStatus === "checking" && (
             <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "11.5px", color: "#8B8576", marginTop: "-4px" }}>
-              <Loader2 size={12} className="ddemo-spin" /> Details check ho rahi hain...
+              <Loader2 size={12} className="ddemo-spin" /> Checking details...
             </div>
           )}
           {lookupStatus === "found" && (
             <div style={{ fontSize: "11.5px", color: "#1B4332", fontWeight: 600, marginTop: "-4px" }}>
-              ✓ Aapki pichli details mil gayi — zaroorat ho to edit kar lein
+              ✓ Found your previous details — edit if needed
             </div>
           )}
-          <Field label="Aapka Naam" value={name} onChange={setName} placeholder="jaise Ramesh Yadav" />
+          <Field label="Your Name" value={name} onChange={setName} placeholder="e.g. Ramesh Yadav" />
           {isDeliveryType && (
             <>
-              <Field label="Ghar/Gali ka Pata" value={address} onChange={setAddress} placeholder="Makaan number, gali, mohalla" textarea />
+              <Field label="House/Street Address" value={address} onChange={setAddress} placeholder="House number, street, area" textarea />
               <div style={{ display: "flex", gap: "8px" }}>
-                <div style={{ flex: 1.4 }}><Field label="Landmark (optional)" value={landmark} onChange={setLandmark} placeholder="jaise Shiv Mandir ke paas" /></div>
+                <div style={{ flex: 1.4 }}><Field label="Landmark (optional)" value={landmark} onChange={setLandmark} placeholder="e.g. near Shiv Mandir" /></div>
                 <div style={{ flex: 1 }}><Field label="Pin Code" value={pincode} onChange={(v) => setPincode(v.replace(/\D/g, "").slice(0, 6))} placeholder="471606" type="tel" /></div>
               </div>
             </>
           )}
           {!isDeliveryType && (
             <div style={{ background: "#F7F5F0", borderRadius: "9px", padding: "10px 12px", fontSize: "11.5px", color: "#5C5747" }}>
-              🏪 Aap dukaan pe jaakar apna order khud le jaayenge — koi address ki zaroorat nahi.
+              🏪 You'll pick up your order from the store yourself — no address needed.
             </div>
           )}
 
@@ -1188,9 +1188,9 @@ function CheckoutModal({ store, cartTotal, submitting, resumeData, cart, comboCa
             // (ya UPI app se wapas resume hua hai) — ab QR/payment-selector dobara
             // nahi dikhate, sirf confirmation message aur enabled button.
             <div style={{ background: "#E7F0EA", borderRadius: "10px", padding: "16px", textAlign: "center" }}>
-              <div style={{ fontSize: "13px", fontWeight: 700, color: "#1B4332" }}>✓ UPI app khol diya gaya hai</div>
+              <div style={{ fontSize: "13px", fontWeight: 700, color: "#1B4332" }}>✓ UPI app opened</div>
               <div style={{ fontSize: "11.5px", color: "#5C5747", marginTop: "4px", lineHeight: 1.5 }}>
-                Payment complete karne ke baad neeche "Maine Payment Kar Diya" dabayein — dukaandar payment verify karke order confirm karega.
+                After completing the payment, tap "I've Paid" below — the shopkeeper will verify and confirm your order.
               </div>
             </div>
           ) : (
@@ -1199,7 +1199,7 @@ function CheckoutModal({ store, cartTotal, submitting, resumeData, cart, comboCa
               <div style={{ display: "flex", gap: "8px" }}>
                 {["COD", "UPI"].map((p) => (
                   <button key={p} onClick={() => { setPayment(p); setUpiOpened(false); }} style={{ flex: 1, padding: "9px 0", borderRadius: "8px", border: payment === p ? `1.5px solid ${theme.primary}` : "1px solid #E3DECF", background: payment === p ? "#E7F0EA" : "white", color: payment === p ? theme.primary : "#5C5747", fontWeight: 700, fontSize: "12.5px", cursor: "pointer" }}>
-                    {p === "COD" ? "Cash on Delivery" : "UPI se Pay"}
+                    {p === "COD" ? "Cash on Delivery" : "Pay via UPI"}
                   </button>
                 ))}
               </div>
@@ -1209,7 +1209,7 @@ function CheckoutModal({ store, cartTotal, submitting, resumeData, cart, comboCa
                   {qrImageUrl ? (
                     <>
                       <img src={qrImageUrl} alt="UPI QR Code" style={{ width: 140, height: 140, margin: "0 auto 8px", borderRadius: "8px" }} />
-                      <div style={{ fontSize: "12px", color: "#5C5747" }}>Scan karein ya UPI ID pe bhejein:</div>
+                      <div style={{ fontSize: "12px", color: "#5C5747" }}>Scan or send to this UPI ID:</div>
                       <div style={{ fontWeight: 700, fontSize: "13px", color: "#1B4332", marginTop: "2px" }}>{upiId}</div>
 
                       {/* Mobile par tap karne se seedha GPay/PhonePe/Paytm/BHIM khulega — payment seedha
@@ -1219,14 +1219,14 @@ function CheckoutModal({ store, cartTotal, submitting, resumeData, cart, comboCa
                         onClick={handleUpiAppOpen}
                         style={{ display: "block", marginTop: "10px", background: theme.primary, color: "white", fontWeight: 700, fontSize: "12.5px", borderRadius: "8px", padding: "10px 0", textDecoration: "none" }}
                       >
-                        UPI se Pay Karein
+                        Pay via UPI
                       </a>
                     </>
                   ) : (
-                    <div style={{ fontSize: "12px", color: "#B3261E" }}>Dukaan ne abhi UPI ID set nahi ki hai. Kripya COD chunein.</div>
+                    <div style={{ fontSize: "12px", color: "#B3261E" }}>Store hasn't set up a UPI ID yet. Please choose Cash on Delivery.</div>
                   )}
                   <div style={{ fontSize: "11px", color: "#8B8576", marginTop: "8px", lineHeight: 1.5 }}>
-                    Payment karne ke baad wapas is page par aakar "Maine Payment Kar Diya" dabayein — dukaandar payment verify karke order confirm karega.
+                    After paying, come back to this page and tap "I've Paid" — the shopkeeper will verify and confirm your order.
                   </div>
                 </div>
               )}
@@ -1245,7 +1245,7 @@ function CheckoutModal({ store, cartTotal, submitting, resumeData, cart, comboCa
             )}
             {orderType === "Delivery" && deliveryFee > 0 && store.free_delivery_above != null && (
               <div style={{ fontSize: "11px", color: "#9A6B00", fontWeight: 600 }}>
-                🎉 ₹{(Number(store.free_delivery_above) - cartTotal).toFixed(0)} aur order karein, delivery FREE ho jaayegi!
+                🎉 Order ₹{(Number(store.free_delivery_above) - cartTotal).toFixed(0)} more to get FREE delivery!
               </div>
             )}
             <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, fontSize: "14px", marginTop: "4px" }}>
@@ -1259,7 +1259,7 @@ function CheckoutModal({ store, cartTotal, submitting, resumeData, cart, comboCa
             className="ddemo-btn"
             style={{ width: "100%", background: valid && !submitting && (payment !== "UPI" || upiOpened) ? theme.primary : "#D8D2BF", color: "white", fontWeight: 800, fontSize: "14px", border: "none", borderRadius: "10px", padding: "13px 0", cursor: valid && !submitting && (payment !== "UPI" || upiOpened) ? "pointer" : "not-allowed" }}
           >
-            {submitting ? "Order ja raha hai..." : payment === "UPI" ? "Maine Payment Kar Diya" : "Order Place Karein"}
+            {submitting ? "Placing order..." : payment === "UPI" ? "I've Paid" : "Place Order"}
           </button>
         </div>
       </div>
@@ -1281,7 +1281,7 @@ function Field({ label, value, onChange, placeholder, type = "text", textarea })
 }
 
 function OrderConfirmedModal({ order, storeName, whatsapp, theme, onClose, store }) {
-  const waText = encodeURIComponent(`Namaste! Maine order ${order.order_number} place kiya hai (₹${order.total}). Kripya confirm karein.`);
+  const waText = encodeURIComponent(`Hi! I've placed order ${order.order_number} (₹${order.total}). Please confirm the order.`);
   const [showTracking, setShowTracking] = useState(false);
   // Confetti particles ka ek fixed set — random hone ki zaroorat nahi,
   // yeh sirf ek baar (order place hote hi) chalta hai, isliye deterministic
@@ -1316,7 +1316,7 @@ function OrderConfirmedModal({ order, storeName, whatsapp, theme, onClose, store
             </svg>
           </div>
         </div>
-        <div style={{ fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: "17px", marginBottom: "6px" }}>Order Place Ho Gaya!</div>
+        <div style={{ fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: "17px", marginBottom: "6px" }}>Order Placed!</div>
         <div style={{ fontSize: "12.5px", color: "#5C5747", marginBottom: "16px" }}>Order ID: <b>{order.order_number}</b></div>
 
         <a href={`https://wa.me/${whatsapp}?text=${waText}`} target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", gap: "10px", textAlign: "left", marginBottom: "10px", background: "#F7F5F0", borderRadius: "10px", padding: "12px", textDecoration: "none" }}>
@@ -1324,18 +1324,18 @@ function OrderConfirmedModal({ order, storeName, whatsapp, theme, onClose, store
             <MessageCircle size={16} color="white" />
           </div>
           <div style={{ fontSize: "11.5px", color: "#3A3729", lineHeight: 1.4 }}>
-            <b>{storeName}</b> ko WhatsApp pe order ki confirmation bhejein — tap karein.
+            Tap to send order confirmation to <b>{storeName}</b> on WhatsApp.
           </div>
         </a>
 
         {store && (
           <button onClick={() => setShowTracking(true)} className="ddemo-btn" style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", background: "white", border: `1.5px solid ${theme?.primary || "#1B4332"}`, color: theme?.primary || "#1B4332", fontWeight: 700, fontSize: "12.5px", borderRadius: "9px", padding: "10px 0", cursor: "pointer", marginBottom: "10px" }}>
-            📦 Apna Order Track Karein
+            📦 Track Your Order
           </button>
         )}
 
         <button onClick={onClose} className="ddemo-btn" style={{ width: "100%", background: theme?.primary || "#1B4332", color: "white", fontWeight: 700, fontSize: "13.5px", border: "none", borderRadius: "9px", padding: "11px 0", cursor: "pointer" }}>
-          Theek Hai
+          Done
         </button>
       </div>
 
