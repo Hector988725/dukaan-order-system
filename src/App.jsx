@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from "react";
-import { Store, ShoppingCart, LayoutGrid, Loader2, AlertTriangle, ShieldCheck, LogOut, Pill, Wrench, Smartphone, Shirt, BookOpen, Cake, Scissors, UtensilsCrossed, Footprints, Plus, BookText, Zap, Eye } from "lucide-react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import { Store, ShoppingCart, LayoutGrid, Loader2, AlertTriangle, ShieldCheck, LogOut, Pill, Wrench, Smartphone, Shirt, BookOpen, Cake, Scissors, UtensilsCrossed, Footprints, Plus, BookText, Zap, Eye, Menu } from "lucide-react";
 import { getTheme, getHeaderBackground } from "./lib/theme";
 
 // Business-type icon naam (theme.js mein string ke roop mein) ko
@@ -219,6 +219,7 @@ function CustomerStorefrontPage({ slug }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isOwnerPreview, setIsOwnerPreview] = useState(false);
+  const customerViewRef = useRef(null);
 
   const load = useCallback(async (silent = false) => {
     try {
@@ -301,12 +302,7 @@ function CustomerStorefrontPage({ slug }) {
           </a>
         </div>
       )}
-      <StoreHeader store={store} />
-      {store.timings && (
-        <div style={{ background: "#EFE9D8", padding: "6px 24px", textAlign: "center", fontSize: "11.5px", color: "#5C5747", fontWeight: 600 }}>
-          🕒 {store.timings}
-        </div>
-      )}
+      <StoreHeader store={store} onCartClick={() => customerViewRef.current?.openCart()} />
       {store.banner_images && store.banner_images.length > 0 ? (
         <PromoBannerCarousel images={store.banner_images} />
       ) : (
@@ -323,7 +319,7 @@ function CustomerStorefrontPage({ slug }) {
           <span style={{ fontSize: "11.5px", fontWeight: 600, color: theme.primaryDark }}>{theme.description}</span>
         </div>
       )}
-      <CustomerView store={store} products={products} onOrderPlaced={() => load(true)} />
+      <CustomerView ref={customerViewRef} store={store} products={products} onOrderPlaced={() => load(true)} />
     </div>
   );
 }
@@ -343,6 +339,7 @@ function OwnerArea() {
   const [view, setView] = useState("dashboard");
   const [loadingStore, setLoadingStore] = useState(false);
   const authSettledRef = React.useRef(false);
+  const previewCustomerViewRef = useRef(null);
   const ORDERS_PAGE_SIZE = 50;
 
   useEffect(() => {
@@ -551,12 +548,7 @@ function OwnerArea() {
             ← Wapas Admin Panel Mein Jaayein
           </button>
         </div>
-        <StoreHeader store={store} />
-        {store.timings && (
-          <div style={{ background: "#EFE9D8", padding: "6px 24px", textAlign: "center", fontSize: "11.5px", color: "#5C5747", fontWeight: 600 }}>
-            🕒 {store.timings}
-          </div>
-        )}
+        <StoreHeader store={store} onCartClick={() => previewCustomerViewRef.current?.openCart()} />
         {store.banner_images && store.banner_images.length > 0 ? (
           <PromoBannerCarousel images={store.banner_images} />
         ) : (
@@ -570,7 +562,7 @@ function OwnerArea() {
             <span style={{ fontSize: "11.5px", fontWeight: 600, color: previewTheme.primaryDark }}>{previewTheme.description}</span>
           </div>
         )}
-        <CustomerView store={store} products={products} onOrderPlaced={() => loadStoreData(true)} />
+        <CustomerView ref={previewCustomerViewRef} store={store} products={products} onOrderPlaced={() => loadStoreData(true)} />
       </div>
     );
   }
@@ -694,38 +686,100 @@ function StoreLinkShareButton({ store }) {
 // ============================================================
 // SHARED UI PIECES
 // ============================================================
-function StoreHeader({ store }) {
+function StoreHeader({ store, onCartClick }) {
   const theme = getTheme(store.business_type);
-  const BizIcon = BUSINESS_ICONS[theme.icon] || Store;
-  const isCross = theme.badge === "cross";
+  const isAuto = !!store.auto_hours_enabled;
+  const [, forceTick] = useState(0);
+  useEffect(() => {
+    if (!isAuto) return;
+    const id = setInterval(() => forceTick((t) => t + 1), 30000);
+    return () => clearInterval(id);
+  }, [isAuto]);
+  const isOpen = isAuto ? computeAutoOpenStatus(store.opens_at, store.closes_at) : store.is_open !== false;
+
   return (
     <div style={{
       background: getHeaderBackground(theme),
       backgroundImage: `${getHeaderBackground(theme)}, repeating-linear-gradient(135deg, rgba(255,255,255,0.05) 0px, rgba(255,255,255,0.05) 1px, transparent 1px, transparent 12px)`,
-      padding: "14px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px",
+      padding: "14px 18px 16px",
     }}>
-      <StoreHeaderBrand store={store} />
-      <div style={{ display: "flex", alignItems: "center", gap: "6px", flexShrink: 0 }}>
-        <OrderTrackingButton store={store} />
-        <CustomerKhataButton store={store} />
-        {/* Business-type ka permanent symbol — hamesha yahan, right corner
-            mein, chhote badge ki tarah dikhta hai (jaise Medical ka "+").
-            Yeh kabhi hatta nahi, chahe dukaandar apna logo daale ya na daale —
-            customer ko turant business ka type pehchanne mein madad karta hai. */}
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "10px" }}>
+        {/* Logo — left */}
         <div style={{
-          width: 34, height: 34, borderRadius: "50%", flexShrink: 0, overflow: "hidden",
+          width: 38, height: 38, borderRadius: "9px", flexShrink: 0, overflow: "hidden",
           display: "flex", alignItems: "center", justifyContent: "center",
-          background: isCross ? "white" : `linear-gradient(145deg, ${theme.accent}, ${theme.accentDark})`,
-          boxShadow: isCross
-            ? "0 2px 6px rgba(0,0,0,0.2), inset 0 1px 2px rgba(255,255,255,0.9)"
-            : "0 3px 8px rgba(0,0,0,0.35), inset 0 1px 1px rgba(255,255,255,0.45), inset 0 -2px 3px rgba(0,0,0,0.25)",
-        }} title={theme.label}>
-          {isCross
-            ? <Plus size={18} color="#D62828" strokeWidth={3.5} />
-            : <BizIcon size={16} color="white" strokeWidth={2.4} style={{ filter: "drop-shadow(0 1px 1px rgba(0,0,0,0.3))" }} />
+          background: "white", border: "1px solid rgba(255,255,255,0.3)", boxShadow: "0 2px 6px rgba(0,0,0,0.25)",
+        }}>
+          {store.logo_url
+            ? <img src={store.logo_url} alt={`${store.name} logo`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            : <Store size={18} color={theme.primary} strokeWidth={2.2} />
           }
         </div>
+
+        {/* Right — sirf Cart aur ☰ Menu (Order Track/Khata usi ☰ ke andar) */}
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0 }}>
+          <button
+            onClick={onCartClick}
+            title="Cart"
+            style={{ width: 34, height: 34, borderRadius: "50%", background: "rgba(255,255,255,0.14)", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+          >
+            <ShoppingCart size={16} color="white" />
+          </button>
+          <HeaderMenu store={store} theme={theme} />
+        </div>
       </div>
+
+      {/* Center — Naam / Tagline / Open+Timings, teeno ek hi jagah stack
+          mein — pehle yeh 3 alag jagah bikhre hue the (naam logo ke
+          bagal mein left-aligned, tagline uske neeche chhoti si, aur
+          timings ek bilkul alag strip mein header ke bahar) */}
+      <div style={{ textAlign: "center", marginTop: "-4px" }}>
+        <div style={{ color: "white", fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: "16.5px", lineHeight: 1.25 }}>{store.name}</div>
+        {(store.tagline || theme.description) && (
+          <div style={{ color: "rgba(255,255,255,0.65)", fontSize: "11px", marginTop: "2px" }}>{store.tagline || theme.description}</div>
+        )}
+        <div style={{ display: "inline-flex", alignItems: "center", gap: "5px", marginTop: "5px", background: "rgba(255,255,255,0.14)", borderRadius: "999px", padding: "3px 10px" }}>
+          <span style={{ width: 6, height: 6, borderRadius: "50%", background: isOpen ? "#4CAF50" : "#D32F2F", flexShrink: 0 }} />
+          <span style={{ color: isOpen ? "#8FE398" : "#FF9B9B", fontSize: "10.5px", fontWeight: 800 }}>{isOpen ? "Open" : "Closed"}</span>
+          {store.timings && <span style={{ color: "rgba(255,255,255,0.65)", fontSize: "10.5px" }}>• {store.timings}</span>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ☰ Menu — "Order Track Karein" aur "Mera Khata" pehle header mein
+// alag-alag pill buttons the (customer ko confusing lagta tha, header
+// bhara-bhara dikhta tha). Ab dono isi ek dropdown ke andar hain — header
+// mein sirf ek chhota ☰ icon dikhta hai.
+function HeaderMenu({ store, theme }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div style={{ position: "relative" }}>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        title="Menu"
+        style={{ width: 34, height: 34, borderRadius: "50%", background: "rgba(255,255,255,0.14)", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+      >
+        <Menu size={16} color="white" />
+      </button>
+      {open && (
+        <>
+          <div onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 60 }} />
+          <div
+            onClick={() => setOpen(false)}
+            style={{
+              position: "absolute", top: "calc(100% + 8px)", right: 0, zIndex: 70, minWidth: "210px",
+              background: theme.primaryDark, borderRadius: "12px", padding: "8px",
+              boxShadow: "0 12px 30px rgba(0,0,0,0.35)",
+              display: "flex", flexDirection: "column", gap: "6px",
+            }}
+          >
+            <OrderTrackingButton store={store} />
+            <CustomerKhataButton store={store} />
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -916,14 +970,10 @@ function GlobalStyles() {
         .ddemo-toggle-btn { padding: 8px 9px; gap: 0; font-size: 0; }
         .ddemo-toggle-btn span { font-size: 10px; }
       }
-      /* Customer-facing header ke "Order Track Karein" / "Mera Khata"
-         buttons — mobile par sirf icon dikhta hai (text hide), taaki
-         store ka naam/tagline ko squeeze na kare aur woh 2-3 lines mein
-         bikhar na jaaye. */
-      @media (max-width: 480px) {
-        .ddemo-header-action-btn { padding: 7px 8px !important; }
-        .ddemo-header-action-label { display: none; }
-      }
+      /* Note: "Order Track Karein" / "Mera Khata" ab header ke tight row
+         mein nahi, ek ☰ dropdown ke andar hain (kaafi jagah hai wahan),
+         isliye unke labels ko mobile par chhupane wala rule ab zaroori
+         nahi raha. */
       /* Scrolling ticker — text right se shuru hoke (padding-left:100%
          se poori tarah screen ke bahar) left tak poori width jitna
          khisakta hai, phir seamlessly loop ho jaata hai. */

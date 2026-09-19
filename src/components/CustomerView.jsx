@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef, forwardRef, useImperativeHandle } from "react";
 import { Search, ChevronRight, X, Check, MessageCircle, Plus, Minus, Trash2, Loader2, Star, LayoutGrid } from "lucide-react";
 import { createOrder, fetchCustomerByPhone, upsertCustomerDetails, fetchServerTime, fetchCombos } from "../lib/api";
 import { getTheme, getShoppingMode, getDiscountInfo, getVariantPricing, getQuantityDealPrice, getBestQuantityDealBadge, formatOfferExpiry, getCountdownParts } from "../lib/theme";
@@ -27,7 +27,7 @@ function getComboMaxQty(combo) {
   return Math.min(...items.map((ci) => Math.floor((ci.variants?.stock ?? 0) / ci.qty)));
 }
 
-export default function CustomerView({ store, products, onOrderPlaced }) {
+const CustomerView = forwardRef(function CustomerView({ store, products, onOrderPlaced }, ref) {
   const theme = getTheme(store.business_type);
   const isGalleryMode = getShoppingMode(store.business_type) === "gallery";
   const [detailProduct, setDetailProduct] = useState(null);
@@ -40,6 +40,13 @@ export default function CustomerView({ store, products, onOrderPlaced }) {
   const [comboCart, setComboCart] = useState({}); // comboId -> qty
   const [combos, setCombos] = useState([]);
   const [cartOpen, setCartOpen] = useState(false);
+  // Header ka Cart 🛒 icon (parent component mein render hota hai,
+  // yeh sibling nahi child) isi imperative handle se cart drawer
+  // kholta hai — cart state yahin CustomerView ke andar hi rehta hai,
+  // baahar kuch lift nahi karna padta.
+  useImperativeHandle(ref, () => ({
+    openCart: () => setCartOpen(true),
+  }));
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [orderPlaced, setOrderPlaced] = useState(null);
   const [variantPicker, setVariantPicker] = useState(null);
@@ -551,7 +558,9 @@ export default function CustomerView({ store, products, onOrderPlaced }) {
       )}
     </div>
   );
-}
+});
+
+export default CustomerView;
 
 // ============================================================
 // PRODUCT CARD — apna alag component hai (poore grid se nikaal ke)
