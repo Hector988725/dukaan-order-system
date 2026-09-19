@@ -211,6 +211,17 @@ const CustomerView = forwardRef(function CustomerView({ store, products, onOrder
     setCart((c) => ({ ...c, [variantId]: (c[variantId] || 0) + 1 }));
   };
 
+  // "Buy" button — "Add" jaisa hi cart mein daalta hai, lekin turant
+  // seedha Checkout par le jaata hai (cart drawer khole bina) — jaldi
+  // order karne ke liye ek shortcut, jab customer ko bas 1-2 cheezein
+  // hi leni hon.
+  const buyNow = (variantId) => {
+    const entry = variantIndex[variantId];
+    if (!entry || entry.variant.stock <= 0) return;
+    setCart((c) => ({ ...c, [variantId]: (c[variantId] || 0) + 1 }));
+    setCheckoutOpen(true);
+  };
+
   // "Trolley mein saaman daalne" wala physical feel — jis button se "+ Add"
   // dabaya, us jagah se ek chhota clone udkar cart tak jaata hai. Agar
   // yeh pehla item hai (floating cart abhi tak screen par nahi hai, kyunki
@@ -481,6 +492,7 @@ const CustomerView = forwardRef(function CustomerView({ store, products, onOrder
             cart={cart}
             addToCart={addToCart}
             decFromCart={decFromCart}
+            onBuyNow={buyNow}
             triggerFlyToCart={triggerFlyToCart}
             setDetailProduct={setDetailProduct}
             setVariantPicker={setVariantPicker}
@@ -606,7 +618,7 @@ function ComboCard({ combo, qty, onAdd, onDec, theme }) {
   );
 }
 
-function ProductCard({ product: p, idx, theme, isGalleryMode, cart, addToCart, decFromCart, triggerFlyToCart, setDetailProduct, setVariantPicker, serverOffsetMs }) {
+function ProductCard({ product: p, idx, theme, isGalleryMode, cart, addToCart, decFromCart, onBuyNow, triggerFlyToCart, setDetailProduct, setVariantPicker, serverOffsetMs }) {
   const totalStock = p.variants.reduce((s, v) => s + v.stock, 0);
   const outOfStock = totalStock <= 0;
   const prices = p.variants.map((v) => v.price);
@@ -662,7 +674,16 @@ function ProductCard({ product: p, idx, theme, isGalleryMode, cart, addToCart, d
       <div style={{
         ...imageBoxStyle,
         background: p.image_url ? undefined : "linear-gradient(135deg, #F3ECDC 0%, #E9DFC0 100%)",
-      }}>
+        cursor: !isGalleryMode ? "pointer" : undefined,
+      }}
+        // Gallery-mode mein poora card hi "Dekhein" ka kaam karta hai
+        // (upar card-level onClick already hai). Quick-mode (Kirana/
+        // Medical/etc) mein pehle photo par click karne se kuch nahi
+        // hota tha — ab yahan bhi photo tap karte hi detail-screen
+        // khulti hai, Add/Buy buttons alag hi rehte hain (unpe click
+        // karne se detail nahi khulti).
+        onClick={!isGalleryMode ? (e) => { e.stopPropagation(); setDetailProduct(p); } : undefined}
+      >
         {p.image_url
           ? <img src={p.image_url} alt={p.name} style={{ width: "100%", height: p.featured ? "260px" : "auto", objectFit: "cover", display: "block" }} />
           : <span style={{ fontSize: p.featured ? "60px" : "42px", lineHeight: 1 }}>{p.emoji || "📦"}</span>
@@ -734,7 +755,10 @@ function ProductCard({ product: p, idx, theme, isGalleryMode, cart, addToCart, d
         </div>
       ) : singleVariant ? (
         qtyInCart === 0 ? (
-          <button onClick={(e) => { addToCart(onlyVariant.id); triggerFlyToCart(e.currentTarget, p.image_url, p.emoji); }} className="ddemo-btn ddemo-add-btn" style={btnOutline(theme)}>+ Add</button>
+          <div style={{ display: "flex", gap: "6px" }}>
+            <button onClick={(e) => { addToCart(onlyVariant.id); triggerFlyToCart(e.currentTarget, p.image_url, p.emoji); }} className="ddemo-btn ddemo-add-btn" style={{ ...btnOutline(theme), flex: 1 }}>+ Add</button>
+            <button onClick={() => onBuyNow(onlyVariant.id)} className="ddemo-btn" style={{ flex: 1, background: theme.primary, color: "white", border: "none", borderRadius: "8px", fontSize: "12.5px", fontWeight: 700, padding: "7px 0", cursor: "pointer" }}>Buy</button>
+          </div>
         ) : (
           <QtyStepper qty={qtyInCart} onInc={() => addToCart(onlyVariant.id)} onDec={() => decFromCart(onlyVariant.id)} />
         )
@@ -758,9 +782,9 @@ function QtyStepper({ qty, onInc, onDec }) {
   );
 }
 
-// Gallery-mode products (Kapde/Footwear/Mobile) ke liye — Amazon/Flipkart
-// jaisa detail-screen: photo carousel, description, phir size/variant
-// choose karke Add. Quick-mode products isse kabhi nahi khulte.
+// Gallery-mode products (Kapde/Footwear/Mobile) mein poora card isse
+// kholta hai. Quick-mode products (Kirana/Medical/etc) mein sirf photo
+// par tap karne se yeh khulta hai — Add/Buy buttons alag hi rehte hain.
 function ProductDetailModal({ product, cart, addToCart, decFromCart, theme, onClose, triggerFlyToCart, cartCount, cartTotal, onGoToCart }) {
   const [activePhoto, setActivePhoto] = useState(0);
   const photos = product.image_urls && product.image_urls.length > 0
