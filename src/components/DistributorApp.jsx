@@ -16,7 +16,7 @@ export default function DistributorApp() {
     return unsubscribe;
   }, []);
 
-  if (user === undefined) return <CenterMsg text="Check ho raha hai..." />;
+  if (user === undefined) return <CenterMsg text="Checking..." />;
   if (!user) return <DistributorAuthGate onAuthed={setUser} />;
   return <DistributorDashboard user={user} />;
 }
@@ -48,7 +48,7 @@ function DistributorAuthGate({ onAuthed }) {
       const data = await signIn(email, password);
       onAuthed(data.user);
     } catch (e) {
-      setError("Email ya password galat hai.");
+      setError("Incorrect email or password.");
     } finally {
       setLoading(false);
     }
@@ -60,7 +60,7 @@ function DistributorAuthGate({ onAuthed }) {
   // bhi ban chuka hota hai, agli baar seedha "Login" se aa sakte hain
   // aur dashboard khud claim-form dikha dega.
   const handleClaim = async () => {
-    if (!referralCode.trim()) { setError("Apna Referral Code daalein."); return; }
+    if (!referralCode.trim()) { setError("Please enter your Referral Code."); return; }
     setError("");
     setLoading(true);
     try {
@@ -85,13 +85,13 @@ function DistributorAuthGate({ onAuthed }) {
 
       <div style={{ display: "flex", background: "#F0EBDC", borderRadius: "10px", padding: "3px", marginBottom: "14px" }}>
         <button onClick={() => { setMode("login"); setError(""); }} style={{ flex: 1, padding: "8px 0", borderRadius: "8px", border: "none", fontSize: "12.5px", fontWeight: 700, cursor: "pointer", background: mode === "login" ? "white" : "transparent", color: mode === "login" ? "#1B4332" : "#8B8576" }}>Login</button>
-        <button onClick={() => { setMode("claim"); setError(""); }} style={{ flex: 1, padding: "8px 0", borderRadius: "8px", border: "none", fontSize: "12.5px", fontWeight: 700, cursor: "pointer", background: mode === "claim" ? "white" : "transparent", color: mode === "claim" ? "#1B4332" : "#8B8576" }}>Pehli Baar</button>
+        <button onClick={() => { setMode("claim"); setError(""); }} style={{ flex: 1, padding: "8px 0", borderRadius: "8px", border: "none", fontSize: "12.5px", fontWeight: 700, cursor: "pointer", background: mode === "claim" ? "white" : "transparent", color: mode === "claim" ? "#1B4332" : "#8B8576" }}>First Time</button>
       </div>
 
       <div style={{ background: "white", border: "1px solid #E3DECF", borderRadius: "12px", padding: "18px", display: "flex", flexDirection: "column", gap: "10px" }}>
         {mode === "claim" && (
           <div style={{ fontSize: "11.5px", color: "#8B8576", marginBottom: "-2px" }}>
-            Aapko diya gaya Referral Code (jaise DIST-RAMESH) daalein, apna email/password set karein.
+            Enter the Referral Code you were given (e.g. DIST-RAMESH), then set your email/password.
           </div>
         )}
         {mode === "claim" && (
@@ -114,7 +114,7 @@ function DistributorAuthGate({ onAuthed }) {
           disabled={!email || !password || loading}
           style={{ background: email && password ? "#1B4332" : "#D8D2BF", color: "white", border: "none", borderRadius: "9px", padding: "11px 0", fontWeight: 700, fontSize: "13px", cursor: email && password ? "pointer" : "not-allowed" }}
         >
-          {loading ? "..." : mode === "login" ? "Login" : "Account Banayein"}
+          {loading ? "..." : mode === "login" ? "Login" : "Create Account"}
         </button>
       </div>
     </div>
@@ -140,7 +140,7 @@ function DistributorDashboard({ user }) {
   useEffect(load, []);
 
   const handleClaim = async () => {
-    if (!claimCode.trim()) { setClaimError("Referral Code daalein."); return; }
+    if (!claimCode.trim()) { setClaimError("Please enter your Referral Code."); return; }
     setClaimError("");
     setClaiming(true);
     try {
@@ -153,19 +153,19 @@ function DistributorDashboard({ user }) {
     }
   };
 
-  if (data === undefined) return <CenterMsg text="Load ho raha hai..." />;
+  if (data === undefined) return <CenterMsg text="Loading..." />;
 
   if (data === null) {
     // Login to hai, lekin abhi tak apna referral code claim nahi kiya
     return (
       <div style={{ maxWidth: "360px", margin: "80px auto", padding: "0 18px" }}>
         <div style={{ background: "white", border: "1px solid #E3DECF", borderRadius: "12px", padding: "18px", display: "flex", flexDirection: "column", gap: "10px" }}>
-          <div style={{ fontWeight: 700, fontSize: "14px" }}>Apna Referral Code Daalein</div>
-          <div style={{ fontSize: "11.5px", color: "#8B8576" }}>Yeh account abhi kisi distributor record se juda nahi hai.</div>
-          <input value={claimCode} onChange={(e) => setClaimCode(e.target.value.toUpperCase())} placeholder="jaise DIST-RAMESH" style={{ border: "1px solid #E3DECF", borderRadius: "8px", padding: "9px 11px", fontSize: "13px", fontWeight: 700, outline: "none" }} />
+          <div style={{ fontWeight: 700, fontSize: "14px" }}>Enter Your Referral Code</div>
+          <div style={{ fontSize: "11.5px", color: "#8B8576" }}>This account isn't linked to a distributor record yet.</div>
+          <input value={claimCode} onChange={(e) => setClaimCode(e.target.value.toUpperCase())} placeholder="e.g. DIST-RAMESH" style={{ border: "1px solid #E3DECF", borderRadius: "8px", padding: "9px 11px", fontSize: "13px", fontWeight: 700, outline: "none" }} />
           {claimError && <div style={{ color: "#B3261E", fontSize: "12px" }}>{claimError}</div>}
           <button onClick={handleClaim} disabled={claiming} style={{ background: "#1B4332", color: "white", border: "none", borderRadius: "9px", padding: "10px 0", fontWeight: 700, fontSize: "13px", cursor: "pointer" }}>
-            {claiming ? "..." : "Jodein"}
+            {claiming ? "..." : "Link Account"}
           </button>
           <button onClick={() => signOut()} style={{ background: "transparent", border: "none", color: "#8B8576", fontSize: "11.5px", cursor: "pointer" }}>Logout</button>
         </div>
@@ -191,7 +191,7 @@ function DistributorDashboard({ user }) {
       <div style={{ padding: "18px 20px 40px", maxWidth: "600px", margin: "0 auto" }}>
         {/* Referral link — sabse zaroori cheez, sabse upar */}
         <div style={{ background: "white", border: "1px solid #E3DECF", borderRadius: "12px", padding: "16px", marginBottom: "14px" }}>
-          <div style={{ fontSize: "11px", fontWeight: 700, color: "#5C5747", marginBottom: "8px" }}>AAPKA REFERRAL LINK — naye dukaandaron ko yahi bhejein</div>
+          <div style={{ fontSize: "11px", fontWeight: 700, color: "#5C5747", marginBottom: "8px" }}>YOUR REFERRAL LINK — share this with new shopkeepers</div>
           <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
             <code style={{ flex: 1, minWidth: "180px", background: "#F7F5F0", padding: "9px 12px", borderRadius: "8px", fontSize: "12px", wordBreak: "break-all" }}>{referralLink}</code>
             <button onClick={handleCopy} style={{ display: "flex", alignItems: "center", gap: "5px", background: "#1B4332", color: "white", border: "none", borderRadius: "8px", padding: "9px 14px", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}>
@@ -199,7 +199,7 @@ function DistributorDashboard({ user }) {
             </button>
           </div>
           <div style={{ fontSize: "10.5px", color: "#8B8576", marginTop: "8px" }}>
-            Jo bhi dukaan is link se signup karegi, woh permanently aapse jud jaayegi — har mahine ₹{data.commission_rate} commission milega jab tak woh dukaan active-paid rahe.
+            Any shop that signs up using this link gets permanently linked to you — you'll earn ₹{data.commission_rate}/month as long as that shop stays active-paid.
           </div>
         </div>
 
@@ -208,13 +208,13 @@ function DistributorDashboard({ user }) {
           <StatCard label="Total Referred" value={data.total_referred} />
           <StatCard label="Active & Paid" value={data.active_paid} color="#1B4332" />
           <StatCard label="Inactive" value={data.inactive} color="#B3261E" />
-          <StatCard label="Is Mahine Ka Commission" value={`₹${data.this_month_commission}`} />
+          <StatCard label="This Month's Commission" value={`₹${data.this_month_commission}`} />
           <StatCard label="Lifetime Commission" value={`₹${data.lifetime_commission}`} />
           <StatCard label="Pending Payout" value={`₹${data.pending_payout}`} color="#B3261E" />
         </div>
 
         <div style={{ fontSize: "10.5px", color: "#8B8576", textAlign: "center" }}>
-          Commission har mahine calculate hota hai — "Active & Paid" wahi shops hain jinka is waqt subscription chalu hai.
+          Commission is calculated every month — "Active & Paid" means the shop's subscription is currently active.
         </div>
       </div>
     </div>
