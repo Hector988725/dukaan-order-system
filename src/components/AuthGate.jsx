@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Store, Mail, Lock, ArrowRight, Loader2, Eye, EyeOff } from "lucide-react";
-import { signUp, signIn, createStore, checkSlugAvailable, resetPasswordForEmail, updatePassword } from "../lib/api";
+import { signUp, signIn, createStore, checkSlugAvailable, resetPasswordForEmail, updatePassword, attributeStoreToReferral } from "../lib/api";
 import { BUSINESS_TYPE_LIST } from "../lib/theme";
 
 const BUSINESS_TYPES = BUSINESS_TYPE_LIST;
@@ -294,7 +294,7 @@ export function StoreDetailsForm({ user, onDone }) {
     if (!slugTouched) setSlug(slugify(v));
   };
 
-  const RESERVED_SLUGS = new Set(["superadmin", "signup", "login", "create-store", "admin", "api", "order"]);
+  const RESERVED_SLUGS = new Set(["superadmin", "signup", "login", "create-store", "admin", "api", "order", "distributor", "demo", "demos", "terms", "privacy", "refund-policy"]);
 
   const handleSlugBlur = async () => {
     if (!slug) return;
@@ -338,6 +338,16 @@ export function StoreDetailsForm({ user, onDone }) {
         upi_id: null,
         address,
       });
+      // Signup URL mein agar ?ref=CODE tha (kisi distributor ne bheja
+      // link), is store ko us distributor se jod dete hain. Galat/invalid
+      // code ho to bhi signup fail nahi hota — bas silently attribution
+      // skip ho jaata hai.
+      try {
+        const refCode = new URLSearchParams(window.location.search).get("ref");
+        if (refCode) await attributeStoreToReferral(store.id, refCode);
+      } catch (refErr) {
+        console.warn("Referral attribution nahi ho payi:", refErr);
+      }
       onDone(user, store);
     } catch (e) {
       setError(e.message);

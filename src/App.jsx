@@ -28,6 +28,7 @@ import OrderTrackingButton from "./components/OrderTracking";
 import { AuthGate, StoreDetailsForm, ResetPasswordScreen } from "./components/AuthGate";
 import RazorpaySubscription from "./components/RazorpaySubscription";
 import SuperAdminApp from "./superadmin/SuperAdminApp";
+import DistributorApp from "./components/DistributorApp";
 
 export default function App() {
   // Deployment mein VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY set nahi hain —
@@ -49,6 +50,14 @@ export default function App() {
       <div style={shellStyle}>
         <GlobalStyles />
         <SuperAdminApp />
+      </div>
+    );
+  }
+  if (path === "distributor") {
+    return (
+      <div style={shellStyle}>
+        <GlobalStyles />
+        <DistributorApp />
       </div>
     );
   }

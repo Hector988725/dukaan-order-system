@@ -243,3 +243,32 @@ export async function fetchAnalytics() {
     dailyRevenue: Object.entries(dailyRevenue).map(([date, amount]) => ({ date, amount })),
   };
 }
+
+// ============================================================
+// DISTRIBUTORS
+// ============================================================
+export async function fetchDistributorsOverview() {
+  const { data, error } = await supabase.rpc("get_admin_distributor_overview");
+  if (error) throw error;
+  return data || [];
+}
+
+export async function createDistributor(name, phone, referralCode, commissionRate) {
+  const { data, error } = await supabase.rpc("admin_create_distributor", {
+    p_name: name,
+    p_phone: phone,
+    p_referral_code: referralCode,
+    p_commission_rate: commissionRate,
+  });
+  if (error) throw error;
+  return data;
+}
+
+// Har mahine ek baar chalana hai — us mahine ke liye har active-paid
+// referred shop ka commission-row bana deta hai. Dobara chalane se
+// duplicate nahi banega (DB-level unique constraint hai).
+export async function runMonthlyCommission() {
+  const { data, error } = await supabase.rpc("run_monthly_commission_calculation");
+  if (error) throw error;
+  return data; // kitni rows bani
+}

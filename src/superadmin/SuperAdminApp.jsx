@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { Loader2, ShieldCheck, LogOut, Mail, Lock, Store, Package, TrendingUp, Users, CreditCard, X, Eye, EyeOff } from "lucide-react";
+import { Loader2, ShieldCheck, LogOut, Mail, Lock, Store, Package, TrendingUp, Users, CreditCard, X, Eye, EyeOff, Plus, Copy, Check } from "lucide-react";
 import { signIn, signOut, onAuthChange } from "../lib/api";
 import {
   checkIsSuperAdmin, fetchDashboardStats, fetchAllStoresAdmin, fetchStoreOrders,
   adminActivateStore, adminDeactivateStore, adminExtendSubscription, adminDeleteStore,
   fetchAllOrdersAdmin, fetchAllPaymentsAdmin, fetchAnalytics,
+  fetchDistributorsOverview, createDistributor, runMonthlyCommission,
 } from "./api";
 
 // ============================================================
@@ -121,6 +122,7 @@ function SuperAdminDashboard({ user }) {
           { id: "stores", label: "Stores", icon: <Store size={14} /> },
           { id: "orders", label: "Orders", icon: <Package size={14} /> },
           { id: "payments", label: "Payments", icon: <CreditCard size={14} /> },
+          { id: "distributors", label: "Distributors", icon: <Users size={14} /> },
         ].map((t) => (
           <button key={t.id} onClick={() => setTab(t.id)} style={{
             display: "flex", alignItems: "center", gap: "6px", padding: "9px 14px", fontSize: "12.5px", fontWeight: 700,
@@ -137,6 +139,7 @@ function SuperAdminDashboard({ user }) {
         {tab === "stores" && <StoresTab />}
         {tab === "orders" && <OrdersTab />}
         {tab === "payments" && <PaymentsTab />}
+        {tab === "distributors" && <DistributorsTab />}
       </div>
     </div>
   );
@@ -329,6 +332,149 @@ function PaymentsTab() {
         </div>
       ))}
       {payments.length === 0 && <div style={{ textAlign: "center", padding: "30px", color: "#8B8576", fontSize: "12.5px" }}>Koi payment record nahi (payment_logs table shayad khaali hai).</div>}
+    </div>
+  );
+}
+
+// ---- DISTRIBUTORS ----
+function DistributorsTab() {
+  const [distributors, setDistributors] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [running, setRunning] = useState(false);
+  const [runMsg, setRunMsg] = useState("");
+  const [copiedCode, setCopiedCode] = useState(null);
+
+  const load = () => { setLoading(true); fetchDistributorsOverview().then(setDistributors).catch((e) => alert(e.message)).finally(() => setLoading(false)); };
+  useEffect(load, []);
+
+  const handleRunCommission = async () => {
+    if (!confirm("Is mahine ka commission calculate karein? Sirf ek baar mahine mein chalayein.")) return;
+    setRunning(true);
+    setRunMsg("");
+    try {
+      const count = await runMonthlyCommission();
+      setRunMsg(`✓ ${count} shop(s) ke liye commission calculate ho gaya.`);
+      load();
+    } catch (e) {
+      setRunMsg("Error: " + e.message);
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  const referralLink = (code) => `${window.location.origin}/?ref=${code}`;
+  const handleCopy = (code) => {
+    navigator.clipboard.writeText(referralLink(code));
+    setCopiedCode(code);
+    setTimeout(() => setCopiedCode(null), 1500);
+  };
+
+  if (loading) return <div style={{ textAlign: "center", padding: "40px", color: "#8B8576", fontSize: "13px" }}>Load ho raha hai...</div>;
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px", flexWrap: "wrap", gap: "8px" }}>
+        <button onClick={() => setShowAddForm((s) => !s)} style={{ display: "flex", alignItems: "center", gap: "6px", background: "#1B4332", color: "white", border: "none", borderRadius: "9px", padding: "9px 14px", fontSize: "12.5px", fontWeight: 700, cursor: "pointer" }}>
+          <Plus size={14} /> Naya Distributor Add Karein
+        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          {runMsg && <span style={{ fontSize: "11px", color: runMsg.startsWith("Error") ? "#B3261E" : "#1B4332", fontWeight: 600 }}>{runMsg}</span>}
+          <button onClick={handleRunCommission} disabled={running} style={smallBtnStyle}>
+            {running ? "Calculate ho raha hai..." : "Is Mahine Ka Commission Run Karein"}
+          </button>
+        </div>
+      </div>
+
+      {showAddForm && <AddDistributorForm onDone={() => { setShowAddForm(false); load(); }} onCancel={() => setShowAddForm(false)} />}
+
+      <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+        {distributors.map((d) => (
+          <div key={d.distributor_id} style={{ background: "white", border: "1px solid #E3DECF", borderRadius: "12px", padding: "13px 15px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "10px", flexWrap: "wrap" }}>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: "13.5px" }}>{d.name} <span style={{ fontWeight: 400, fontSize: "11px", color: "#8B8576" }}>· {d.phone}</span></div>
+                <div style={{ fontSize: "11px", color: "#8B8576", marginTop: "2px" }}>
+                  ₹{d.commission_rate}/month per shop · {d.status}
+                </div>
+                <div style={{ fontSize: "11px", marginTop: "6px", display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                  <code style={{ background: "#F7F5F0", padding: "3px 8px", borderRadius: "6px", fontWeight: 700 }}>{d.referral_code}</code>
+                  <button onClick={() => handleCopy(d.referral_code)} style={{ display: "flex", alignItems: "center", gap: "4px", border: "1px solid #E3DECF", background: "white", borderRadius: "6px", padding: "3px 8px", fontSize: "10.5px", fontWeight: 700, cursor: "pointer", color: "#5C5747" }}>
+                    {copiedCode === d.referral_code ? <><Check size={11} /> Copied</> : <><Copy size={11} /> Link Copy Karein</>}
+                  </button>
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: "16px", textAlign: "center" }}>
+                <Stat label="Referred" value={d.total_referred} />
+                <Stat label="Active" value={d.active_paid} color="#1B4332" />
+                <Stat label="Is Mahine" value={`₹${d.this_month_commission}`} />
+                <Stat label="Pending" value={`₹${d.pending_payout}`} color="#B3261E" />
+              </div>
+            </div>
+          </div>
+        ))}
+        {distributors.length === 0 && <div style={{ textAlign: "center", padding: "30px", color: "#8B8576", fontSize: "12.5px" }}>Koi distributor nahi hai abhi.</div>}
+      </div>
+    </div>
+  );
+}
+
+function Stat({ label, value, color }) {
+  return (
+    <div>
+      <div style={{ fontSize: "14px", fontWeight: 800, color: color || "#1A1A1A" }}>{value}</div>
+      <div style={{ fontSize: "9.5px", color: "#8B8576", fontWeight: 600 }}>{label}</div>
+    </div>
+  );
+}
+
+function AddDistributorForm({ onDone, onCancel }) {
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [code, setCode] = useState("");
+  const [rate, setRate] = useState("100");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const suggestCode = (n) => "DIST-" + n.trim().toUpperCase().replace(/[^A-Z]/g, "").slice(0, 6);
+
+  const handleSave = async () => {
+    if (!name.trim() || !phone.trim() || !code.trim() || !rate) { setError("Sab fields bharein."); return; }
+    setError("");
+    setSaving(true);
+    try {
+      await createDistributor(name.trim(), phone.trim(), code.trim(), Number(rate));
+      onDone();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div style={{ background: "white", border: "1px solid #E3DECF", borderRadius: "12px", padding: "16px", marginBottom: "14px", display: "flex", flexDirection: "column", gap: "10px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ fontWeight: 700, fontSize: "13.5px" }}>Naya Distributor</div>
+        <button onClick={onCancel} style={{ border: "none", background: "none", cursor: "pointer", color: "#8B8576" }}><X size={16} /></button>
+      </div>
+      <FormField label="Naam" value={name} onChange={(v) => { setName(v); if (!code) setCode(suggestCode(v)); }} placeholder="jaise Ramesh Sharma" />
+      <FormField label="Phone" value={phone} onChange={setPhone} placeholder="10-digit mobile number" />
+      <FormField label="Referral Code" value={code} onChange={(v) => setCode(v.toUpperCase())} placeholder="jaise DIST-RAMESH" />
+      <FormField label="Commission Rate (₹/month per active shop)" value={rate} onChange={(v) => setRate(v.replace(/\D/g, ""))} placeholder="100" />
+      {error && <div style={{ color: "#B3261E", fontSize: "11.5px" }}>{error}</div>}
+      <button onClick={handleSave} disabled={saving} style={{ background: "#1B4332", color: "white", border: "none", borderRadius: "9px", padding: "10px 0", fontWeight: 700, fontSize: "13px", cursor: "pointer" }}>
+        {saving ? "Save ho raha hai..." : "Distributor Add Karein"}
+      </button>
+    </div>
+  );
+}
+
+function FormField({ label, value, onChange, placeholder }) {
+  return (
+    <div>
+      <div style={{ fontSize: "11px", fontWeight: 600, color: "#5C5747", marginBottom: "4px" }}>{label}</div>
+      <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} style={{ width: "100%", border: "1px solid #E3DECF", borderRadius: "8px", padding: "9px 11px", fontSize: "13px", outline: "none" }} />
     </div>
   );
 }
