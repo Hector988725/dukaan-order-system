@@ -833,6 +833,31 @@ export async function activateSubscription(storeId, razorpaySubscriptionId, mont
   return newExpiry;
 }
 
+// manage-razorpay-subscription Edge Function ko call karta hai —
+// AutoPay (UPI e-mandate) subscriptions banane/cancel karne ke liye.
+// (VS Code Local History se 20 Sept 2026 ko recover kiya gaya — is
+// session ke shuru mein galti se overwrite ho gaya tha)
+async function callSubscriptionFunction(payload) {
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+  const res = await fetch(`${supabaseUrl}/functions/v1/manage-razorpay-subscription`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${supabaseKey}`, apikey: supabaseKey },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  if (!res.ok || data.error) throw new Error(data.error || "Request fail hui");
+  return data;
+}
+
+export async function createRazorpaySubscription(storeId, tier) {
+  return callSubscriptionFunction({ action: "create", store_id: storeId, tier });
+}
+
+export async function cancelRazorpaySubscription(storeId) {
+  return callSubscriptionFunction({ action: "cancel", store_id: storeId });
+}
+
 // Founding Shop Terms & Pricing Lock — pehli baar payment se pehle
 // dukaandar ko yeh padh ke accept karna zaroori hai (sirf founding
 // members ke liye). Ek baar accept hone ke baad dobara nahi dikhta.
