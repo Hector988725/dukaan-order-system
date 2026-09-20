@@ -132,7 +132,7 @@ export async function updateStoreSlug(storeId, newSlug) {
 
 const FOUNDING_MEMBER_LIMIT = 1000;
 const FOUNDING_BASIC_PRICE = 49;
-const REGULAR_BASIC_PRICE = 299;
+const REGULAR_BASIC_PRICE = 199;
 const FOUNDING_PREMIUM_PRICE = 499;
 const REGULAR_PREMIUM_PRICE = 999;
 // Grace period ki asli enforcement DB RPC (check_and_apply_founding_expiry)
@@ -174,6 +174,36 @@ export async function createStore(userId, { slug, name, business_type, whatsapp_
     .single();
   if (error) throw error;
   return data;
+}
+
+// Signup URL mein agar ?ref=CODE tha, is store ko us distributor se
+// permanently jod deta hai (server-side RPC, invalid code par silently
+// no-op — signup kabhi fail nahi hona chahiye galat ref code ki wajah se).
+export async function attributeStoreToReferral(storeId, referralCode) {
+  const { error } = await supabase.rpc("attribute_store_to_referral_code", {
+    p_store_id: storeId,
+    p_referral_code: referralCode,
+  });
+  if (error) throw error;
+}
+
+// ============================================================
+// DISTRIBUTOR — self-serve portal (/distributor)
+// ============================================================
+// Naya distributor apna login khud banata hai (signUp se), phir apne
+// referral_code se is RPC ke through us account ko apne distributor
+// record se jodta hai (ek baar hi karna hota hai).
+export async function claimDistributorAccount(referralCode) {
+  const { error } = await supabase.rpc("claim_distributor_account", { p_referral_code: referralCode });
+  if (error) throw error;
+}
+
+// Distributor apna dashboard dekhta hai isse — apna hi data aata hai
+// (RPC security-definer hai, auth.uid() se khud match karta hai).
+export async function fetchDistributorDashboard() {
+  const { data, error } = await supabase.rpc("get_distributor_dashboard");
+  if (error) throw error;
+  return data?.[0] || null;
 }
 
 // ============================================================
