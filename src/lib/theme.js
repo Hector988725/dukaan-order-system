@@ -150,6 +150,15 @@ export function getShoppingMode(businessType) {
   return GALLERY_MODE_TYPES.has(businessType) ? "gallery" : "quick";
 }
 
+// Salon/Beauty Parlour — yeh ek business hai jahan "services" bikte
+// hain, "products" nahi. Isliye poora Cart/Buy/Delivery flow ki jagah
+// ek Appointment Booking flow chalta hai. Sirf isi ek business_type ke
+// liye — baaki sab (kirana/fashion/electronics/hardware/bakery/
+// restaurant/etc) ka flow bilkul pehle jaisa hi rehta hai.
+export function isBookingCategory(businessType) {
+  return businessType === "salon";
+}
+
 // ============================================================
 // UNIT PRESETS — pehle Unit ek free-text box tha ("kg, litre, piece"
 // placeholder), jisse dukaandar kabhi "kg" kabhi "Kg" kabhi "kilo"

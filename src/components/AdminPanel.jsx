@@ -1053,7 +1053,11 @@ function NewVariantForm({ businessType, onCancel, onSave, prefillBarcode }) {
   const [unit, setUnit] = useState(getUnitPresets(businessType)[0]);
   const [price, setPrice] = useState("");
   const [mrp, setMrp] = useState("");
-  const [stock, setStock] = useState("0");
+  // Salon/Beauty Parlour ke "services" products jaise "khatam" nahi hote —
+  // stock yahan sirf isliye hai kyunki DB structure products/variants ke
+  // liye common hai. Booking hamesha available rahe isliye default bahut
+  // zyada rakha (dukaandar ko is field ki chinta hi na karni pade).
+  const [stock, setStock] = useState(businessType === "salon" ? "9999" : "0");
   const [barcode, setBarcode] = useState(prefillBarcode || "");
   const [offerEnabled, setOfferEnabled] = useState(false);
   const [offerPrice, setOfferPrice] = useState("");

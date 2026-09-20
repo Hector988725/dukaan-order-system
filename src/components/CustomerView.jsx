@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef, forwardRef, useImperativeHandle } from "react";
 import { Search, ChevronRight, X, Check, MessageCircle, Plus, Minus, Trash2, Loader2, Star, LayoutGrid, Facebook, Instagram, Youtube, MapPin } from "lucide-react";
 import { createOrder, fetchCustomerByPhone, upsertCustomerDetails, fetchServerTime, fetchCombos } from "../lib/api";
-import { getTheme, getShoppingMode, getDiscountInfo, getVariantPricing, getQuantityDealPrice, getBestQuantityDealBadge, formatOfferExpiry, getCountdownParts } from "../lib/theme";
+import { getTheme, getShoppingMode, isBookingCategory, getDiscountInfo, getVariantPricing, getQuantityDealPrice, getBestQuantityDealBadge, formatOfferExpiry, getCountdownParts } from "../lib/theme";
 import { OrderTrackingModal } from "./OrderTracking";
 
 const PENDING_UPI_KEY = "dukaan_pending_upi_checkout";
@@ -30,6 +30,13 @@ function getComboMaxQty(combo) {
 const CustomerView = forwardRef(function CustomerView({ store, products, onOrderPlaced }, ref) {
   const theme = getTheme(store.business_type);
   const isGalleryMode = getShoppingMode(store.business_type) === "gallery";
+  // Salon/Beauty Parlour — services bikte hain, cart/delivery nahi.
+  // Poora Add/Buy/Cart/Checkout flow ki jagah ek alag Appointment
+  // Booking flow chalta hai (neeche BookingModal). Baaki sab business
+  // types ka flow bilkul waisa hi rehta hai jaisa pehle tha.
+  const bookingMode = isBookingCategory(store.business_type);
+  const [bookingProduct, setBookingProduct] = useState(null); // jis service ka booking flow chal raha hai
+  const [bookingConfirmed, setBookingConfirmed] = useState(null);
   const [detailProduct, setDetailProduct] = useState(null);
   const [activeCategory, setActiveCategory] = useState("All");
   const [search, setSearch] = useState("");
@@ -489,6 +496,8 @@ const CustomerView = forwardRef(function CustomerView({ store, products, onOrder
             idx={idx}
             theme={theme}
             isGalleryMode={isGalleryMode}
+            bookingMode={bookingMode}
+            onBookNow={setBookingProduct}
             cart={cart}
             addToCart={addToCart}
             decFromCart={decFromCart}
@@ -500,6 +509,24 @@ const CustomerView = forwardRef(function CustomerView({ store, products, onOrder
           />
         ))}
       </div>
+
+      {/* Location — Address text ke saath ek "Get Directions" button.
+          Agar dukaandar ne exact Google Maps link di hai to wahi use
+          hoti hai, warna Address text se hi ek approximate maps-search
+          link ban jaata hai — dono situation mein customer ko dukaan
+          tak pahunchne mein madad milti hai. */}
+      {(store.maps_link || store.address) && (
+        <div style={{ padding: "18px 18px 4px", textAlign: "center" }}>
+          {store.address && <div style={{ fontSize: "11.5px", color: "#5C5747", marginBottom: "10px", lineHeight: 1.5 }}>📍 {store.address}</div>}
+          <a
+            href={store.maps_link || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(store.address)}`}
+            target="_blank" rel="noreferrer"
+            style={{ display: "inline-flex", alignItems: "center", gap: "6px", background: theme.primary, color: "white", fontWeight: 700, fontSize: "12px", borderRadius: "999px", padding: "9px 18px", textDecoration: "none" }}
+          >
+            <MapPin size={14} /> Get Directions
+          </a>
+        </div>
+      )}
 
       {/* Social links footer — sirf woh icon dikhta hai jiski link
           dukaandar ne Store Settings mein bhari hai. Koi bhi link na ho
@@ -532,15 +559,18 @@ const CustomerView = forwardRef(function CustomerView({ store, products, onOrder
         </div>
       )}
 
-      {variantPicker && (
+      {variantPicker && !bookingMode && (
         <VariantPickerModal product={variantPicker} cart={cart} addToCart={addToCart} decFromCart={decFromCart} theme={theme} onClose={() => setVariantPicker(null)} triggerFlyToCart={triggerFlyToCart} cartCount={cartCount} cartTotal={cartTotal} onGoToCart={() => { setVariantPicker(null); setDetailProduct(null); setCartOpen(true); }} />
       )}
 
-      {detailProduct && (
+      {detailProduct && !bookingMode && (
         <ProductDetailModal product={detailProduct} cart={cart} addToCart={addToCart} decFromCart={decFromCart} onBuyNow={(vid) => { setDetailProduct(null); buyNow(vid); }} theme={theme} onClose={() => setDetailProduct(null)} triggerFlyToCart={triggerFlyToCart} cartCount={cartCount} cartTotal={cartTotal} onGoToCart={() => { setDetailProduct(null); setVariantPicker(null); setCartOpen(true); }} />
       )}
 
-      {cartCount > 0 && !cartOpen && (
+      {/* Salon/Beauty Parlour — cart/checkout ki jagah seedha Appointment
+          Booking flow. Cart drawer, floating cart bar, checkout — inme
+          se koi bhi bookingMode mein kabhi render hi nahi hota. */}
+      {!bookingMode && cartCount > 0 && !cartOpen && (
         <button key={cartCount} ref={cartButtonRef} onClick={() => setCartOpen(true)} className="ddemo-btn ddemo-cart-bump" style={floatingCartStyle(theme)}>
           <span style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: 700, fontSize: "13.5px" }}>
             {/* Trolley preview — jo items abhi "trolley" mein hain unki
@@ -580,7 +610,7 @@ const CustomerView = forwardRef(function CustomerView({ store, products, onOrder
         </div>
       ))}
 
-      {cartOpen && (
+      {!bookingMode && cartOpen && (
         <CartDrawer
           cartItems={cartItems}
           comboCartItems={comboCartItems}
@@ -592,18 +622,281 @@ const CustomerView = forwardRef(function CustomerView({ store, products, onOrder
         />
       )}
 
-      {checkoutOpen && (
+      {!bookingMode && checkoutOpen && (
         <CheckoutModal store={store} cartTotal={cartTotal} submitting={submitting} resumeData={resumeCheckout} cart={cart} comboCart={comboCart} onClose={() => { setCheckoutOpen(false); sessionStorage.removeItem(PENDING_UPI_KEY); }} onSubmit={placeOrder} />
       )}
 
-      {orderPlaced && (
+      {!bookingMode && orderPlaced && (
         <OrderConfirmedModal order={orderPlaced} storeName={store.name} whatsapp={store.whatsapp_number} theme={theme} store={store} onClose={() => setOrderPlaced(null)} />
+      )}
+
+      {bookingMode && bookingProduct && (
+        <BookingModal
+          store={store}
+          product={bookingProduct}
+          theme={theme}
+          onClose={() => setBookingProduct(null)}
+          onBooked={(booking) => { setBookingProduct(null); setBookingConfirmed(booking); onOrderPlaced?.(); }}
+        />
+      )}
+
+      {bookingMode && bookingConfirmed && (
+        <BookingConfirmedModal booking={bookingConfirmed} storeName={store.name} whatsapp={store.whatsapp_number} theme={theme} onClose={() => setBookingConfirmed(null)} />
       )}
     </div>
   );
 });
 
 export default CustomerView;
+
+// ============================================================
+// APPOINTMENT BOOKING — Salon/Beauty Parlour
+// ============================================================
+// Store ke opens_at/closes_at (agar auto-hours set hai) se 30-minute
+// slots banata hai. Agar timings set nahi hain, ek sensible default
+// range (9 AM – 8 PM) use karta hai.
+function generateTimeSlots(store) {
+  const toMinutes = (t) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
+  const startMin = store.auto_hours_enabled && store.opens_at ? toMinutes(store.opens_at) : 9 * 60;
+  const endMin = store.auto_hours_enabled && store.closes_at ? toMinutes(store.closes_at) : 20 * 60;
+  const slots = [];
+  for (let m = startMin; m < endMin; m += 30) {
+    const h24 = Math.floor(m / 60), min = m % 60;
+    const ampm = h24 >= 12 ? "PM" : "AM";
+    const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
+    slots.push(`${h12}:${String(min).padStart(2, "0")} ${ampm}`);
+  }
+  return slots;
+}
+
+function BookingModal({ store, product, theme, onClose, onBooked }) {
+  const hasMultipleServices = product.variants.length > 1;
+  const [step, setStep] = useState(hasMultipleServices ? "service" : "date");
+  const [service, setService] = useState(hasMultipleServices ? null : product.variants[0]);
+  const [date, setDate] = useState("");
+  const [slot, setSlot] = useState("");
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [payment, setPayment] = useState("Pay at Salon");
+  const [upiConfirmed, setUpiConfirmed] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  const slots = useMemo(() => generateTimeSlots(store), [store]);
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const maxDateObj = new Date();
+  maxDateObj.setDate(maxDateObj.getDate() + 45);
+  const maxDateStr = maxDateObj.toISOString().slice(0, 10);
+
+  const upiId = store?.upi_id || "";
+  const upiLink = upiId && service
+    ? `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(store.name)}&am=${service.price}&cu=INR&tn=${encodeURIComponent("Booking - " + product.name)}`
+    : "";
+  const qrImageUrl = upiLink ? `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(upiLink)}` : "";
+
+  const steps = ["date", "slot", "details", "payment"];
+  if (hasMultipleServices) steps.unshift("service");
+  const stepIdx = steps.indexOf(step);
+  const goBack = () => { if (stepIdx > 0) setStep(steps[stepIdx - 1]); else onClose(); };
+  const goNext = () => { if (stepIdx < steps.length - 1) setStep(steps[stepIdx + 1]); };
+
+  const detailsValid = name.trim() && phone.replace(/\D/g, "").length >= 10;
+  const canConfirm = payment === "Pay at Salon" || (payment === "UPI" && (upiConfirmed || !upiId));
+
+  const handleConfirm = async () => {
+    setSubmitting(true);
+    setError("");
+    try {
+      const orderNumber = "APT" + Math.floor(1000 + Math.random() * 9000);
+      const payload = {
+        store_id: store.id,
+        order_number: orderNumber,
+        customer_name: name.trim(),
+        customer_phone: phone.trim(),
+        address: null,
+        landmark: null,
+        pincode: null,
+        order_type: "Appointment",
+        delivery_fee: 0,
+        payment_method: payment === "UPI" ? "UPI" : "COD",
+        payment_status: payment === "UPI" ? "Pending Verification" : "Cash on Delivery",
+        status: "New",
+        items: [{ variant_id: service.id, name: product.name, variant: service.label, qty: 1, unit: service.unit, price: service.price }],
+        total: service.price,
+        booking_date: date,
+        booking_slot: slot,
+      };
+      const saved = await createOrder(payload);
+      onBooked({ ...saved, service_name: product.name, service_label: service.label, payment_choice: payment });
+    } catch (e) {
+      setError(e.message || "Booking nahi ho payi, dobara try karein.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 60 }} onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: "white", borderRadius: "18px 18px 0 0", width: "100%", maxWidth: "480px", maxHeight: "88vh", overflowY: "auto" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 18px", borderBottom: "1px solid #E3DECF", position: "sticky", top: 0, background: "white" }}>
+          <button onClick={goBack} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#5C5747", fontSize: "13px", fontWeight: 700 }}>← Back</button>
+          <div style={{ fontWeight: 700, fontSize: "14.5px", fontFamily: "'Fraunces', serif" }}>Book Appointment</div>
+          <button onClick={onClose} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#5C5747" }}><X size={18} /></button>
+        </div>
+
+        <div style={{ padding: "18px" }}>
+          <div style={{ fontSize: "11.5px", color: "#8B8576", marginBottom: "14px" }}>{product.name}{service ? ` — ${service.label !== "Standard" ? service.label + " — " : ""}₹${service.price}` : ""}</div>
+
+          {step === "service" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              <div style={{ fontSize: "12.5px", fontWeight: 700, marginBottom: "2px" }}>Choose a service</div>
+              {product.variants.map((v) => (
+                <button key={v.id} onClick={() => { setService(v); goNext(); }} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", border: "1px solid #E3DECF", background: "white", borderRadius: "10px", padding: "12px 14px", cursor: "pointer", textAlign: "left" }}>
+                  <span style={{ fontSize: "13px", fontWeight: 600 }}>{v.label}</span>
+                  <span style={{ fontSize: "13px", fontWeight: 700, color: theme.primary }}>₹{v.price}</span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {step === "date" && (
+            <div>
+              <div style={{ fontSize: "12.5px", fontWeight: 700, marginBottom: "8px" }}>Select a date</div>
+              <input type="date" value={date} min={todayStr} max={maxDateStr} onChange={(e) => setDate(e.target.value)} style={{ width: "100%", border: "1px solid #E3DECF", borderRadius: "9px", padding: "12px", fontSize: "14px", outline: "none", fontFamily: "inherit" }} />
+              <button onClick={goNext} disabled={!date} style={{ width: "100%", marginTop: "16px", background: date ? theme.primary : "#D8D2BF", color: "white", border: "none", borderRadius: "9px", padding: "12px 0", fontWeight: 700, fontSize: "13.5px", cursor: date ? "pointer" : "not-allowed" }}>
+                Continue
+              </button>
+            </div>
+          )}
+
+          {step === "slot" && (
+            <div>
+              <div style={{ fontSize: "12.5px", fontWeight: 700, marginBottom: "8px" }}>Select a time slot</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "8px" }}>
+                {slots.map((s) => (
+                  <button key={s} onClick={() => setSlot(s)} style={{
+                    border: slot === s ? `1.5px solid ${theme.primary}` : "1px solid #E3DECF",
+                    background: slot === s ? "#E7F0EA" : "white",
+                    color: slot === s ? theme.primary : "#3A3729",
+                    borderRadius: "8px", padding: "9px 0", fontSize: "12px", fontWeight: 700, cursor: "pointer",
+                  }}>
+                    {s}
+                  </button>
+                ))}
+              </div>
+              <button onClick={goNext} disabled={!slot} style={{ width: "100%", marginTop: "16px", background: slot ? theme.primary : "#D8D2BF", color: "white", border: "none", borderRadius: "9px", padding: "12px 0", fontWeight: 700, fontSize: "13.5px", cursor: slot ? "pointer" : "not-allowed" }}>
+                Continue
+              </button>
+            </div>
+          )}
+
+          {step === "details" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+              <div style={{ fontSize: "12.5px", fontWeight: 700, marginBottom: "-2px" }}>Your details</div>
+              <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Your Name" style={{ border: "1px solid #E3DECF", borderRadius: "9px", padding: "11px 12px", fontSize: "13.5px", outline: "none", fontFamily: "inherit" }} />
+              <input value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))} placeholder="Mobile Number" type="tel" style={{ border: "1px solid #E3DECF", borderRadius: "9px", padding: "11px 12px", fontSize: "13.5px", outline: "none", fontFamily: "inherit" }} />
+              <button onClick={goNext} disabled={!detailsValid} style={{ width: "100%", marginTop: "6px", background: detailsValid ? theme.primary : "#D8D2BF", color: "white", border: "none", borderRadius: "9px", padding: "12px 0", fontWeight: 700, fontSize: "13.5px", cursor: detailsValid ? "pointer" : "not-allowed" }}>
+                Continue
+              </button>
+            </div>
+          )}
+
+          {step === "payment" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+              <div style={{ fontSize: "12.5px", fontWeight: 700, marginBottom: "-2px" }}>Payment option</div>
+              <div style={{ display: "flex", gap: "8px" }}>
+                {["Pay at Salon", "UPI"].map((p) => (
+                  <button key={p} onClick={() => { setPayment(p); setUpiConfirmed(false); }} style={{
+                    flex: 1, padding: "10px 0", borderRadius: "9px",
+                    border: payment === p ? `1.5px solid ${theme.primary}` : "1px solid #E3DECF",
+                    background: payment === p ? "#E7F0EA" : "white",
+                    color: payment === p ? theme.primary : "#5C5747", fontWeight: 700, fontSize: "12.5px", cursor: "pointer",
+                  }}>
+                    {p === "UPI" ? "Pay via UPI" : p}
+                  </button>
+                ))}
+              </div>
+
+              {payment === "UPI" && upiId && !upiConfirmed && (
+                <div style={{ textAlign: "center", background: "#F7F5F0", borderRadius: "10px", padding: "14px" }}>
+                  <img src={qrImageUrl} alt="UPI QR" style={{ width: "150px", height: "150px", borderRadius: "8px" }} />
+                  <div style={{ fontSize: "12px", color: "#5C5747", marginTop: "8px" }}>Scan or tap below to pay ₹{service.price}</div>
+                  <a href={upiLink} onClick={() => setUpiConfirmed(false)} style={{ display: "block", marginTop: "10px", background: theme.primary, color: "white", fontWeight: 700, fontSize: "12.5px", borderRadius: "8px", padding: "10px 0", textDecoration: "none" }}>
+                    Pay via UPI
+                  </a>
+                  <button onClick={() => setUpiConfirmed(true)} style={{ marginTop: "8px", width: "100%", background: "transparent", border: "1px solid #E3DECF", borderRadius: "8px", padding: "9px 0", fontSize: "12px", fontWeight: 700, color: "#5C5747", cursor: "pointer" }}>
+                    I've Paid
+                  </button>
+                </div>
+              )}
+              {payment === "UPI" && upiId && upiConfirmed && (
+                <div style={{ fontSize: "12px", color: "#1B4332", fontWeight: 700, background: "#E7F0EA", borderRadius: "8px", padding: "10px 12px" }}>
+                  ✓ Payment noted — the salon will verify and confirm your booking.
+                </div>
+              )}
+              {payment === "UPI" && !upiId && (
+                <div style={{ fontSize: "12px", color: "#B3261E" }}>This salon hasn't set up UPI yet. Please choose "Pay at Salon".</div>
+              )}
+
+              {error && <div style={{ color: "#B3261E", fontSize: "12px" }}>{error}</div>}
+
+              <button onClick={handleConfirm} disabled={!canConfirm || submitting} style={{ width: "100%", marginTop: "6px", background: canConfirm ? theme.primary : "#D8D2BF", color: "white", border: "none", borderRadius: "9px", padding: "13px 0", fontWeight: 700, fontSize: "13.5px", cursor: canConfirm ? "pointer" : "not-allowed" }}>
+                {submitting ? "Confirming..." : "Confirm Booking"}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BookingConfirmedModal({ booking, storeName, whatsapp, theme, onClose }) {
+  const waText = encodeURIComponent(`Hi! I've booked an appointment (${booking.order_number}) for ${booking.service_name} on ${booking.booking_date} at ${booking.booking_slot}. Please confirm.`);
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 70 }}>
+      <div style={{ background: "white", borderRadius: "16px", width: "100%", maxWidth: "360px", padding: "26px 22px", margin: "20px", textAlign: "center" }}>
+        <div style={{ width: 54, height: 54, borderRadius: "50%", background: "#E7F0EA", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px" }}>
+          <Check size={26} color={theme?.primary || "#1B4332"} />
+        </div>
+        <div style={{ fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: "17px", marginBottom: "14px" }}>Booking Confirmed!</div>
+
+        <div style={{ background: "#F7F5F0", borderRadius: "10px", padding: "14px", textAlign: "left", fontSize: "12.5px", display: "flex", flexDirection: "column", gap: "6px", marginBottom: "14px" }}>
+          <Row label="Salon" value={storeName} />
+          <Row label="Service" value={`${booking.service_name}${booking.service_label && booking.service_label !== "Standard" ? " — " + booking.service_label : ""}`} />
+          <Row label="Date" value={booking.booking_date} />
+          <Row label="Time" value={booking.booking_slot} />
+          <Row label="Name" value={booking.customer_name} />
+          <Row label="Mobile" value={booking.customer_phone} />
+          <Row label="Payment" value={booking.payment_choice === "UPI" ? "Paid via UPI (pending verification)" : "Pay at Salon"} />
+          <Row label="Booking ID" value={booking.order_number} />
+        </div>
+
+        <a href={`https://wa.me/${whatsapp}?text=${waText}`} target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", gap: "10px", textAlign: "left", marginBottom: "10px", background: "#F7F5F0", borderRadius: "10px", padding: "12px", textDecoration: "none" }}>
+          <div style={{ width: 30, height: 30, borderRadius: "50%", background: "#25D366", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <MessageCircle size={16} color="white" />
+          </div>
+          <div style={{ fontSize: "11.5px", color: "#3A3729", lineHeight: 1.4 }}>
+            Tap to send this booking to <b>{storeName}</b> on WhatsApp.
+          </div>
+        </a>
+
+        <button onClick={onClose} className="ddemo-btn" style={{ width: "100%", background: theme?.primary || "#1B4332", color: "white", fontWeight: 700, fontSize: "13.5px", border: "none", borderRadius: "9px", padding: "11px 0", cursor: "pointer" }}>
+          Done
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function Row({ label, value }) {
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", gap: "10px" }}>
+      <span style={{ color: "#8B8576" }}>{label}</span>
+      <span style={{ fontWeight: 700, textAlign: "right" }}>{value}</span>
+    </div>
+  );
+}
 
 // ============================================================
 // PRODUCT CARD — apna alag component hai (poore grid se nikaal ke)
@@ -649,7 +942,7 @@ function ComboCard({ combo, qty, onAdd, onDec, theme }) {
   );
 }
 
-function ProductCard({ product: p, idx, theme, isGalleryMode, cart, addToCart, decFromCart, onBuyNow, triggerFlyToCart, setDetailProduct, setVariantPicker, serverOffsetMs }) {
+function ProductCard({ product: p, idx, theme, isGalleryMode, bookingMode, onBookNow, cart, addToCart, decFromCart, onBuyNow, triggerFlyToCart, setDetailProduct, setVariantPicker, serverOffsetMs }) {
   const totalStock = p.variants.reduce((s, v) => s + v.stock, 0);
   const outOfStock = totalStock <= 0;
   const prices = p.variants.map((v) => v.price);
@@ -713,7 +1006,7 @@ function ProductCard({ product: p, idx, theme, isGalleryMode, cart, addToCart, d
         // hota tha — ab yahan bhi photo tap karte hi detail-screen
         // khulti hai, Add/Buy buttons alag hi rehte hain (unpe click
         // karne se detail nahi khulti).
-        onClick={!isGalleryMode ? (e) => { e.stopPropagation(); setDetailProduct(p); } : undefined}
+        onClick={!isGalleryMode && !bookingMode ? (e) => { e.stopPropagation(); setDetailProduct(p); } : undefined}
       >
         {p.image_url
           ? <img src={p.image_url} alt={p.name} style={{ width: "100%", height: p.featured ? "260px" : "auto", objectFit: "cover", display: "block" }} />
@@ -766,7 +1059,21 @@ function ProductCard({ product: p, idx, theme, isGalleryMode, cart, addToCart, d
         )}
       </div>
 
-      {isGalleryMode ? (
+      {bookingMode ? (
+        // Salon/Beauty Parlour — Add/Buy/Cart ki jagah seedha Book Now.
+        // Stock yahan sirf DB-structural wajah se hai (services default
+        // 9999 stock ke saath banti hain), isliye "Out of Stock" yahan
+        // practically kabhi nahi aata jab tak dukaandar khud 0 na kar de.
+        outOfStock ? (
+          <div style={{ fontSize: "11px", fontWeight: 700, color: "#B3261E", background: "#FDECEA", borderRadius: "7px", padding: "6px 0", textAlign: "center" }}>
+            Currently Unavailable
+          </div>
+        ) : (
+          <button onClick={() => onBookNow(p)} className="ddemo-btn" style={{ background: theme.primary, color: "white", border: "none", borderRadius: "8px", fontSize: "12.5px", fontWeight: 700, padding: "8px 0", cursor: "pointer" }}>
+            Book Now
+          </button>
+        )
+      ) : isGalleryMode ? (
         // Gallery-mode (Kapde/Footwear/Mobile jaise types) mein
         // seedha grid se Add nahi hota — pehle photo/description/
         // size dekhna zaroori hai, isliye poora card hi "Dekhein"

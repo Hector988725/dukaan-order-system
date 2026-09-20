@@ -24,6 +24,11 @@ const STEPS_PICKUP = [
   { key: "Ready", label: "Ready for Pickup" },
   { key: "Delivered", label: "Picked Up" },
 ];
+const STEPS_APPOINTMENT = [
+  { key: "New", label: "Booking Requested" },
+  { key: "Accepted", label: "Booking Confirmed" },
+  { key: "Delivered", label: "Completed" },
+];
 
 export default function OrderTrackingButton({ store }) {
   const [open, setOpen] = useState(false);
@@ -66,7 +71,7 @@ export function OrderTrackingModal({ store, onClose, initialOrderNumber }) {
     }
   };
 
-  const steps = order?.order_type === "Pickup" ? STEPS_PICKUP : STEPS_DELIVERY;
+  const steps = order?.order_type === "Appointment" ? STEPS_APPOINTMENT : order?.order_type === "Pickup" ? STEPS_PICKUP : STEPS_DELIVERY;
   const currentIdx = order ? steps.findIndex((s) => s.key === order.status) : -1;
 
   return (

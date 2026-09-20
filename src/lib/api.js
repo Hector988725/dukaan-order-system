@@ -461,6 +461,8 @@ export async function createOrder(orderPayload) {
     p_total: orderPayload.total,
     p_order_type: orderPayload.order_type || "Delivery",
     p_delivery_fee: orderPayload.delivery_fee || 0,
+    p_booking_date: orderPayload.booking_date || null,
+    p_booking_slot: orderPayload.booking_slot || null,
   });
   if (error) {
     // Function ke andar se aane wale friendly error messages ko clean

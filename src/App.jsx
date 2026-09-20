@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Store, ShoppingCart, LayoutGrid, Loader2, AlertTriangle, ShieldCheck, LogOut, Pill, Wrench, Smartphone, Shirt, BookOpen, Cake, Scissors, UtensilsCrossed, Footprints, Plus, BookText, Zap, Eye, Menu } from "lucide-react";
-import { getTheme, getHeaderBackground } from "./lib/theme";
+import { getTheme, getHeaderBackground, isBookingCategory } from "./lib/theme";
 
 // Business-type icon naam (theme.js mein string ke roop mein) ko
 // asli lucide component se map karta hai.
@@ -725,15 +725,19 @@ function StoreHeader({ store, onCartClick }) {
           }
         </div>
 
-        {/* Right — sirf Cart aur ☰ Menu (Order Track/Khata usi ☰ ke andar) */}
+        {/* Right — Salon/Beauty Parlour mein Cart nahi (booking flow
+            hai, cart nahi) — sirf ☰ Menu. Baaki sab business types mein
+            Cart + ☰ Menu dono. */}
         <div style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0 }}>
-          <button
-            onClick={onCartClick}
-            title="Cart"
-            style={{ width: 34, height: 34, borderRadius: "50%", background: "rgba(255,255,255,0.14)", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
-          >
-            <ShoppingCart size={16} color="white" />
-          </button>
+          {!isBookingCategory(store.business_type) && (
+            <button
+              onClick={onCartClick}
+              title="Cart"
+              style={{ width: 34, height: 34, borderRadius: "50%", background: "rgba(255,255,255,0.14)", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+            >
+              <ShoppingCart size={16} color="white" />
+            </button>
+          )}
           <HeaderMenu store={store} theme={theme} />
         </div>
       </div>
