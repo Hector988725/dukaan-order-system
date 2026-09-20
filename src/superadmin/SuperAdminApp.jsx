@@ -5,7 +5,7 @@ import {
   checkIsSuperAdmin, fetchDashboardStats, fetchAllStoresAdmin, fetchStoreOrders,
   adminActivateStore, adminDeactivateStore, adminExtendSubscription, adminDeleteStore,
   fetchAllOrdersAdmin, fetchAllPaymentsAdmin, fetchAnalytics,
-  fetchDistributorsOverview, createDistributor, runMonthlyCommission,
+  fetchDistributorsOverview, createDistributor, runMonthlyCommission, markCommissionPaid,
 } from "./api";
 
 // ============================================================
@@ -344,6 +344,20 @@ function DistributorsTab() {
   const [running, setRunning] = useState(false);
   const [runMsg, setRunMsg] = useState("");
   const [copiedCode, setCopiedCode] = useState(null);
+  const [markingPaid, setMarkingPaid] = useState(null);
+
+  const handleMarkPaid = async (d) => {
+    if (!confirm(`Confirm karein: ${d.name} ko ₹${d.pending_payout} UPI se bhej diya hai?`)) return;
+    setMarkingPaid(d.distributor_id);
+    try {
+      await markCommissionPaid(d.distributor_id);
+      load();
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      setMarkingPaid(null);
+    }
+  };
 
   const load = () => { setLoading(true); fetchDistributorsOverview().then(setDistributors).catch((e) => alert(e.message)).finally(() => setLoading(false)); };
   useEffect(load, []);
@@ -404,11 +418,16 @@ function DistributorsTab() {
                   </button>
                 </div>
               </div>
-              <div style={{ display: "flex", gap: "16px", textAlign: "center" }}>
+              <div style={{ display: "flex", gap: "16px", textAlign: "center", alignItems: "center" }}>
                 <Stat label="Referred" value={d.total_referred} />
                 <Stat label="Active" value={d.active_paid} color="#1B4332" />
                 <Stat label="Is Mahine" value={`₹${d.this_month_commission}`} />
                 <Stat label="Pending" value={`₹${d.pending_payout}`} color="#B3261E" />
+                {Number(d.pending_payout) > 0 && (
+                  <button onClick={() => handleMarkPaid(d)} disabled={markingPaid === d.distributor_id} style={{ ...smallBtnStyle, whiteSpace: "nowrap" }}>
+                    {markingPaid === d.distributor_id ? "..." : "UPI se Bhej Diya — Mark Paid"}
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -432,7 +451,7 @@ function AddDistributorForm({ onDone, onCancel }) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
-  const [rate, setRate] = useState("100");
+  const [rate, setRate] = useState("50");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 

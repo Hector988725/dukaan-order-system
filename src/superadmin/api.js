@@ -272,3 +272,12 @@ export async function runMonthlyCommission() {
   if (error) throw error;
   return data; // kitni rows bani
 }
+
+// Ek distributor ko UPI se paisa manually bhej dene ke baad, uska
+// pending record "Paid" mark karta hai (dobara payout track karne ke
+// liye — RazorpayX Payouts abhi nahi hai, isliye yeh sirf record hai).
+export async function markCommissionPaid(distributorId) {
+  const { data, error } = await supabase.rpc("admin_mark_commission_paid", { p_distributor_id: distributorId });
+  if (error) throw error;
+  return data;
+}
