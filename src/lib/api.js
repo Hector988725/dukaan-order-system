@@ -206,6 +206,20 @@ export async function fetchDistributorDashboard() {
   return data?.[0] || null;
 }
 
+// Sirf 500+ active-paid shops wale distributors register kar sakte hain
+// (RPC khud yeh check karta hai, live count se — permanent milestone
+// nahi, agar shops kam ho jaayein to eligibility bhi chali jaati hai).
+export async function registerDistributorNominee(distributorId, name, relationship, phone) {
+  const { data, error } = await supabase.rpc("register_distributor_nominee", {
+    p_distributor_id: distributorId,
+    p_name: name,
+    p_relationship: relationship,
+    p_phone: phone,
+  });
+  if (error) throw error;
+  return data;
+}
+
 // ============================================================
 // PRODUCTS + VARIANTS
 // ============================================================

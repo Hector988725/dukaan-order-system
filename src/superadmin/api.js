@@ -281,3 +281,41 @@ export async function markCommissionPaid(distributorId) {
   if (error) throw error;
   return data;
 }
+
+// ============================================================
+// COMMISSION TIERS + SPECIAL DISTRIBUTOR
+// ============================================================
+export async function fetchCommissionTiers() {
+  const { data, error } = await supabase.rpc("get_commission_tiers");
+  if (error) throw error;
+  return data || [];
+}
+
+export async function updateCommissionTier(tierId, rate) {
+  const { error } = await supabase.rpc("admin_update_commission_tier", { p_tier_id: tierId, p_rate: rate });
+  if (error) throw error;
+}
+
+// type: "normal" | "special". customRate zaroori hai jab type="special".
+export async function setDistributorType(distributorId, type, customRate) {
+  const { error } = await supabase.rpc("admin_set_distributor_type", {
+    p_distributor_id: distributorId,
+    p_type: type,
+    p_custom_rate: customRate ?? null,
+  });
+  if (error) throw error;
+}
+
+export async function verifyNominee(nomineeId, approve) {
+  const { error } = await supabase.rpc("admin_verify_nominee", { p_nominee_id: nomineeId, p_approve: approve });
+  if (error) throw error;
+}
+
+export async function verifyDeathClaim(claimId, approve, effectiveDate) {
+  const { error } = await supabase.rpc("admin_verify_death_claim", {
+    p_claim_id: claimId,
+    p_approve: approve,
+    p_effective_date: effectiveDate || new Date().toISOString().slice(0, 10),
+  });
+  if (error) throw error;
+}

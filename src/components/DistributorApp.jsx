@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Users, Mail, Lock, Eye, EyeOff, LogOut, Copy, Check, TrendingUp, Loader2 } from "lucide-react";
-import { signUp, signIn, signOut, onAuthChange, claimDistributorAccount, fetchDistributorDashboard } from "../lib/api";
+import { signUp, signIn, signOut, onAuthChange, claimDistributorAccount, fetchDistributorDashboard, registerDistributorNominee } from "../lib/api";
 
 // ============================================================
 // ROOT — /distributor route. Login/signup gate, phir apna dashboard.
@@ -191,7 +191,12 @@ function DistributorDashboard({ user }) {
       <div style={{ padding: "18px 20px 40px", maxWidth: "600px", margin: "0 auto" }}>
         {/* Referral link — sabse zaroori cheez, sabse upar */}
         <div style={{ background: "white", border: "1px solid #E3DECF", borderRadius: "12px", padding: "16px", marginBottom: "14px" }}>
-          <div style={{ fontSize: "11px", fontWeight: 700, color: "#5C5747", marginBottom: "8px" }}>YOUR REFERRAL LINK — share this with new shopkeepers</div>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
+            <div style={{ fontSize: "11px", fontWeight: 700, color: "#5C5747" }}>YOUR REFERRAL LINK — share this with new shopkeepers</div>
+            {data.distributor_type === "special" && (
+              <span style={{ fontSize: "9.5px", fontWeight: 800, color: "#9A6B00", background: "#FFF4DB", padding: "2px 7px", borderRadius: "5px" }}>SPECIAL</span>
+            )}
+          </div>
           <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
             <code style={{ flex: 1, minWidth: "180px", background: "#F7F5F0", padding: "9px 12px", borderRadius: "8px", fontSize: "12px", wordBreak: "break-all" }}>{referralLink}</code>
             <button onClick={handleCopy} style={{ display: "flex", alignItems: "center", gap: "5px", background: "#1B4332", color: "white", border: "none", borderRadius: "8px", padding: "9px 14px", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}>
@@ -199,7 +204,7 @@ function DistributorDashboard({ user }) {
             </button>
           </div>
           <div style={{ fontSize: "10.5px", color: "#8B8576", marginTop: "8px" }}>
-            Any shop that signs up using this link gets permanently linked to you — you'll earn ₹{data.commission_rate}/month as long as that shop stays active-paid.
+            Any shop that signs up using this link gets permanently linked to you — you currently earn ₹{data.current_rate}/month per active-paid shop{data.distributor_type === "normal" ? " (based on your current tier)" : ""}.
           </div>
         </div>
 
@@ -213,7 +218,18 @@ function DistributorDashboard({ user }) {
           <StatCard label="Pending Payout" value={`₹${data.pending_payout}`} color="#B3261E" />
         </div>
 
-        <div style={{ fontSize: "10.5px", color: "#8B8576", textAlign: "center" }}>
+        {/* Nominee — sirf 500+ active-paid shops wale distributors ke
+            liye. Live check hai — shops kam ho jaayein to yeh section
+            khud gayab ho jaata hai. */}
+        {data.nominee_eligible ? (
+          <NomineeSection distributorId={data.distributor_id} theme={theme} />
+        ) : (
+          <div style={{ fontSize: "10.5px", color: "#8B8576", textAlign: "center", background: "#F7F5F0", borderRadius: "10px", padding: "10px" }}>
+            Nominee registration unlocks once you reach 500 active-paid referred shops (currently {data.active_paid}).
+          </div>
+        )}
+
+        <div style={{ fontSize: "10.5px", color: "#8B8576", textAlign: "center", marginTop: "10px" }}>
           Commission is calculated every month — "Active & Paid" means the shop's subscription is currently active.
         </div>
       </div>
@@ -226,6 +242,67 @@ function StatCard({ label, value, color }) {
     <div style={{ background: "white", border: "1px solid #E3DECF", borderRadius: "12px", padding: "14px" }}>
       <div style={{ fontSize: "20px", fontWeight: 800, color: color || "#1A1A1A", fontFamily: "'Fraunces', serif" }}>{value}</div>
       <div style={{ fontSize: "10.5px", color: "#8B8576", fontWeight: 600, marginTop: "2px" }}>{label}</div>
+    </div>
+  );
+}
+
+// 500+ active-paid shops wale distributors apna nominee register kar
+// sakte hain — unki mrityu ke baad (admin verification ke saath)
+// commission isी nominee ko milta hai.
+function NomineeSection({ distributorId, theme }) {
+  const [showForm, setShowForm] = useState(false);
+  const [name, setName] = useState("");
+  const [relationship, setRelationship] = useState("");
+  const [phone, setPhone] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [done, setDone] = useState(false);
+
+  const handleSave = async () => {
+    if (!name.trim() || !relationship.trim() || phone.replace(/\D/g, "").length < 10) {
+      setError("Sab fields sahi se bharein.");
+      return;
+    }
+    setError("");
+    setSaving(true);
+    try {
+      await registerDistributorNominee(distributorId, name.trim(), relationship.trim(), phone.trim());
+      setDone(true);
+      setShowForm(false);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (done) {
+    return (
+      <div style={{ background: "#E7F0EA", borderRadius: "10px", padding: "12px", fontSize: "11.5px", color: "#1B4332", fontWeight: 600, marginBottom: "12px" }}>
+        ✓ Nominee registered — pending admin verification.
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ background: "white", border: "1px solid #E3DECF", borderRadius: "12px", padding: "14px", marginBottom: "12px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ fontSize: "12px", fontWeight: 700 }}>Registered Nominee</div>
+        <button onClick={() => setShowForm((s) => !s)} style={{ border: "none", background: "transparent", color: theme?.primary || "#1B4332", fontSize: "11.5px", fontWeight: 700, cursor: "pointer" }}>
+          {showForm ? "Cancel" : "Register / Update"}
+        </button>
+      </div>
+      {showForm && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "10px" }}>
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nominee's Name" style={{ border: "1px solid #E3DECF", borderRadius: "8px", padding: "9px 11px", fontSize: "12.5px", outline: "none" }} />
+          <input value={relationship} onChange={(e) => setRelationship(e.target.value)} placeholder="Relationship (e.g. Spouse, Son)" style={{ border: "1px solid #E3DECF", borderRadius: "8px", padding: "9px 11px", fontSize: "12.5px", outline: "none" }} />
+          <input value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))} placeholder="Mobile Number" type="tel" style={{ border: "1px solid #E3DECF", borderRadius: "8px", padding: "9px 11px", fontSize: "12.5px", outline: "none" }} />
+          {error && <div style={{ color: "#B3261E", fontSize: "11.5px" }}>{error}</div>}
+          <button onClick={handleSave} disabled={saving} style={{ background: theme?.primary || "#1B4332", color: "white", border: "none", borderRadius: "8px", padding: "9px 0", fontWeight: 700, fontSize: "12.5px", cursor: "pointer" }}>
+            {saving ? "..." : "Save Nominee"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

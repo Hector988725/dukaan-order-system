@@ -6,6 +6,7 @@ import {
   adminActivateStore, adminDeactivateStore, adminExtendSubscription, adminDeleteStore,
   fetchAllOrdersAdmin, fetchAllPaymentsAdmin, fetchAnalytics,
   fetchDistributorsOverview, createDistributor, runMonthlyCommission, markCommissionPaid,
+  fetchCommissionTiers, updateCommissionTier, setDistributorType,
 } from "./api";
 
 // ============================================================
@@ -341,10 +342,12 @@ function DistributorsTab() {
   const [distributors, setDistributors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showTiers, setShowTiers] = useState(false);
   const [running, setRunning] = useState(false);
   const [runMsg, setRunMsg] = useState("");
   const [copiedCode, setCopiedCode] = useState(null);
   const [markingPaid, setMarkingPaid] = useState(null);
+  const [editingType, setEditingType] = useState(null); // distributor_id jiska Special-toggle khula hai
 
   const handleMarkPaid = async (d) => {
     if (!confirm(`Confirm karein: ${d.name} ko ₹${d.pending_payout} UPI se bhej diya hai?`)) return;
@@ -389,9 +392,14 @@ function DistributorsTab() {
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px", flexWrap: "wrap", gap: "8px" }}>
-        <button onClick={() => setShowAddForm((s) => !s)} style={{ display: "flex", alignItems: "center", gap: "6px", background: "#1B4332", color: "white", border: "none", borderRadius: "9px", padding: "9px 14px", fontSize: "12.5px", fontWeight: 700, cursor: "pointer" }}>
-          <Plus size={14} /> Naya Distributor Add Karein
-        </button>
+        <div style={{ display: "flex", gap: "8px" }}>
+          <button onClick={() => setShowAddForm((s) => !s)} style={{ display: "flex", alignItems: "center", gap: "6px", background: "#1B4332", color: "white", border: "none", borderRadius: "9px", padding: "9px 14px", fontSize: "12.5px", fontWeight: 700, cursor: "pointer" }}>
+            <Plus size={14} /> Naya Distributor Add Karein
+          </button>
+          <button onClick={() => setShowTiers((s) => !s)} style={smallBtnStyle}>
+            {showTiers ? "Tiers Band Karein" : "Commission Tiers Dekhein"}
+          </button>
+        </div>
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
           {runMsg && <span style={{ fontSize: "11px", color: runMsg.startsWith("Error") ? "#B3261E" : "#1B4332", fontWeight: 600 }}>{runMsg}</span>}
           <button onClick={handleRunCommission} disabled={running} style={smallBtnStyle}>
@@ -400,6 +408,7 @@ function DistributorsTab() {
         </div>
       </div>
 
+      {showTiers && <CommissionTiersPanel />}
       {showAddForm && <AddDistributorForm onDone={() => { setShowAddForm(false); load(); }} onCancel={() => setShowAddForm(false)} />}
 
       <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
@@ -407,16 +416,30 @@ function DistributorsTab() {
           <div key={d.distributor_id} style={{ background: "white", border: "1px solid #E3DECF", borderRadius: "12px", padding: "13px 15px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "10px", flexWrap: "wrap" }}>
               <div>
-                <div style={{ fontWeight: 700, fontSize: "13.5px" }}>{d.name} <span style={{ fontWeight: 400, fontSize: "11px", color: "#8B8576" }}>· {d.phone}</span></div>
+                <div style={{ fontWeight: 700, fontSize: "13.5px", display: "flex", alignItems: "center", gap: "6px" }}>
+                  {d.name} <span style={{ fontWeight: 400, fontSize: "11px", color: "#8B8576" }}>· {d.phone}</span>
+                  {d.distributor_type === "special" && (
+                    <span style={{ fontSize: "9.5px", fontWeight: 800, color: "#9A6B00", background: "#FFF4DB", padding: "2px 7px", borderRadius: "5px" }}>SPECIAL</span>
+                  )}
+                  {d.nominee_eligible && (
+                    <span style={{ fontSize: "9.5px", fontWeight: 800, color: "#1B4332", background: "#E7F0EA", padding: "2px 7px", borderRadius: "5px" }} title="500+ active-paid shops — nominee register kar sakte hain">Nominee Eligible</span>
+                  )}
+                </div>
                 <div style={{ fontSize: "11px", color: "#8B8576", marginTop: "2px" }}>
-                  ₹{d.commission_rate}/month per shop · {d.status}
+                  ₹{d.current_rate}/month per shop {d.distributor_type === "normal" ? "(current tier)" : "(fixed rate)"} · {d.status}
                 </div>
                 <div style={{ fontSize: "11px", marginTop: "6px", display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
                   <code style={{ background: "#F7F5F0", padding: "3px 8px", borderRadius: "6px", fontWeight: 700 }}>{d.referral_code}</code>
                   <button onClick={() => handleCopy(d.referral_code)} style={{ display: "flex", alignItems: "center", gap: "4px", border: "1px solid #E3DECF", background: "white", borderRadius: "6px", padding: "3px 8px", fontSize: "10.5px", fontWeight: 700, cursor: "pointer", color: "#5C5747" }}>
                     {copiedCode === d.referral_code ? <><Check size={11} /> Copied</> : <><Copy size={11} /> Link Copy Karein</>}
                   </button>
+                  <button onClick={() => setEditingType(editingType === d.distributor_id ? null : d.distributor_id)} style={{ border: "1px solid #E3DECF", background: "white", borderRadius: "6px", padding: "3px 8px", fontSize: "10.5px", fontWeight: 700, cursor: "pointer", color: "#5C5747" }}>
+                    {d.distributor_type === "special" ? "Rate Badlein" : "Special Mark Karein"}
+                  </button>
                 </div>
+                {editingType === d.distributor_id && (
+                  <SpecialTypeEditor distributor={d} onDone={() => { setEditingType(null); load(); }} onCancel={() => setEditingType(null)} />
+                )}
               </div>
               <div style={{ display: "flex", gap: "16px", textAlign: "center", alignItems: "center" }}>
                 <Stat label="Referred" value={d.total_referred} />
@@ -434,6 +457,98 @@ function DistributorsTab() {
         ))}
         {distributors.length === 0 && <div style={{ textAlign: "center", padding: "30px", color: "#8B8576", fontSize: "12.5px" }}>Koi distributor nahi hai abhi.</div>}
       </div>
+    </div>
+  );
+}
+
+// Normal ↔ Special toggle karna, aur Special ho to custom rate set karna
+function SpecialTypeEditor({ distributor, onDone, onCancel }) {
+  const [type, setType] = useState(distributor.distributor_type);
+  const [rate, setRate] = useState(distributor.distributor_type === "special" ? String(distributor.commission_rate) : "100");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleSave = async () => {
+    if (type === "special" && !rate) { setError("Rate daalein."); return; }
+    setError("");
+    setSaving(true);
+    try {
+      await setDistributorType(distributor.distributor_id, type, type === "special" ? Number(rate) : null);
+      onDone();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div style={{ marginTop: "10px", background: "#F7F5F0", borderRadius: "9px", padding: "10px 12px", display: "flex", flexDirection: "column", gap: "8px" }}>
+      <div style={{ display: "flex", gap: "8px" }}>
+        <button onClick={() => setType("normal")} style={{ flex: 1, padding: "7px 0", borderRadius: "7px", border: type === "normal" ? "1.5px solid #1B4332" : "1px solid #E3DECF", background: type === "normal" ? "white" : "transparent", fontWeight: 700, fontSize: "11.5px", cursor: "pointer" }}>Normal (Tier-based)</button>
+        <button onClick={() => setType("special")} style={{ flex: 1, padding: "7px 0", borderRadius: "7px", border: type === "special" ? "1.5px solid #9A6B00" : "1px solid #E3DECF", background: type === "special" ? "white" : "transparent", fontWeight: 700, fontSize: "11.5px", cursor: "pointer" }}>Special (Fixed rate)</button>
+      </div>
+      {type === "special" && (
+        <input value={rate} onChange={(e) => setRate(e.target.value.replace(/\D/g, ""))} placeholder="₹/shop/month" style={{ border: "1px solid #E3DECF", borderRadius: "7px", padding: "7px 10px", fontSize: "12px", outline: "none" }} />
+      )}
+      {error && <div style={{ color: "#B3261E", fontSize: "11px" }}>{error}</div>}
+      <div style={{ display: "flex", gap: "8px" }}>
+        <button onClick={onCancel} style={{ flex: 1, background: "white", border: "1px solid #E3DECF", borderRadius: "7px", padding: "7px 0", fontSize: "11.5px", fontWeight: 700, cursor: "pointer", color: "#5C5747" }}>Cancel</button>
+        <button onClick={handleSave} disabled={saving} style={{ flex: 1, background: "#1B4332", color: "white", border: "none", borderRadius: "7px", padding: "7px 0", fontSize: "11.5px", fontWeight: 700, cursor: "pointer" }}>{saving ? "..." : "Save"}</button>
+      </div>
+    </div>
+  );
+}
+
+// Commission tiers ki current list — rate editable (min/max shops fixed
+// hain jaisa decide hua tha, sirf rate admin badal sakta hai)
+function CommissionTiersPanel() {
+  const [tiers, setTiers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [editingId, setEditingId] = useState(null);
+  const [editRate, setEditRate] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const load = () => { setLoading(true); fetchCommissionTiers().then(setTiers).catch((e) => alert(e.message)).finally(() => setLoading(false)); };
+  useEffect(load, []);
+
+  const handleSave = async (id) => {
+    setSaving(true);
+    try {
+      await updateCommissionTier(id, Number(editRate));
+      setEditingId(null);
+      load();
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) return null;
+
+  return (
+    <div style={{ background: "white", border: "1px solid #E3DECF", borderRadius: "12px", padding: "14px 16px", marginBottom: "14px" }}>
+      <div style={{ fontWeight: 700, fontSize: "13px", marginBottom: "10px" }}>Commission Tiers (Normal Distributors)</div>
+      <div style={{ fontSize: "10.5px", color: "#8B8576", marginBottom: "10px" }}>
+        Jab distributor ki total active-paid shops kisi tier mein aati hain, WAHI rate SAARI shops par lagu hoti hai (sirf upar wali shops par nahi).
+      </div>
+      {tiers.map((t) => (
+        <div key={t.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 0", borderTop: "1px solid #F0EBDC" }}>
+          <div style={{ fontSize: "12.5px" }}>{t.min_shops} – {t.max_shops ?? "∞"} shops</div>
+          {editingId === t.id ? (
+            <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+              <input value={editRate} onChange={(e) => setEditRate(e.target.value.replace(/\D/g, ""))} style={{ width: "70px", border: "1px solid #E3DECF", borderRadius: "6px", padding: "5px 8px", fontSize: "12px" }} />
+              <button onClick={() => handleSave(t.id)} disabled={saving} style={{ ...smallBtnStyle, padding: "5px 10px" }}>{saving ? "..." : "Save"}</button>
+            </div>
+          ) : (
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <span style={{ fontWeight: 700, fontSize: "12.5px" }}>₹{t.rate}/shop</span>
+              <button onClick={() => { setEditingId(t.id); setEditRate(String(t.rate)); }} style={{ border: "none", background: "transparent", color: "#5C5747", fontSize: "11px", fontWeight: 700, cursor: "pointer" }}>Edit</button>
+            </div>
+          )}
+        </div>
+      ))}
     </div>
   );
 }
