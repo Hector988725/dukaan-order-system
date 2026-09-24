@@ -61,6 +61,20 @@ export default function App() {
       </div>
     );
   }
+  if (path.startsWith("dop-partner/")) {
+    // Distributor ka branded referral link — /dop-partner/CODE — bas
+    // ?ref=CODE wale asli signup-flow par turant redirect kar deta hai.
+    // Alag path isliye taaki link professional/branded dikhe, aur naya
+    // random code (jaise DIST-NST7X2Q) usse guess karna mushkil ho.
+    const code = path.slice("dop-partner/".length);
+    window.location.replace(`/?ref=${encodeURIComponent(code)}`);
+    return (
+      <div style={shellStyle}>
+        <GlobalStyles />
+        <LoadingScreen text="Redirecting..." />
+      </div>
+    );
+  }
   if (path === "demo" || path === "demos") {
     return (
       <div style={shellStyle}>

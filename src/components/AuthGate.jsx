@@ -294,7 +294,7 @@ export function StoreDetailsForm({ user, onDone }) {
     if (!slugTouched) setSlug(slugify(v));
   };
 
-  const RESERVED_SLUGS = new Set(["superadmin", "signup", "login", "create-store", "admin", "api", "order", "distributor", "demo", "demos", "terms", "privacy", "refund-policy"]);
+  const RESERVED_SLUGS = new Set(["superadmin", "signup", "login", "create-store", "admin", "api", "order", "distributor", "dop-partner", "demo", "demos", "terms", "privacy", "refund-policy"]);
 
   const handleSlugBlur = async () => {
     if (!slug) return;

@@ -173,7 +173,7 @@ function DistributorDashboard({ user }) {
     );
   }
 
-  const referralLink = `${window.location.origin}/?ref=${data.referral_code}`;
+  const referralLink = `${window.location.origin}/dop-partner/${data.referral_code}`;
   const handleCopy = () => { navigator.clipboard.writeText(referralLink); setCopied(true); setTimeout(() => setCopied(false), 1500); };
 
   return (

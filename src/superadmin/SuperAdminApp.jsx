@@ -380,7 +380,7 @@ function DistributorsTab() {
     }
   };
 
-  const referralLink = (code) => `${window.location.origin}/?ref=${code}`;
+  const referralLink = (code) => `${window.location.origin}/dop-partner/${code}`;
   const handleCopy = (code) => {
     navigator.clipboard.writeText(referralLink(code));
     setCopiedCode(code);
@@ -570,7 +570,15 @@ function AddDistributorForm({ onDone, onCancel }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  const suggestCode = (n) => "DIST-" + n.trim().toUpperCase().replace(/[^A-Z]/g, "").slice(0, 6);
+  // Naam ke saath 4 random characters bhi jodte hain (jaise DIST-RAM7X2Q)
+  // — taaki koi "DIST-1, DIST-2" jaisा guess karke kisi aur distributor
+  // ke naam se galat signup na kar sake. Admin chahe to save karne se
+  // pehle edit bhi kar sakta hai.
+  const suggestCode = (n) => {
+    const base = n.trim().toUpperCase().replace(/[^A-Z]/g, "").slice(0, 5);
+    const rand = Math.random().toString(36).slice(2, 6).toUpperCase();
+    return `DIST-${base}${rand}`;
+  };
 
   const handleSave = async () => {
     if (!name.trim() || !phone.trim() || !code.trim() || !rate) { setError("Sab fields bharein."); return; }
