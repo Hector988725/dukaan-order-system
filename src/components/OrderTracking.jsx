@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { PackageSearch, X, Loader2, Phone, MessageCircle, Check } from "lucide-react";
 import { fetchOrderTracking } from "../lib/api";
+import { getRecentOrders } from "./CustomerView";
 
 // ============================================================
 // ORDER TRACKING — order_number se, koi login nahi. Backend mein abhi
@@ -29,6 +30,13 @@ const STEPS_APPOINTMENT = [
   { key: "Accepted", label: "Booking Confirmed" },
   { key: "Delivered", label: "Completed" },
 ];
+const STEPS_DINEIN = [
+  { key: "New", label: "Order Placed" },
+  { key: "Accepted", label: "Order Accepted" },
+  { key: "Preparing", label: "Preparing" },
+  { key: "Ready", label: "Ready to Serve" },
+  { key: "Delivered", label: "Served" },
+];
 
 export default function OrderTrackingButton({ store }) {
   const [open, setOpen] = useState(false);
@@ -51,13 +59,17 @@ export function OrderTrackingModal({ store, onClose, initialOrderNumber }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [order, setOrder] = useState(null);
+  // Is device par pehle place kiye gaye orders (agar koi hon) — customer
+  // order-ID bhool jaaye to bhi ek tap mein track kar sake.
+  const recentOrders = getRecentOrders(store.id);
 
-  const handleCheck = async () => {
-    if (!orderNumber.trim()) { setError("Please enter an order number."); return; }
+  const handleCheck = async (numberOverride) => {
+    const num = numberOverride || orderNumber;
+    if (!num.trim()) { setError("Please enter an order number."); return; }
     setError("");
     setLoading(true);
     try {
-      const data = await fetchOrderTracking(store.id, orderNumber.trim().toUpperCase());
+      const data = await fetchOrderTracking(store.id, num.trim().toUpperCase());
       if (!data) {
         setError("Order number not found. Please check and try again.");
         setOrder(null);
@@ -71,7 +83,7 @@ export function OrderTrackingModal({ store, onClose, initialOrderNumber }) {
     }
   };
 
-  const steps = order?.order_type === "Appointment" ? STEPS_APPOINTMENT : order?.order_type === "Pickup" ? STEPS_PICKUP : STEPS_DELIVERY;
+  const steps = order?.order_type === "Appointment" ? STEPS_APPOINTMENT : order?.order_type === "Dine In" ? STEPS_DINEIN : order?.order_type === "Pickup" ? STEPS_PICKUP : STEPS_DELIVERY;
   const currentIdx = order ? steps.findIndex((s) => s.key === order.status) : -1;
 
   return (
@@ -84,7 +96,19 @@ export function OrderTrackingModal({ store, onClose, initialOrderNumber }) {
 
         {!order ? (
           <>
-            <div style={{ fontSize: "12px", color: "#8B8576", marginBottom: "10px" }}>Enter your Order Number (e.g. ORD1234) — you got this when you placed the order.</div>
+            {recentOrders.length > 0 && (
+              <div style={{ marginBottom: "12px" }}>
+                <div style={{ fontSize: "11px", fontWeight: 700, color: "#5C5747", marginBottom: "6px" }}>Your recent orders on this device</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                  {recentOrders.map((num) => (
+                    <button key={num} onClick={() => { setOrderNumber(num); handleCheck(num); }} style={{ border: "1px solid #E3DECF", background: "#F7F5F0", borderRadius: "999px", padding: "6px 12px", fontSize: "11.5px", fontWeight: 700, cursor: "pointer", color: "#1B4332" }}>
+                      {num}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div style={{ fontSize: "12px", color: "#8B8576", marginBottom: "10px" }}>Or enter your Order Number (e.g. ORD1234) — you got this when you placed the order.</div>
             <input
               value={orderNumber}
               onChange={(e) => setOrderNumber(e.target.value.toUpperCase())}
@@ -93,7 +117,7 @@ export function OrderTrackingModal({ store, onClose, initialOrderNumber }) {
               autoFocus
             />
             {error && <div style={{ color: "#B3261E", fontSize: "11.5px", marginBottom: "8px" }}>{error}</div>}
-            <button onClick={handleCheck} disabled={loading} className="ddemo-btn" style={{ width: "100%", background: "#1B4332", color: "white", border: "none", borderRadius: "9px", padding: "11px 0", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}>
+            <button onClick={() => handleCheck()} disabled={loading} className="ddemo-btn" style={{ width: "100%", background: "#1B4332", color: "white", border: "none", borderRadius: "9px", padding: "11px 0", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}>
               {loading ? <Loader2 size={15} className="spin" /> : "Track"}
             </button>
           </>

@@ -6,7 +6,7 @@ import {
   adminActivateStore, adminDeactivateStore, adminExtendSubscription, adminDeleteStore,
   fetchAllOrdersAdmin, fetchAllPaymentsAdmin, fetchAnalytics,
   fetchDistributorsOverview, createDistributor, runMonthlyCommission, markCommissionPaid,
-  fetchCommissionTiers, updateCommissionTier, setDistributorType,
+  fetchCommissionTiers, updateCommissionTier, setDistributorType, updateReferralCode,
 } from "./api";
 
 // ============================================================
@@ -348,6 +348,7 @@ function DistributorsTab() {
   const [copiedCode, setCopiedCode] = useState(null);
   const [markingPaid, setMarkingPaid] = useState(null);
   const [editingType, setEditingType] = useState(null); // distributor_id jiska Special-toggle khula hai
+  const [editingCode, setEditingCode] = useState(null); // distributor_id jiska code-edit khula hai
 
   const handleMarkPaid = async (d) => {
     if (!confirm(`Confirm karein: ${d.name} ko ₹${d.pending_payout} UPI se bhej diya hai?`)) return;
@@ -436,9 +437,15 @@ function DistributorsTab() {
                   <button onClick={() => setEditingType(editingType === d.distributor_id ? null : d.distributor_id)} style={{ border: "1px solid #E3DECF", background: "white", borderRadius: "6px", padding: "3px 8px", fontSize: "10.5px", fontWeight: 700, cursor: "pointer", color: "#5C5747" }}>
                     {d.distributor_type === "special" ? "Rate Badlein" : "Special Mark Karein"}
                   </button>
+                  <button onClick={() => setEditingCode(editingCode === d.distributor_id ? null : d.distributor_id)} style={{ border: "1px solid #E3DECF", background: "white", borderRadius: "6px", padding: "3px 8px", fontSize: "10.5px", fontWeight: 700, cursor: "pointer", color: "#5C5747" }}>
+                    Code Edit Karein
+                  </button>
                 </div>
                 {editingType === d.distributor_id && (
                   <SpecialTypeEditor distributor={d} onDone={() => { setEditingType(null); load(); }} onCancel={() => setEditingType(null)} />
+                )}
+                {editingCode === d.distributor_id && (
+                  <CodeEditor distributor={d} onDone={() => { setEditingCode(null); load(); }} onCancel={() => setEditingCode(null)} />
                 )}
               </div>
               <div style={{ display: "flex", gap: "16px", textAlign: "center", alignItems: "center" }}>
@@ -491,6 +498,41 @@ function SpecialTypeEditor({ distributor, onDone, onCancel }) {
       {type === "special" && (
         <input value={rate} onChange={(e) => setRate(e.target.value.replace(/\D/g, ""))} placeholder="₹/shop/month" style={{ border: "1px solid #E3DECF", borderRadius: "7px", padding: "7px 10px", fontSize: "12px", outline: "none" }} />
       )}
+      {error && <div style={{ color: "#B3261E", fontSize: "11px" }}>{error}</div>}
+      <div style={{ display: "flex", gap: "8px" }}>
+        <button onClick={onCancel} style={{ flex: 1, background: "white", border: "1px solid #E3DECF", borderRadius: "7px", padding: "7px 0", fontSize: "11.5px", fontWeight: 700, cursor: "pointer", color: "#5C5747" }}>Cancel</button>
+        <button onClick={handleSave} disabled={saving} style={{ flex: 1, background: "#1B4332", color: "white", border: "none", borderRadius: "7px", padding: "7px 0", fontSize: "11.5px", fontWeight: 700, cursor: "pointer" }}>{saving ? "..." : "Save"}</button>
+      </div>
+    </div>
+  );
+}
+
+// Referral code edit karna (dop-partner link isi se banti hai)
+function CodeEditor({ distributor, onDone, onCancel }) {
+  const [code, setCode] = useState(distributor.referral_code);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleSave = async () => {
+    if (!code.trim()) { setError("Code khaali nahi ho sakta."); return; }
+    setError("");
+    setSaving(true);
+    try {
+      await updateReferralCode(distributor.distributor_id, code.trim());
+      onDone();
+    } catch (e) {
+      setError(e.message.includes("duplicate") ? "Yeh code pehle se kisi aur distributor ke paas hai." : e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div style={{ marginTop: "10px", background: "#F7F5F0", borderRadius: "9px", padding: "10px 12px", display: "flex", flexDirection: "column", gap: "8px" }}>
+      <div style={{ fontSize: "10.5px", color: "#8B8576" }}>
+        Naya link: dukaan-order-system.vercel.app/dop-partner/{code || "..."}
+      </div>
+      <input value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} style={{ border: "1px solid #E3DECF", borderRadius: "7px", padding: "7px 10px", fontSize: "12px", fontWeight: 700, outline: "none" }} />
       {error && <div style={{ color: "#B3261E", fontSize: "11px" }}>{error}</div>}
       <div style={{ display: "flex", gap: "8px" }}>
         <button onClick={onCancel} style={{ flex: 1, background: "white", border: "1px solid #E3DECF", borderRadius: "7px", padding: "7px 0", fontSize: "11.5px", fontWeight: 700, cursor: "pointer", color: "#5C5747" }}>Cancel</button>

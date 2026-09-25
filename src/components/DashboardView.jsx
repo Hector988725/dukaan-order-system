@@ -295,6 +295,7 @@ function OrderCard({ order, store, deliveryBoys, onAdvance, onPaymentConfirm, on
   const needsPaymentVerification = order.payment_method === "UPI" && order.payment_status === "Pending Verification";
   const isPickup = order.order_type === "Pickup";
   const isAppointment = order.order_type === "Appointment";
+  const isDineIn = order.order_type === "Dine In";
   const nextLabel = getNextLabel(order);
 
   const isNew = order.status === "New";
@@ -326,7 +327,7 @@ function OrderCard({ order, store, deliveryBoys, onAdvance, onPaymentConfirm, on
 
   // Delivery order jab "Ready" ho jaaye, tabhi delivery boy assign karne
   // ka option dikhta hai (Pickup orders ko delivery boy ki zaroorat nahi).
-  const showAssignDeliveryBoy = !isPickup && !isAppointment && order.status === "Ready";
+  const showAssignDeliveryBoy = !isPickup && !isAppointment && !isDineIn && order.status === "Ready";
   const assignedBoy = order.delivery_boy_id ? (deliveryBoys || []).find((b) => b.id === order.delivery_boy_id) : null;
 
   const handleDelete = () => {
@@ -386,9 +387,9 @@ function OrderCard({ order, store, deliveryBoys, onAdvance, onPaymentConfirm, on
         </div>
       )}
 
-      {/* Pickup/Delivery badge — customer ne checkout par jo chuna tha.
-          Appointment (Salon/Beauty Parlour) ke liye date/time dikhta
-          hai, address/pickup badge ki jagah. */}
+      {/* Pickup/Delivery/Dine In badge — customer ne checkout par jo
+          chuna tha. Appointment (Salon/Beauty Parlour) ke liye date/time
+          dikhta hai, address/pickup badge ki jagah. */}
       <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "6px" }}>
         {isAppointment ? (
           <>
@@ -396,13 +397,18 @@ function OrderCard({ order, store, deliveryBoys, onAdvance, onPaymentConfirm, on
             {order.booking_date && <InfoPill label="Date" value={new Date(order.booking_date).toLocaleDateString("en-IN", { day: "numeric", month: "short" })} color="#5B2A5E" bg="#F3E6F0" />}
             {order.booking_slot && <InfoPill label="Time" value={order.booking_slot} color="#5B2A5E" bg="#F3E6F0" />}
           </>
+        ) : isDineIn ? (
+          <>
+            <InfoPill label="Type" value="Dine In" color="#8A1F1F" bg="#FBE9E7" />
+            {order.landmark && <InfoPill label="Table" value={order.landmark} color="#8A1F1F" bg="#FBE9E7" />}
+          </>
         ) : (
           <InfoPill label="Type" value={isPickup ? "Pickup se Milega" : "Delivery"} color={isPickup ? "#9A6B00" : "#1B4332"} bg={isPickup ? "#FFF4DB" : "#E7F0EA"} />
         )}
         {assignedBoy && <InfoPill label="Delivery Boy" value={assignedBoy.name} color="#1B4332" bg="#E7F0EA" />}
       </div>
 
-      {!isPickup && !isAppointment && (
+      {!isPickup && !isAppointment && !isDineIn && (
         <div style={{ fontSize: "11.5px", color: "#8B8576", marginBottom: "10px" }}>
           📍 {order.address}{order.landmark ? ` (${order.landmark})` : ""} – {order.pincode}
         </div>

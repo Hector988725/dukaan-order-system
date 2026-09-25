@@ -6,11 +6,36 @@ import { OrderTrackingModal } from "./OrderTracking";
 
 const PENDING_UPI_KEY = "dukaan_pending_upi_checkout";
 
+// Order place hone ke baad uska number is device par (customer ke apne
+// phone/browser mein) yaad rakhte hain — taaki agar customer number
+// note karna bhool jaaye, to "Track Order" kholte hi apne aap dikh
+// jaaye, poora type karne ki zaroorat na pade. Har store ke liye alag
+// list, max 5 sabse naye order (koi server/account zaroori nahi).
+export function saveRecentOrder(storeId, orderNumber) {
+  try {
+    const key = `dukaan_recent_orders_${storeId}`;
+    const existing = JSON.parse(localStorage.getItem(key) || "[]");
+    const updated = [orderNumber, ...existing.filter((o) => o !== orderNumber)].slice(0, 5);
+    localStorage.setItem(key, JSON.stringify(updated));
+  } catch (e) {
+    // localStorage disabled ho sakta hai (private browsing waghera) —
+    // is case mein bhi order place karna fail nahi hona chahiye
+  }
+}
+
+export function getRecentOrders(storeId) {
+  try {
+    return JSON.parse(localStorage.getItem(`dukaan_recent_orders_${storeId}`) || "[]");
+  } catch (e) {
+    return [];
+  }
+}
+
 // Delivery charge sirf Home Delivery par lagta hai, Pickup par kabhi
 // nahi. Agar dukaandar ne "free delivery above ₹X" set kiya hai aur
 // cart usse zyada hai, to fee 0 ho jaati hai.
 function computeDeliveryFee(store, orderType, cartTotal) {
-  if (orderType === "Pickup") return 0;
+  if (orderType === "Pickup" || orderType === "Dine In") return 0;
   const fee = Number(store.delivery_fee) || 0;
   if (fee <= 0) return 0;
   if (store.free_delivery_above != null && cartTotal >= Number(store.free_delivery_above)) return 0;
@@ -318,9 +343,9 @@ const CustomerView = forwardRef(function CustomerView({ store, products, onOrder
         order_number: orderNumber,
         customer_name: form.name,
         customer_phone: form.phone,
-        address: form.orderType === "Pickup" ? (form.address || null) : form.address,
+        address: form.orderType === "Pickup" || form.orderType === "Dine In" ? (form.address || null) : form.address,
         landmark: form.landmark || null,
-        pincode: form.orderType === "Pickup" ? (form.pincode || null) : form.pincode,
+        pincode: form.orderType === "Pickup" || form.orderType === "Dine In" ? (form.pincode || null) : form.pincode,
         order_type: form.orderType || "Delivery",
         delivery_fee: deliveryFee,
         payment_method: isUpi ? "UPI" : "COD",
@@ -351,7 +376,7 @@ const CustomerView = forwardRef(function CustomerView({ store, products, onOrder
       // Pickup order ke waqt address/landmark/pincode ko bilkul touch
       // nahi karte — jo pehle se saved hai wahi surakshit rehta hai.
       try {
-        const isPickupOrder = form.orderType === "Pickup";
+        const isPickupOrder = form.orderType === "Pickup" || form.orderType === "Dine In";
         await upsertCustomerDetails(store.id, {
           phone: form.phone,
           name: form.name,
@@ -363,6 +388,7 @@ const CustomerView = forwardRef(function CustomerView({ store, products, onOrder
         console.warn("Customer details save nahi ho payi:", saveErr);
       }
       sessionStorage.removeItem(PENDING_UPI_KEY);
+      saveRecentOrder(store.id, saved.order_number);
       setOrderPlaced(saved);
       setCart({});
       setComboCart({});
@@ -727,6 +753,7 @@ function BookingModal({ store, product, theme, onClose, onBooked }) {
         booking_slot: slot,
       };
       const saved = await createOrder(payload);
+      saveRecentOrder(store.id, saved.order_number);
       onBooked({ ...saved, service_name: product.name, service_label: service.label, payment_choice: payment });
     } catch (e) {
       setError(e.message || "Booking nahi ho payi, dobara try karein.");
@@ -1510,8 +1537,9 @@ function CheckoutModal({ store, cartTotal, submitting, resumeData, cart, comboCa
           <button onClick={handleCloseClick} style={closeBtnStyle}><X size={18} /></button>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-          {/* Order Type — Pickup ya Delivery. Yeh sabse pehle poochte hain
-              kyunki isी se decide hota hai neeche address zaroori hai ya nahi. */}
+          {/* Order Type — Pickup/Delivery/Dine In (Dine In sirf restaurant
+              business type ke liye). Yeh sabse pehle poochte hain kyunki
+              isी se decide hota hai neeche address zaroori hai ya nahi. */}
           <div>
             <div style={{ fontSize: "11.5px", fontWeight: 600, color: "#5C5747", marginBottom: "6px" }}>How would you like your order?</div>
             <div style={{ display: "flex", gap: "8px" }}>
@@ -1521,6 +1549,11 @@ function CheckoutModal({ store, cartTotal, submitting, resumeData, cart, comboCa
               <button onClick={() => setOrderType("Pickup")} style={{ flex: 1, padding: "10px 0", borderRadius: "9px", border: orderType === "Pickup" ? `1.5px solid ${theme.primary}` : "1px solid #E3DECF", background: orderType === "Pickup" ? "#E7F0EA" : "white", color: orderType === "Pickup" ? theme.primary : "#5C5747", fontWeight: 700, fontSize: "12.5px", cursor: "pointer" }}>
                 🏪 Store Pickup
               </button>
+              {store.business_type === "restaurant" && (
+                <button onClick={() => setOrderType("Dine In")} style={{ flex: 1, padding: "10px 0", borderRadius: "9px", border: orderType === "Dine In" ? `1.5px solid ${theme.primary}` : "1px solid #E3DECF", background: orderType === "Dine In" ? "#E7F0EA" : "white", color: orderType === "Dine In" ? theme.primary : "#5C5747", fontWeight: 700, fontSize: "12.5px", cursor: "pointer" }}>
+                  🍽️ Dine In
+                </button>
+              )}
             </div>
           </div>
 
@@ -1536,6 +1569,9 @@ function CheckoutModal({ store, cartTotal, submitting, resumeData, cart, comboCa
             </div>
           )}
           <Field label="Your Name" value={name} onChange={setName} placeholder="e.g. Ramesh Yadav" />
+          {orderType === "Dine In" && (
+            <Field label="Table Number (optional)" value={landmark} onChange={setLandmark} placeholder="e.g. Table 5" />
+          )}
           {isDeliveryType && (
             <>
               <Field label="House/Street Address" value={address} onChange={setAddress} placeholder="House number, street, area" textarea />
@@ -1545,9 +1581,14 @@ function CheckoutModal({ store, cartTotal, submitting, resumeData, cart, comboCa
               </div>
             </>
           )}
-          {!isDeliveryType && (
+          {!isDeliveryType && orderType !== "Dine In" && (
             <div style={{ background: "#F7F5F0", borderRadius: "9px", padding: "10px 12px", fontSize: "11.5px", color: "#5C5747" }}>
               🏪 You'll pick up your order from the store yourself — no address needed.
+            </div>
+          )}
+          {orderType === "Dine In" && (
+            <div style={{ background: "#F7F5F0", borderRadius: "9px", padding: "10px 12px", fontSize: "11.5px", color: "#5C5747" }}>
+              🍽️ You're ordering to eat at the restaurant — no delivery needed.
             </div>
           )}
 

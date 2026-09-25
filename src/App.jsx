@@ -794,7 +794,6 @@ function HeaderMenu({ store, theme }) {
         <>
           <div onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 60 }} />
           <div
-            onClick={() => setOpen(false)}
             style={{
               position: "absolute", top: "calc(100% + 8px)", right: 0, zIndex: 70, minWidth: "210px",
               background: theme.primaryDark, borderRadius: "12px", padding: "8px",
@@ -802,6 +801,14 @@ function HeaderMenu({ store, theme }) {
               display: "flex", flexDirection: "column", gap: "6px",
             }}
           >
+            {/* Note: is panel par onClick={() => setOpen(false)} jaan-
+                bujh kar NAHI hai — "Order Track Karein"/"Mera Khata"
+                click karte hi apna modal kholte hain (apna khud ka
+                open-state rakhte hain); agar yahan bhi close-on-click
+                hota, to click bubble hoke turant poora dropdown (aur
+                usके andar ke buttons, unke modal-state samet) unmount
+                kar deta — modal kabhi dikhta hi nahi. Bahar click karne
+                (upar wali fixed overlay) se hi dropdown band hota hai. */}
             <OrderTrackingButton store={store} />
             <CustomerKhataButton store={store} />
           </div>

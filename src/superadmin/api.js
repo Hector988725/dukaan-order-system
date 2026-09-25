@@ -319,3 +319,8 @@ export async function verifyDeathClaim(claimId, approve, effectiveDate) {
   });
   if (error) throw error;
 }
+
+export async function updateReferralCode(distributorId, code) {
+  const { error } = await supabase.rpc("admin_update_referral_code", { p_distributor_id: distributorId, p_new_code: code });
+  if (error) throw error;
+}
