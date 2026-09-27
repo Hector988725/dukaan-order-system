@@ -1421,7 +1421,7 @@ function CartDrawer({ cartItems, comboCartItems = [], cartTotal, onClose, onRemo
 
 function CheckoutModal({ store, cartTotal, submitting, resumeData, cart, comboCart, onClose, onSubmit }) {
   const theme = getTheme(store.business_type);
-  const [orderType, setOrderType] = useState(resumeData?.orderType || "Delivery");
+  const [orderType, setOrderType] = useState(resumeData?.orderType || (store.delivery_enabled === false ? "Pickup" : "Delivery"));
   const [name, setName] = useState(resumeData?.name || "");
   const [phone, setPhone] = useState(resumeData?.phone || "");
   const [address, setAddress] = useState(resumeData?.address || "");
@@ -1543,9 +1543,11 @@ function CheckoutModal({ store, cartTotal, submitting, resumeData, cart, comboCa
           <div>
             <div style={{ fontSize: "11.5px", fontWeight: 600, color: "#5C5747", marginBottom: "6px" }}>How would you like your order?</div>
             <div style={{ display: "flex", gap: "8px" }}>
-              <button onClick={() => setOrderType("Delivery")} style={{ flex: 1, padding: "10px 0", borderRadius: "9px", border: orderType === "Delivery" ? `1.5px solid ${theme.primary}` : "1px solid #E3DECF", background: orderType === "Delivery" ? "#E7F0EA" : "white", color: orderType === "Delivery" ? theme.primary : "#5C5747", fontWeight: 700, fontSize: "12.5px", cursor: "pointer" }}>
-                🛵 Home Delivery
-              </button>
+              {store.delivery_enabled !== false && (
+                <button onClick={() => setOrderType("Delivery")} style={{ flex: 1, padding: "10px 0", borderRadius: "9px", border: orderType === "Delivery" ? `1.5px solid ${theme.primary}` : "1px solid #E3DECF", background: orderType === "Delivery" ? "#E7F0EA" : "white", color: orderType === "Delivery" ? theme.primary : "#5C5747", fontWeight: 700, fontSize: "12.5px", cursor: "pointer" }}>
+                  🛵 Home Delivery
+                </button>
+              )}
               <button onClick={() => setOrderType("Pickup")} style={{ flex: 1, padding: "10px 0", borderRadius: "9px", border: orderType === "Pickup" ? `1.5px solid ${theme.primary}` : "1px solid #E3DECF", background: orderType === "Pickup" ? "#E7F0EA" : "white", color: orderType === "Pickup" ? theme.primary : "#5C5747", fontWeight: 700, fontSize: "12.5px", cursor: "pointer" }}>
                 🏪 Store Pickup
               </button>

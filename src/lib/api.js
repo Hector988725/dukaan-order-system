@@ -419,10 +419,10 @@ export async function deleteVariant(variantId) {
 }
 
 // ---- Store Settings ----
-export async function updateStoreSettings(storeId, { name, whatsapp_number, upi_id, address, logo_url, tagline, timings, delivery_fee, free_delivery_above, auto_hours_enabled, opens_at, closes_at, banner_images, facebook_url, instagram_url, youtube_url, gmb_url, maps_link }) {
+export async function updateStoreSettings(storeId, { name, whatsapp_number, upi_id, address, logo_url, tagline, timings, delivery_fee, free_delivery_above, auto_hours_enabled, opens_at, closes_at, banner_images, facebook_url, instagram_url, youtube_url, gmb_url, maps_link, delivery_enabled }) {
   const { error } = await supabase
     .from("stores")
-    .update({ name, whatsapp_number, upi_id, address, logo_url, tagline, timings, delivery_fee, free_delivery_above, auto_hours_enabled, opens_at, closes_at, banner_images, facebook_url, instagram_url, youtube_url, gmb_url, maps_link })
+    .update({ name, whatsapp_number, upi_id, address, logo_url, tagline, timings, delivery_fee, free_delivery_above, auto_hours_enabled, opens_at, closes_at, banner_images, facebook_url, instagram_url, youtube_url, gmb_url, maps_link, delivery_enabled })
     .eq("id", storeId);
   if (error) throw error;
 }

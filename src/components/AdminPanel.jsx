@@ -169,6 +169,7 @@ function StoreSettingsForm({ store, onRefresh }) {
   const [deliveryFee, setDeliveryFee] = useState(String(store.delivery_fee || 0));
   const [freeDeliveryAbove, setFreeDeliveryAbove] = useState(store.free_delivery_above != null ? String(store.free_delivery_above) : "");
   const [bannerImages, setBannerImages] = useState(store.banner_images || []);
+  const [deliveryEnabled, setDeliveryEnabled] = useState(store.delivery_enabled !== false);
   const [facebookUrl, setFacebookUrl] = useState(store.facebook_url || "");
   const [instagramUrl, setInstagramUrl] = useState(store.instagram_url || "");
   const [youtubeUrl, setYoutubeUrl] = useState(store.youtube_url || "");
@@ -195,6 +196,7 @@ function StoreSettingsForm({ store, onRefresh }) {
         youtube_url: youtubeUrl.trim() || null,
         gmb_url: gmbUrl.trim() || null,
         maps_link: mapsLink.trim() || null,
+        delivery_enabled: deliveryEnabled,
       });
       setSaved(true);
       onRefresh();
@@ -263,14 +265,25 @@ function StoreSettingsForm({ store, onRefresh }) {
       </div>
       <div style={{ borderTop: "1px solid #E3DECF", paddingTop: "12px", marginTop: "2px" }}>
         <div style={{ fontSize: "12px", fontWeight: 700, color: "#1A1A1A", marginBottom: "10px" }}>🛵 Delivery Charge</div>
-        <div style={{ display: "flex", gap: "8px" }}>
-          <div style={{ flex: 1 }}>
-            <Field label="Delivery Charge (₹)" value={deliveryFee} onChange={(v) => setDeliveryFee(v.replace(/[^\d.]/g, ""))} placeholder="jaise 20 (0 rakhein agar free hai)" />
+        <label style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px", cursor: "pointer" }}>
+          <input type="checkbox" checked={deliveryEnabled} onChange={(e) => setDeliveryEnabled(e.target.checked)} style={{ width: "16px", height: "16px" }} />
+          <span style={{ fontSize: "12px", fontWeight: 600 }}>Home Delivery denge</span>
+        </label>
+        {!deliveryEnabled && (
+          <div style={{ fontSize: "10.5px", color: "#B3261E", background: "#FDECEA", borderRadius: "7px", padding: "8px 10px", marginBottom: "10px" }}>
+            Home Delivery band hai — customer ko checkout mein sirf Pickup{store.business_type === "restaurant" ? "/Dine In" : ""} hi dikhega.
           </div>
-          <div style={{ flex: 1 }}>
-            <Field label="Free Delivery Upar Kitne Rupaye Se (optional)" value={freeDeliveryAbove} onChange={(v) => setFreeDeliveryAbove(v.replace(/[^\d.]/g, ""))} placeholder="jaise 300" />
+        )}
+        {deliveryEnabled && (
+          <div style={{ display: "flex", gap: "8px" }}>
+            <div style={{ flex: 1 }}>
+              <Field label="Delivery Charge (₹)" value={deliveryFee} onChange={(v) => setDeliveryFee(v.replace(/[^\d.]/g, ""))} placeholder="jaise 20 (0 rakhein agar free hai)" />
+            </div>
+            <div style={{ flex: 1 }}>
+              <Field label="Free Delivery Upar Kitne Rupaye Se (optional)" value={freeDeliveryAbove} onChange={(v) => setFreeDeliveryAbove(v.replace(/[^\d.]/g, ""))} placeholder="jaise 300" />
+            </div>
           </div>
-        </div>
+        )}
         <div style={{ fontSize: "10.5px", color: "#8B8576", marginTop: "4px" }}>
           Yeh sirf Home Delivery orders par lagta hai — Pickup (dukaan se khud lena) orders par kabhi nahi.
         </div>
