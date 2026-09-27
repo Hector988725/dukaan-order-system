@@ -20,10 +20,15 @@ export default function AdminPanel({ store, products, user, onRefresh }) {
 function AdminContent({ store, products, user, onRefresh }) {
   const [tab, setTab] = useState("products");
 
+  // Salon/Beauty Parlour (booking-mode) mein delivery boy ka concept
+  // hai hi nahi (appointment hai, delivery nahi) — isliye sirf isi
+  // business type ke liye "Delivery Staff" tab hide hota hai. Baaki
+  // SAARE business types (kirana/restaurant/fashion/hardware/bakery/
+  // etc) mein yeh tab bilkul pehle jaisa hi dikhta hai.
   const tabs = [
     { id: "products", label: "Products", icon: <Package size={14} /> },
     { id: "combos", label: "Combos", icon: <Gift size={14} /> },
-    { id: "delivery", label: "Delivery Staff", icon: <Bike size={14} /> },
+    ...(isBookingCategory(store.business_type) ? [] : [{ id: "delivery", label: "Delivery Staff", icon: <Bike size={14} /> }]),
     { id: "settings", label: "Store Settings", icon: <Settings size={14} /> },
     { id: "account", label: "Account", icon: <UserCircle size={14} /> },
     { id: "subscription", label: "Subscription", icon: <CreditCard size={14} /> },
@@ -56,7 +61,7 @@ function AdminContent({ store, products, user, onRefresh }) {
 }
 
 import RazorpaySubscription from "./RazorpaySubscription";
-import { getShoppingMode, getDiscountInfo, getUnitPresets } from "../lib/theme";
+import { getShoppingMode, getDiscountInfo, getUnitPresets, isBookingCategory } from "../lib/theme";
 
 // ============================================================
 // SUBSCRIPTION PANEL — Razorpay se real payment

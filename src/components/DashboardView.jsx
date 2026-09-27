@@ -21,19 +21,26 @@ const statusMeta = {
 const PIPELINE_STAGES = ["New", "Accepted", "Preparing", "Ready", "Out for Delivery", "Delivered"];
 
 // Order-type ke hisaab se next status aur uska label alag hota hai —
-// isliye ab yeh function hai, plain object nahi.
+// isliye ab yeh function hai, plain object nahi. Pickup, Appointment
+// (Salon booking), aur Dine In (Restaurant) — teeno mein delivery boy
+// ki zaroorat nahi hoti, seedha "Ready" se "Delivered/Completed" ho
+// jaata hai.
+function noDeliveryNeeded(order) {
+  return order.order_type === "Pickup" || order.order_type === "Appointment" || order.order_type === "Dine In";
+}
 function getNextStatus(order) {
-  const isPickup = order.order_type === "Pickup";
-  const map = { New: "Accepted", Accepted: "Preparing", Preparing: "Ready", Ready: isPickup ? "Delivered" : "Out for Delivery", "Out for Delivery": "Delivered", Delivered: null };
+  const skip = noDeliveryNeeded(order);
+  const map = { New: "Accepted", Accepted: "Preparing", Preparing: "Ready", Ready: skip ? "Delivered" : "Out for Delivery", "Out for Delivery": "Delivered", Delivered: null };
   return map[order.status] ?? null;
 }
 function getNextLabel(order) {
-  const isPickup = order.order_type === "Pickup";
+  const skip = noDeliveryNeeded(order);
+  const readyLabel = order.order_type === "Appointment" ? "Completed Mark Karein" : order.order_type === "Dine In" ? "Served Mark Karein" : skip ? "Pickup Ho Gaya — Mark Karein" : "Out for Delivery Mark Karein";
   const map = {
     New: "Order Accept karein",
     Accepted: "Packing Shuru Karein",
     Preparing: "Ready Mark Karein",
-    Ready: isPickup ? "Pickup Ho Gaya — Mark Karein" : "Out for Delivery Mark Karein",
+    Ready: readyLabel,
     "Out for Delivery": "Delivered Mark Karein",
     Delivered: null,
   };
@@ -85,8 +92,9 @@ export default function DashboardView({ store, products, orders, deliveryBoys, h
     if (!next) return;
     // Delivery order ko "Out for Delivery" mark karne se pehle delivery
     // boy assign hona zaroori hai — warna customer ko pata hi nahi
-    // chalega kaun saaman le kar aa raha hai.
-    if (order.status === "Ready" && order.order_type !== "Pickup" && !order.delivery_boy_id) {
+    // chalega kaun saaman le kar aa raha hai. Pickup/Appointment/Dine In
+    // mein yeh step hai hi nahi, isliye unpe yeh check lagu nahi hota.
+    if (order.status === "Ready" && !noDeliveryNeeded(order) && !order.delivery_boy_id) {
       alert("Pehle Delivery Boy assign karein, phir 'Out for Delivery' mark karein.");
       return;
     }
