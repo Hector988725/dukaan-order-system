@@ -62,6 +62,7 @@ function AdminContent({ store, products, user, onRefresh }) {
 
 import RazorpaySubscription from "./RazorpaySubscription";
 import { getShoppingMode, getDiscountInfo, getUnitPresets, isBookingCategory } from "../lib/theme";
+import { INDIAN_STATES } from "../lib/gst";
 
 // ============================================================
 // SUBSCRIPTION PANEL — Razorpay se real payment
@@ -170,6 +171,10 @@ function StoreSettingsForm({ store, onRefresh }) {
   const [freeDeliveryAbove, setFreeDeliveryAbove] = useState(store.free_delivery_above != null ? String(store.free_delivery_above) : "");
   const [bannerImages, setBannerImages] = useState(store.banner_images || []);
   const [deliveryEnabled, setDeliveryEnabled] = useState(store.delivery_enabled !== false);
+  const [gstEnabledSetting, setGstEnabledSetting] = useState(!!store.gst_enabled);
+  const [gstPriceType, setGstPriceType] = useState(store.gst_price_type || "exclusive");
+  const [gstState, setGstState] = useState(store.gst_state || "");
+  const [gstin, setGstin] = useState(store.gstin || "");
   const [facebookUrl, setFacebookUrl] = useState(store.facebook_url || "");
   const [instagramUrl, setInstagramUrl] = useState(store.instagram_url || "");
   const [youtubeUrl, setYoutubeUrl] = useState(store.youtube_url || "");
@@ -197,6 +202,10 @@ function StoreSettingsForm({ store, onRefresh }) {
         gmb_url: gmbUrl.trim() || null,
         maps_link: mapsLink.trim() || null,
         delivery_enabled: deliveryEnabled,
+        gst_enabled: gstEnabledSetting,
+        gst_price_type: gstPriceType,
+        gst_state: gstState || null,
+        gstin: gstin.trim() || null,
       });
       setSaved(true);
       onRefresh();
@@ -287,6 +296,41 @@ function StoreSettingsForm({ store, onRefresh }) {
         <div style={{ fontSize: "10.5px", color: "#8B8576", marginTop: "4px" }}>
           Yeh sirf Home Delivery orders par lagta hai — Pickup (dukaan se khud lena) orders par kabhi nahi.
         </div>
+      </div>
+      <div style={{ borderTop: "1px solid #E3DECF", paddingTop: "12px", marginTop: "2px" }}>
+        <div style={{ fontSize: "12px", fontWeight: 700, color: "#1A1A1A", marginBottom: "4px" }}>🧾 GST / Tax (optional)</div>
+        <div style={{ fontSize: "10.5px", color: "#8B8576", marginBottom: "10px" }}>
+          Sirf tab enable karein jab aap GST-registered hain aur bill par GST dikhana chahte hain. Band rakhne par sab kuch pehle jaisa hi chalega.
+        </div>
+        <label style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px", cursor: "pointer" }}>
+          <input type="checkbox" checked={gstEnabledSetting} onChange={(e) => setGstEnabledSetting(e.target.checked)} style={{ width: "16px", height: "16px" }} />
+          <span style={{ fontSize: "12px", fontWeight: 600 }}>GST enable karein</span>
+        </label>
+        {gstEnabledSetting && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+            <div>
+              <div style={{ fontSize: "11px", fontWeight: 600, color: "#5C5747", marginBottom: "4px" }}>Aapke product ki price kaisi hai?</div>
+              <div style={{ display: "flex", gap: "8px" }}>
+                {[["exclusive", "GST Exclusive (price ke upar GST judega)"], ["inclusive", "GST Inclusive (price mein GST shamil hai)"]].map(([v, l]) => (
+                  <button key={v} type="button" onClick={() => setGstPriceType(v)} style={{ flex: 1, padding: "9px 8px", borderRadius: "8px", border: gstPriceType === v ? "1.5px solid #1B4332" : "1px solid #E3DECF", background: gstPriceType === v ? "#E7F0EA" : "white", color: gstPriceType === v ? "#1B4332" : "#5C5747", fontWeight: 700, fontSize: "11px", cursor: "pointer", lineHeight: 1.3 }}>
+                    {l}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: "11px", fontWeight: 600, color: "#5C5747", marginBottom: "4px" }}>Aapki dukaan kis State mein hai? (CGST+SGST ya IGST decide karne ke liye)</div>
+              <select value={gstState} onChange={(e) => setGstState(e.target.value)} style={inputStyle}>
+                <option value="">State chunein</option>
+                {INDIAN_STATES.map((st) => <option key={st} value={st}>{st}</option>)}
+              </select>
+            </div>
+            <Field label="GSTIN (optional — bill par dikhega)" value={gstin} onChange={(v) => setGstin(v.toUpperCase())} placeholder="jaise 23ABCDE1234F1Z5" />
+            <div style={{ fontSize: "10.5px", color: "#8B8576" }}>
+              Ab har product/variant ke form mein "GST Rate" (0/5/12/18/28%) ka option dikhega. Jo product par rate set nahi hoga, woh 0% maana jaayega.
+            </div>
+          </div>
+        )}
       </div>
       <div style={{ borderTop: "1px solid #E3DECF", paddingTop: "12px", marginTop: "2px" }}>
         <div style={{ fontSize: "12px", fontWeight: 700, color: "#1A1A1A", marginBottom: "4px" }}>📱 Social Media Links (agar ho to, sab optional)</div>
@@ -549,6 +593,7 @@ function ProductManager({ store, products, onRefresh }) {
             product={p}
             storeId={store.id}
             businessType={store.business_type}
+            gstEnabled={store.gst_enabled}
             expanded={expandedId === p.id}
             onToggle={() => setExpandedId(expandedId === p.id ? null : p.id)}
             onRefresh={onRefresh}
@@ -716,7 +761,7 @@ function MultiImagePicker({ images, storeId, onChange }) {
 // ============================================================
 // PRODUCT ROW
 // ============================================================
-function ProductRow({ product, storeId, businessType, expanded, onToggle, onRefresh, onMoveUp, onMoveDown, reordering }) {
+function ProductRow({ product, storeId, businessType, gstEnabled, expanded, onToggle, onRefresh, onMoveUp, onMoveDown, reordering }) {
   const [editing, setEditing] = useState(false);
   const [addingVariant, setAddingVariant] = useState(false);
   const [togglingFeatured, setTogglingFeatured] = useState(false);
@@ -776,11 +821,12 @@ function ProductRow({ product, storeId, businessType, expanded, onToggle, onRefr
       {expanded && (
         <div style={{ borderTop: "1px solid #E3DECF", padding: "12px 13px", background: "#FBFAF6" }}>
           {product.variants.map((v) => (
-            <VariantRow key={v.id} variant={v} businessType={businessType} onRefresh={onRefresh} />
+            <VariantRow key={v.id} variant={v} businessType={businessType} gstEnabled={gstEnabled} onRefresh={onRefresh} />
           ))}
           {addingVariant ? (
             <NewVariantForm
               businessType={businessType}
+              gstEnabled={gstEnabled}
               onCancel={() => setAddingVariant(false)}
               onSave={async (form) => { await createVariant(product.id, form); setAddingVariant(false); onRefresh(); }}
             />
@@ -835,7 +881,7 @@ function EditProductForm({ product, storeId, businessType, onCancel, onSave }) {
 // ============================================================
 // VARIANT MANAGEMENT
 // ============================================================
-function VariantRow({ variant, businessType, onRefresh }) {
+function VariantRow({ variant, businessType, gstEnabled, onRefresh }) {
   const [editing, setEditing] = useState(false);
 
   const handleDelete = async () => {
@@ -849,6 +895,7 @@ function VariantRow({ variant, businessType, onRefresh }) {
       <EditVariantForm
         variant={variant}
         businessType={businessType}
+        gstEnabled={gstEnabled}
         onCancel={() => setEditing(false)}
         onSave={async (form) => { await updateVariant(variant.id, form); setEditing(false); onRefresh(); }}
       />
@@ -884,12 +931,13 @@ function fromDatetimeLocal(localStr) {
   return localStr ? new Date(localStr).toISOString() : null;
 }
 
-function EditVariantForm({ variant, businessType, onCancel, onSave }) {
+function EditVariantForm({ variant, businessType, gstEnabled, onCancel, onSave }) {
   const [label, setLabel] = useState(variant.label);
   const [unit, setUnit] = useState(variant.unit);
   const [price, setPrice] = useState(String(variant.price));
   const [mrp, setMrp] = useState(variant.mrp != null ? String(variant.mrp) : "");
   const [stock, setStock] = useState(String(variant.stock));
+  const [gstRate, setGstRate] = useState(String(variant.gst_rate ?? 0));
   const [barcode, setBarcode] = useState(variant.barcode || "");
   const [offerEnabled, setOfferEnabled] = useState(variant.offer_enabled || false);
   const [offerPrice, setOfferPrice] = useState(variant.offer_price != null ? String(variant.offer_price) : "");
@@ -937,6 +985,7 @@ function EditVariantForm({ variant, businessType, onCancel, onSave }) {
       offer_starts_at: offerEnabled ? fromDatetimeLocal(offerStart) : null,
       offer_ends_at: offerEnabled ? fromDatetimeLocal(offerEnd) : null,
       qty_deal_tiers: cleanTiers,
+      gst_rate: Number(gstRate) || 0,
     });
     setSaving(false);
   };
@@ -956,6 +1005,7 @@ function EditVariantForm({ variant, businessType, onCancel, onSave }) {
             Customer ko dikhega: <s style={{ color: "#8B8576" }}>₹{discount.mrp}</s> ₹{discount.price} — {discount.pct}% OFF
           </div>
         )}
+        {gstEnabled && <GstRateField value={gstRate} onChange={setGstRate} />}
         <Field label="Barcode (optional)" value={barcode} onChange={setBarcode} placeholder="jaise 8901234567890" />
         <LimitedTimeDealFields
           enabled={offerEnabled} onEnabledChange={setOfferEnabled}
@@ -1066,7 +1116,7 @@ function QuantityDealFields({ tiers, onChange, basePrice }) {
   );
 }
 
-function NewVariantForm({ businessType, onCancel, onSave, prefillBarcode }) {
+function NewVariantForm({ businessType, gstEnabled, onCancel, onSave, prefillBarcode }) {
   const [label, setLabel] = useState("");
   const [unit, setUnit] = useState(getUnitPresets(businessType)[0]);
   const [price, setPrice] = useState("");
@@ -1076,6 +1126,7 @@ function NewVariantForm({ businessType, onCancel, onSave, prefillBarcode }) {
   // liye common hai. Booking hamesha available rahe isliye default bahut
   // zyada rakha (dukaandar ko is field ki chinta hi na karni pade).
   const [stock, setStock] = useState(businessType === "salon" ? "9999" : "0");
+  const [gstRate, setGstRate] = useState("0");
   const [barcode, setBarcode] = useState(prefillBarcode || "");
   const [offerEnabled, setOfferEnabled] = useState(false);
   const [offerPrice, setOfferPrice] = useState("");
@@ -1121,6 +1172,7 @@ function NewVariantForm({ businessType, onCancel, onSave, prefillBarcode }) {
       offer_starts_at: offerEnabled ? fromDatetimeLocal(offerStart) : null,
       offer_ends_at: offerEnabled ? fromDatetimeLocal(offerEnd) : null,
       qty_deal_tiers: cleanTiers,
+      gst_rate: Number(gstRate) || 0,
     });
     setSaving(false);
   };
@@ -1145,6 +1197,7 @@ function NewVariantForm({ businessType, onCancel, onSave, prefillBarcode }) {
             Customer ko dikhega: <s style={{ color: "#8B8576" }}>₹{discount.mrp}</s> ₹{discount.price} — {discount.pct}% OFF
           </div>
         )}
+        {gstEnabled && <GstRateField value={gstRate} onChange={setGstRate} />}
         <Field label="Barcode (optional)" value={barcode} onChange={setBarcode} placeholder="jaise 8901234567890" />
         <LimitedTimeDealFields
           enabled={offerEnabled} onEnabledChange={setOfferEnabled}
@@ -1169,6 +1222,19 @@ function NewVariantForm({ businessType, onCancel, onSave, prefillBarcode }) {
 // ============================================================
 // SHARED
 // ============================================================
+// GST Rate dropdown — sirf tab dikhta hai jab store ne GST enable kiya ho
+// (gstEnabled prop). Rate 0/5/12/18/28% mein se hi chuna ja sakta hai.
+function GstRateField({ value, onChange }) {
+  return (
+    <div>
+      <div style={{ fontSize: "11px", fontWeight: 600, color: "#5C5747", marginBottom: "4px" }}>GST Rate</div>
+      <select value={value} onChange={(e) => onChange(e.target.value)} style={inputStyle}>
+        {[0, 5, 12, 18, 28].map((r) => <option key={r} value={String(r)}>{r}%</option>)}
+      </select>
+    </div>
+  );
+}
+
 function Field({ label, value, onChange, placeholder, textarea }) {
   return (
     <div>

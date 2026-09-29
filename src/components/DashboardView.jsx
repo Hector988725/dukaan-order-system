@@ -363,6 +363,11 @@ function OrderCard({ order, store, deliveryBoys, onAdvance, onPaymentConfirm, on
           {order.delivery_fee > 0 && (
             <div style={{ fontSize: "10px", color: "#8B8576" }}>(includes ₹{order.delivery_fee} delivery)</div>
           )}
+          {order.taxable_amount != null && (Number(order.cgst_amount) + Number(order.sgst_amount) + Number(order.igst_amount)) > 0 && (
+            <div style={{ fontSize: "10px", color: "#8B8576" }}>
+              (Taxable ₹{order.taxable_amount} + {Number(order.igst_amount) > 0 ? `IGST ₹${order.igst_amount}` : `CGST ₹${order.cgst_amount} + SGST ₹${order.sgst_amount}`})
+            </div>
+          )}
         </div>
       </div>
 

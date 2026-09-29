@@ -385,7 +385,7 @@ export async function deleteProduct(productId) {
 }
 
 // ---- Variant CRUD ----
-export async function createVariant(productId, { label, unit, price, stock, barcode, mrp, offer_enabled, offer_price, offer_starts_at, offer_ends_at, qty_deal_tiers }) {
+export async function createVariant(productId, { label, unit, price, stock, barcode, mrp, offer_enabled, offer_price, offer_starts_at, offer_ends_at, qty_deal_tiers, gst_rate }) {
   const { data, error } = await supabase
     .from("variants")
     .insert({
@@ -393,6 +393,7 @@ export async function createVariant(productId, { label, unit, price, stock, barc
       offer_enabled: offer_enabled || false, offer_price: offer_price || null,
       offer_starts_at: offer_starts_at || null, offer_ends_at: offer_ends_at || null,
       qty_deal_tiers: qty_deal_tiers && qty_deal_tiers.length > 0 ? qty_deal_tiers : null,
+      gst_rate: gst_rate || 0,
     })
     .select()
     .single();
@@ -400,7 +401,7 @@ export async function createVariant(productId, { label, unit, price, stock, barc
   return data;
 }
 
-export async function updateVariant(variantId, { label, unit, price, stock, barcode, mrp, offer_enabled, offer_price, offer_starts_at, offer_ends_at, qty_deal_tiers }) {
+export async function updateVariant(variantId, { label, unit, price, stock, barcode, mrp, offer_enabled, offer_price, offer_starts_at, offer_ends_at, qty_deal_tiers, gst_rate }) {
   const { error } = await supabase
     .from("variants")
     .update({
@@ -408,6 +409,7 @@ export async function updateVariant(variantId, { label, unit, price, stock, barc
       offer_enabled: offer_enabled || false, offer_price: offer_price || null,
       offer_starts_at: offer_starts_at || null, offer_ends_at: offer_ends_at || null,
       qty_deal_tiers: qty_deal_tiers && qty_deal_tiers.length > 0 ? qty_deal_tiers : null,
+      gst_rate: gst_rate || 0,
     })
     .eq("id", variantId);
   if (error) throw error;
@@ -419,10 +421,10 @@ export async function deleteVariant(variantId) {
 }
 
 // ---- Store Settings ----
-export async function updateStoreSettings(storeId, { name, whatsapp_number, upi_id, address, logo_url, tagline, timings, delivery_fee, free_delivery_above, auto_hours_enabled, opens_at, closes_at, banner_images, facebook_url, instagram_url, youtube_url, gmb_url, maps_link, delivery_enabled }) {
+export async function updateStoreSettings(storeId, { name, whatsapp_number, upi_id, address, logo_url, tagline, timings, delivery_fee, free_delivery_above, auto_hours_enabled, opens_at, closes_at, banner_images, facebook_url, instagram_url, youtube_url, gmb_url, maps_link, delivery_enabled, gst_enabled, gst_price_type, gst_state, gstin }) {
   const { error } = await supabase
     .from("stores")
-    .update({ name, whatsapp_number, upi_id, address, logo_url, tagline, timings, delivery_fee, free_delivery_above, auto_hours_enabled, opens_at, closes_at, banner_images, facebook_url, instagram_url, youtube_url, gmb_url, maps_link, delivery_enabled })
+    .update({ name, whatsapp_number, upi_id, address, logo_url, tagline, timings, delivery_fee, free_delivery_above, auto_hours_enabled, opens_at, closes_at, banner_images, facebook_url, instagram_url, youtube_url, gmb_url, maps_link, delivery_enabled, gst_enabled, gst_price_type, gst_state, gstin })
     .eq("id", storeId);
   if (error) throw error;
 }
@@ -477,6 +479,12 @@ export async function createOrder(orderPayload) {
     p_delivery_fee: orderPayload.delivery_fee || 0,
     p_booking_date: orderPayload.booking_date || null,
     p_booking_slot: orderPayload.booking_slot || null,
+    p_customer_state: orderPayload.customer_state || null,
+    p_discount_amount: orderPayload.discount_amount || 0,
+    p_taxable_amount: orderPayload.taxable_amount ?? null,
+    p_cgst_amount: orderPayload.cgst_amount || 0,
+    p_sgst_amount: orderPayload.sgst_amount || 0,
+    p_igst_amount: orderPayload.igst_amount || 0,
   });
   if (error) {
     // Function ke andar se aane wale friendly error messages ko clean
@@ -627,7 +635,7 @@ export async function fetchServerTime() {
 export async function fetchCombos(storeId) {
   const { data, error } = await supabase
     .from("combos")
-    .select("*, combo_items(id, qty, variants(id, label, unit, price, stock, product_id, products(id, name, emoji, image_url)))")
+    .select("*, combo_items(id, qty, variants(id, label, unit, price, stock, gst_rate, product_id, products(id, name, emoji, image_url)))")
     .eq("store_id", storeId)
     .eq("active", true)
     .order("created_at", { ascending: true });

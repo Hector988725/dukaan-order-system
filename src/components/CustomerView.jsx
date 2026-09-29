@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef, forwardRef, useImperativeHandle } from "react";
 import { Search, ChevronRight, X, Check, MessageCircle, Plus, Minus, Trash2, Loader2, Star, LayoutGrid, Facebook, Instagram, Youtube, MapPin } from "lucide-react";
 import { createOrder, fetchCustomerByPhone, upsertCustomerDetails, fetchServerTime, fetchCombos } from "../lib/api";
+import { calculateOrderGST, INDIAN_STATES } from "../lib/gst";
 import { getTheme, getShoppingMode, isBookingCategory, getDiscountInfo, getVariantPricing, getQuantityDealPrice, getBestQuantityDealBadge, formatOfferExpiry, getCountdownParts } from "../lib/theme";
 import { OrderTrackingModal } from "./OrderTracking";
 
@@ -237,6 +238,55 @@ const CustomerView = forwardRef(function CustomerView({ store, products, onOrder
   const cartTotal = regularCartTotal + comboCartTotal;
   const cartCount = cartItems.reduce((sum, it) => sum + it.qty, 0) + comboCartItems.reduce((sum, c) => sum + c.qty, 0);
 
+  // ============================================================
+  // GST — cart ki har line (amount = discount ke baad wali kimat,
+  // strikeAmount = discount se pehle wali) taiyaar karte hain, phir
+  // lib/gst.js ka central calculator use karte hain. Cart drawer,
+  // checkout summary aur order-payload — teeno yahi se number lete
+  // hain, isliye kahin mismatch nahi hota. Store ne GST enable nahi
+  // kiya to yeh sab automatically "no-tax" values dete hain.
+  // ============================================================
+  const gstLines = useMemo(() => {
+    const lines = [];
+    cartItems.forEach((it) => {
+      const base = variantIndex[it.id]?.variant || it;
+      const pricing = getVariantPricing(base);
+      const deal = getQuantityDealPrice(it, it.qty);
+      const amount = deal ? deal.total : it.price * it.qty;
+      const strikeAmount = Math.max(amount, (pricing.strikePrice ?? pricing.effectivePrice) * it.qty);
+      lines.push({ amount, strikeAmount, gstRate: base.gst_rate || 0 });
+    });
+    // Combo: combo ki kimat ko uske components mein unki normal-price ke
+    // hisaab se baant dete hain, taaki har component apna GST rate le sake.
+    comboCartItems.forEach((c) => {
+      const comps = (c.combo_items || []).filter((ci) => ci.variants);
+      const compsValue = comps.reduce((sum, ci) => sum + Number(ci.variants.price || 0) * ci.qty, 0);
+      const comboAmount = Number(c.combo_price) * c.qty;
+      comps.forEach((ci) => {
+        const share = compsValue > 0 ? (Number(ci.variants.price || 0) * ci.qty) / compsValue : 1 / comps.length;
+        lines.push({
+          amount: comboAmount * share,
+          strikeAmount: Math.max(comboAmount * share, Number(ci.variants.price || 0) * ci.qty * c.qty),
+          gstRate: ci.variants.gst_rate || 0,
+        });
+      });
+    });
+    return lines;
+  }, [cartItems, comboCartItems, variantIndex]);
+
+  const computeGST = (buyerState) => {
+    const g = calculateOrderGST({
+      items: gstLines,
+      priceType: store.gst_price_type,
+      gstEnabled: !!store.gst_enabled,
+      sellerState: store.gst_state,
+      buyerState,
+    });
+    const subtotalAmount = Math.round(gstLines.reduce((sum, l) => sum + l.strikeAmount, 0) * 100) / 100;
+    const discountAmount = Math.max(0, Math.round((subtotalAmount - gstLines.reduce((sum, l) => sum + l.amount, 0)) * 100) / 100);
+    return { ...g, subtotalAmount, discountAmount };
+  };
+
   const addToCart = (variantId) => {
     const entry = variantIndex[variantId];
     if (!entry || entry.variant.stock <= 0) return;
@@ -322,6 +372,10 @@ const CustomerView = forwardRef(function CustomerView({ store, products, onOrder
       const orderNumber = "ORD" + Math.floor(1000 + Math.random() * 9000);
       const isUpi = form.payment === "UPI";
       const deliveryFee = computeDeliveryFee(store, form.orderType, cartTotal);
+      // GST enabled ho to final payable base GST-inclusive/exclusive ke
+      // hisaab se nikalta hai; disabled ho to bilkul pehle jaisa cartTotal.
+      const gst = computeGST(store.gst_enabled ? (form.customerState || null) : null);
+      const orderBase = store.gst_enabled ? gst.finalAmount : cartTotal;
       // Combo ko place_order RPC ke liye uske underlying variants mein
       // "expand" karte hain — har component ek normal item ban jaata hai
       // (price: 0, kyunki combo ka total already `cartTotal` ke through
@@ -357,10 +411,18 @@ const CustomerView = forwardRef(function CustomerView({ store, products, onOrder
         payment_status: isUpi ? "Pending Verification" : "Cash on Delivery",
         status: "New",
         items: [
-          ...cartItems.map((it) => ({ variant_id: it.id, name: it.productName, variant: it.label, qty: it.qty, unit: it.unit, price: it.price })),
+          ...cartItems.map((it) => ({ variant_id: it.id, name: it.productName, variant: it.label, qty: it.qty, unit: it.unit, price: it.price, gst_rate: store.gst_enabled ? (it.gst_rate || 0) : undefined })),
           ...comboExpandedItems,
         ],
-        total: cartTotal + deliveryFee,
+        total: orderBase + deliveryFee,
+        ...(store.gst_enabled ? {
+          customer_state: form.customerState || null,
+          discount_amount: gst.discountAmount,
+          taxable_amount: gst.taxableAmount,
+          cgst_amount: gst.cgstAmount,
+          sgst_amount: gst.sgstAmount,
+          igst_amount: gst.igstAmount,
+        } : {}),
       };
       const saved = await createOrder(payload);
       // Order safal hua — customer ki details save/update karte hain taaki
@@ -641,6 +703,7 @@ const CustomerView = forwardRef(function CustomerView({ store, products, onOrder
           cartItems={cartItems}
           comboCartItems={comboCartItems}
           cartTotal={cartTotal}
+          gstSummary={store.gst_enabled ? computeGST(null) : null}
           onClose={() => setCartOpen(false)}
           onRemove={removeFromCart}
           onRemoveCombo={removeComboFromCart}
@@ -649,7 +712,7 @@ const CustomerView = forwardRef(function CustomerView({ store, products, onOrder
       )}
 
       {!bookingMode && checkoutOpen && (
-        <CheckoutModal store={store} cartTotal={cartTotal} submitting={submitting} resumeData={resumeCheckout} cart={cart} comboCart={comboCart} onClose={() => { setCheckoutOpen(false); sessionStorage.removeItem(PENDING_UPI_KEY); }} onSubmit={placeOrder} />
+        <CheckoutModal store={store} cartTotal={cartTotal} computeGST={computeGST} submitting={submitting} resumeData={resumeCheckout} cart={cart} comboCart={comboCart} onClose={() => { setCheckoutOpen(false); sessionStorage.removeItem(PENDING_UPI_KEY); }} onSubmit={placeOrder} />
       )}
 
       {!bookingMode && orderPlaced && (
@@ -714,9 +777,19 @@ function BookingModal({ store, product, theme, onClose, onBooked }) {
   maxDateObj.setDate(maxDateObj.getDate() + 45);
   const maxDateStr = maxDateObj.toISOString().slice(0, 10);
 
+  // GST (agar store ne enable kiya ho) — walk-in/local booking maani jaati
+  // hai, isliye CGST+SGST (same state). Central calculator hi use hota hai.
+  const gst = service
+    ? calculateOrderGST({
+        items: [{ amount: service.price, gstRate: service.gst_rate || 0 }],
+        priceType: store.gst_price_type, gstEnabled: !!store.gst_enabled, sellerState: store.gst_state, buyerState: null,
+      })
+    : null;
+  const payable = service ? (store.gst_enabled && gst ? gst.finalAmount : service.price) : 0;
+
   const upiId = store?.upi_id || "";
   const upiLink = upiId && service
-    ? `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(store.name)}&am=${service.price}&cu=INR&tn=${encodeURIComponent("Booking - " + product.name)}`
+    ? `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(store.name)}&am=${payable}&cu=INR&tn=${encodeURIComponent("Booking - " + product.name)}`
     : "";
   const qrImageUrl = upiLink ? `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(upiLink)}` : "";
 
@@ -748,9 +821,15 @@ function BookingModal({ store, product, theme, onClose, onBooked }) {
         payment_status: payment === "UPI" ? "Pending Verification" : "Cash on Delivery",
         status: "New",
         items: [{ variant_id: service.id, name: product.name, variant: service.label, qty: 1, unit: service.unit, price: service.price }],
-        total: service.price,
+        total: payable,
         booking_date: date,
         booking_slot: slot,
+        ...(store.gst_enabled && gst ? {
+          taxable_amount: gst.taxableAmount,
+          cgst_amount: gst.cgstAmount,
+          sgst_amount: gst.sgstAmount,
+          igst_amount: gst.igstAmount,
+        } : {}),
       };
       const saved = await createOrder(payload);
       saveRecentOrder(store.id, saved.order_number);
@@ -830,6 +909,14 @@ function BookingModal({ store, product, theme, onClose, onBooked }) {
 
           {step === "payment" && (
             <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+              {store.gst_enabled && gst && gst.gstAmount > 0 && (
+                <div style={{ background: "#F7F5F0", borderRadius: "9px", padding: "10px 12px", fontSize: "12px", color: "#5C5747", display: "flex", flexDirection: "column", gap: "3px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between" }}><span>Taxable Amount</span><span>₹{gst.taxableAmount}</span></div>
+                  {gst.cgstAmount > 0 && <div style={{ display: "flex", justifyContent: "space-between" }}><span>CGST</span><span>₹{gst.cgstAmount}</span></div>}
+                  {gst.sgstAmount > 0 && <div style={{ display: "flex", justifyContent: "space-between" }}><span>SGST</span><span>₹{gst.sgstAmount}</span></div>}
+                  <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, color: "#1A1A1A" }}><span>Total</span><span>₹{payable}</span></div>
+                </div>
+              )}
               <div style={{ fontSize: "12.5px", fontWeight: 700, marginBottom: "-2px" }}>Payment option</div>
               <div style={{ display: "flex", gap: "8px" }}>
                 {["Pay at Salon", "UPI"].map((p) => (
@@ -847,7 +934,7 @@ function BookingModal({ store, product, theme, onClose, onBooked }) {
               {payment === "UPI" && upiId && !upiConfirmed && (
                 <div style={{ textAlign: "center", background: "#F7F5F0", borderRadius: "10px", padding: "14px" }}>
                   <img src={qrImageUrl} alt="UPI QR" style={{ width: "150px", height: "150px", borderRadius: "8px" }} />
-                  <div style={{ fontSize: "12px", color: "#5C5747", marginTop: "8px" }}>Scan or tap below to pay ₹{service.price}</div>
+                  <div style={{ fontSize: "12px", color: "#5C5747", marginTop: "8px" }}>Scan or tap below to pay ₹{payable}</div>
                   <a href={upiLink} onClick={() => setUpiConfirmed(false)} style={{ display: "block", marginTop: "10px", background: theme.primary, color: "white", fontWeight: 700, fontSize: "12.5px", borderRadius: "8px", padding: "10px 0", textDecoration: "none" }}>
                     Pay via UPI
                   </a>
@@ -895,6 +982,15 @@ function BookingConfirmedModal({ booking, storeName, whatsapp, theme, onClose })
           <Row label="Time" value={booking.booking_slot} />
           <Row label="Name" value={booking.customer_name} />
           <Row label="Mobile" value={booking.customer_phone} />
+          {booking.taxable_amount != null && (Number(booking.cgst_amount) + Number(booking.sgst_amount) + Number(booking.igst_amount)) > 0 && (
+            <>
+              <Row label="Taxable Amount" value={`₹${booking.taxable_amount}`} />
+              {Number(booking.cgst_amount) > 0 && <Row label="CGST" value={`₹${booking.cgst_amount}`} />}
+              {Number(booking.sgst_amount) > 0 && <Row label="SGST" value={`₹${booking.sgst_amount}`} />}
+              {Number(booking.igst_amount) > 0 && <Row label="IGST" value={`₹${booking.igst_amount}`} />}
+              <Row label="Total" value={`₹${booking.total}`} />
+            </>
+          )}
           <Row label="Payment" value={booking.payment_choice === "UPI" ? "Paid via UPI (pending verification)" : "Pay at Salon"} />
           <Row label="Booking ID" value={booking.order_number} />
         </div>
@@ -1353,7 +1449,7 @@ function VariantPickerModal({ product, cart, addToCart, decFromCart, theme, onCl
   );
 }
 
-function CartDrawer({ cartItems, comboCartItems = [], cartTotal, onClose, onRemove, onRemoveCombo, onCheckout }) {
+function CartDrawer({ cartItems, comboCartItems = [], cartTotal, gstSummary, onClose, onRemove, onRemoveCombo, onCheckout }) {
   return (
     <div style={overlayBottomStyle}>
       <div style={{ background: "#F7F5F0", width: "100%", maxWidth: "480px", borderRadius: "16px 16px 0 0", maxHeight: "85%", display: "flex", flexDirection: "column", animation: "ddemoSlideUp 0.25s ease" }}>
@@ -1407,8 +1503,13 @@ function CartDrawer({ cartItems, comboCartItems = [], cartTotal, onClose, onRemo
           })}
         </div>
         <div style={{ padding: "16px 18px", borderTop: "1px solid #E3DECF", background: "white" }}>
+          {gstSummary && gstSummary.gstAmount > 0 && (
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px", fontSize: "12px", color: "#5C5747" }}>
+              <span>GST included in total</span><span>₹{gstSummary.gstAmount}</span>
+            </div>
+          )}
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "12px", fontSize: "14px", fontWeight: 700 }}>
-            <span>Total</span><span>₹{cartTotal}</span>
+            <span>Total</span><span>₹{gstSummary ? gstSummary.finalAmount : cartTotal}</span>
           </div>
           <button onClick={onCheckout} className="ddemo-btn" style={{ width: "100%", background: "#D4A24C", color: "#123026", fontWeight: 800, fontSize: "14px", border: "none", borderRadius: "10px", padding: "13px 0", cursor: "pointer" }}>
             Place Order
@@ -1419,7 +1520,7 @@ function CartDrawer({ cartItems, comboCartItems = [], cartTotal, onClose, onRemo
   );
 }
 
-function CheckoutModal({ store, cartTotal, submitting, resumeData, cart, comboCart, onClose, onSubmit }) {
+function CheckoutModal({ store, cartTotal, computeGST, submitting, resumeData, cart, comboCart, onClose, onSubmit }) {
   const theme = getTheme(store.business_type);
   const [orderType, setOrderType] = useState(resumeData?.orderType || (store.delivery_enabled === false ? "Pickup" : "Delivery"));
   const [name, setName] = useState(resumeData?.name || "");
@@ -1428,10 +1529,14 @@ function CheckoutModal({ store, cartTotal, submitting, resumeData, cart, comboCa
   const [landmark, setLandmark] = useState(resumeData?.landmark || "");
   const [pincode, setPincode] = useState(resumeData?.pincode || "");
   const [payment, setPayment] = useState(resumeData?.payment || "COD");
+  // GST — customer ki state (default: dukaan ki apni state, kyunki zyadatar
+  // orders local hote hain). Same state → CGST+SGST, alag state → IGST.
+  const [customerState, setCustomerState] = useState(resumeData?.customerState || store.gst_state || "");
+  const gst = computeGST(store.gst_enabled ? (customerState || null) : null);
   // Delivery Home Delivery par hi lagta hai, Pickup badalte hi turant 0
   // ho jaata hai — customer ko live pata chalta hai kya charge lagega.
   const deliveryFee = computeDeliveryFee(store, orderType, cartTotal);
-  const grandTotal = cartTotal + deliveryFee;
+  const grandTotal = (store.gst_enabled ? gst.finalAmount : cartTotal) + deliveryFee;
   // Guest checkout: koi login/password nahi. Phone number 10 digit poora
   // hote hi is store ke liye pehle se saved details (agar hain) dhoondh
   // ke auto-fill kar dete hain. Customer chahe to inhe edit kar sakta hai.
@@ -1571,6 +1676,15 @@ function CheckoutModal({ store, cartTotal, submitting, resumeData, cart, comboCa
             </div>
           )}
           <Field label="Your Name" value={name} onChange={setName} placeholder="e.g. Ramesh Yadav" />
+          {store.gst_enabled && (
+            <div>
+              <div style={{ fontSize: "11.5px", fontWeight: 600, color: "#5C5747", marginBottom: "4px" }}>Your State (for GST)</div>
+              <select value={customerState} onChange={(e) => setCustomerState(e.target.value)} style={inputStyle}>
+                <option value="">Select state</option>
+                {INDIAN_STATES.map((st) => <option key={st} value={st}>{st}</option>)}
+              </select>
+            </div>
+          )}
           {orderType === "Dine In" && (
             <Field label="Table Number (optional)" value={landmark} onChange={setLandmark} placeholder="e.g. Table 5" />
           )}
@@ -1645,9 +1759,40 @@ function CheckoutModal({ store, cartTotal, submitting, resumeData, cart, comboCa
           )}
 
           <div style={{ padding: "10px 0 0", borderTop: "1px solid #E3DECF", marginTop: "6px", display: "flex", flexDirection: "column", gap: "4px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12.5px", color: "#5C5747" }}>
-              <span>Items Total</span><span>₹{cartTotal}</span>
-            </div>
+            {store.gst_enabled ? (
+              <>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12.5px", color: "#5C5747" }}>
+                  <span>Subtotal</span><span>₹{gst.subtotalAmount}</span>
+                </div>
+                {gst.discountAmount > 0 && (
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12.5px", color: "#1B4332" }}>
+                    <span>Discount</span><span>− ₹{gst.discountAmount}</span>
+                  </div>
+                )}
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12.5px", color: "#5C5747" }}>
+                  <span>Taxable Amount</span><span>₹{gst.taxableAmount}</span>
+                </div>
+                {gst.cgstAmount > 0 && (
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12.5px", color: "#5C5747" }}>
+                    <span>CGST</span><span>₹{gst.cgstAmount}</span>
+                  </div>
+                )}
+                {gst.sgstAmount > 0 && (
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12.5px", color: "#5C5747" }}>
+                    <span>SGST</span><span>₹{gst.sgstAmount}</span>
+                  </div>
+                )}
+                {gst.igstAmount > 0 && (
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12.5px", color: "#5C5747" }}>
+                    <span>IGST</span><span>₹{gst.igstAmount}</span>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12.5px", color: "#5C5747" }}>
+                <span>Items Total</span><span>₹{cartTotal}</span>
+              </div>
+            )}
             {orderType === "Delivery" && (
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12.5px", color: deliveryFee === 0 ? "#1B4332" : "#5C5747" }}>
                 <span>Delivery Charge</span>
@@ -1666,7 +1811,7 @@ function CheckoutModal({ store, cartTotal, submitting, resumeData, cart, comboCa
 
           <button
             disabled={!valid || submitting || (payment === "UPI" && (!upiId || !upiOpened))}
-            onClick={() => onSubmit({ orderType, name, phone, address, landmark, pincode, payment })}
+            onClick={() => onSubmit({ orderType, name, phone, address, landmark, pincode, payment, customerState })}
             className="ddemo-btn"
             style={{ width: "100%", background: valid && !submitting && (payment !== "UPI" || upiOpened) ? theme.primary : "#D8D2BF", color: "white", fontWeight: 800, fontSize: "14px", border: "none", borderRadius: "10px", padding: "13px 0", cursor: valid && !submitting && (payment !== "UPI" || upiOpened) ? "pointer" : "not-allowed" }}
           >
@@ -1729,6 +1874,18 @@ function OrderConfirmedModal({ order, storeName, whatsapp, theme, onClose, store
         </div>
         <div style={{ fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: "17px", marginBottom: "6px" }}>Order Placed!</div>
         <div style={{ fontSize: "12.5px", color: "#5C5747", marginBottom: "16px" }}>Order ID: <b>{order.order_number}</b></div>
+
+        {order.taxable_amount != null && (Number(order.cgst_amount) + Number(order.sgst_amount) + Number(order.igst_amount)) > 0 && (
+          <div style={{ background: "#F7F5F0", borderRadius: "10px", padding: "12px", marginBottom: "12px", textAlign: "left", fontSize: "12px", color: "#5C5747", display: "flex", flexDirection: "column", gap: "3px" }}>
+            {Number(order.discount_amount) > 0 && <div style={{ display: "flex", justifyContent: "space-between" }}><span>Discount</span><span>− ₹{order.discount_amount}</span></div>}
+            <div style={{ display: "flex", justifyContent: "space-between" }}><span>Taxable Amount</span><span>₹{order.taxable_amount}</span></div>
+            {Number(order.cgst_amount) > 0 && <div style={{ display: "flex", justifyContent: "space-between" }}><span>CGST</span><span>₹{order.cgst_amount}</span></div>}
+            {Number(order.sgst_amount) > 0 && <div style={{ display: "flex", justifyContent: "space-between" }}><span>SGST</span><span>₹{order.sgst_amount}</span></div>}
+            {Number(order.igst_amount) > 0 && <div style={{ display: "flex", justifyContent: "space-between" }}><span>IGST</span><span>₹{order.igst_amount}</span></div>}
+            {Number(order.delivery_fee) > 0 && <div style={{ display: "flex", justifyContent: "space-between" }}><span>Delivery Charge</span><span>₹{order.delivery_fee}</span></div>}
+            <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, color: "#1A1A1A" }}><span>Final Total</span><span>₹{order.total}</span></div>
+          </div>
+        )}
 
         <a href={`https://wa.me/${whatsapp}?text=${waText}`} target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", gap: "10px", textAlign: "left", marginBottom: "10px", background: "#F7F5F0", borderRadius: "10px", padding: "12px", textDecoration: "none" }}>
           <div style={{ width: 30, height: 30, borderRadius: "50%", background: "#25D366", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
