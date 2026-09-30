@@ -106,3 +106,28 @@ end;
 $$;
 
 grant execute on function place_order(uuid, text, text, text, text, text, text, text, text, text, jsonb, numeric, text, numeric, date, text, text, numeric, numeric, numeric, numeric, numeric) to anon, authenticated;
+
+-- ============================================================
+-- BULK GST APPLY — ek click mein saare products ka GST rate set karna
+-- (har product mein alag-alag jaake set karna practical nahi hai)
+-- ============================================================
+create or replace function apply_gst_rate_to_all_products(p_store_id uuid, p_rate numeric)
+returns int as $$
+declare
+  v_count int;
+begin
+  -- Sirf usi store ka owner hi apne products ka GST rate bulk-set kar sake
+  if not exists (select 1 from stores where id = p_store_id and user_id = auth.uid()) then
+    raise exception 'Not authorized';
+  end if;
+
+  update variants
+  set gst_rate = p_rate
+  where product_id in (select id from products where store_id = p_store_id);
+
+  get diagnostics v_count = row_count;
+  return v_count;
+end;
+$$ language plpgsql security definer;
+
+grant execute on function apply_gst_rate_to_all_products(uuid, numeric) to authenticated;

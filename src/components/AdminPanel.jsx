@@ -5,7 +5,7 @@ import {
   createProduct, updateProduct, deleteProduct, updateProductFeatured, updateProductOrder,
   createVariant, updateVariant, deleteVariant,
   uploadProductImage, deactivateStore,
-  checkSlugAvailable, updateStoreSlug,
+  checkSlugAvailable, updateStoreSlug, applyGstRateToAllProducts,
 } from "../lib/api";
 import { slugify } from "./AuthGate";
 import DeliveryBoyManager from "./DeliveryBoyManager";
@@ -175,6 +175,23 @@ function StoreSettingsForm({ store, onRefresh }) {
   const [gstPriceType, setGstPriceType] = useState(store.gst_price_type || "exclusive");
   const [gstState, setGstState] = useState(store.gst_state || "");
   const [gstin, setGstin] = useState(store.gstin || "");
+  const [bulkGstRate, setBulkGstRate] = useState("18");
+  const [bulkApplying, setBulkApplying] = useState(false);
+  const [bulkMsg, setBulkMsg] = useState("");
+
+  const handleBulkApplyGst = async () => {
+    if (!confirm(`Store ke SAARE products ka GST Rate ${bulkGstRate}% set kar dein? Yeh har product ko overwrite kar dega.`)) return;
+    setBulkApplying(true);
+    setBulkMsg("");
+    try {
+      const count = await applyGstRateToAllProducts(store.id, Number(bulkGstRate));
+      setBulkMsg(`✓ ${count} product(s) update ho gaye.`);
+    } catch (e) {
+      setBulkMsg("Error: " + e.message);
+    } finally {
+      setBulkApplying(false);
+    }
+  };
   const [facebookUrl, setFacebookUrl] = useState(store.facebook_url || "");
   const [instagramUrl, setInstagramUrl] = useState(store.instagram_url || "");
   const [youtubeUrl, setYoutubeUrl] = useState(store.youtube_url || "");
@@ -328,6 +345,21 @@ function StoreSettingsForm({ store, onRefresh }) {
             <Field label="GSTIN (optional — bill par dikhega)" value={gstin} onChange={(v) => setGstin(v.toUpperCase())} placeholder="jaise 23ABCDE1234F1Z5" />
             <div style={{ fontSize: "10.5px", color: "#8B8576" }}>
               Ab har product/variant ke form mein "GST Rate" (0/5/12/18/28%) ka option dikhega. Jo product par rate set nahi hoga, woh 0% maana jaayega.
+            </div>
+            <div style={{ background: "#F7F5F0", borderRadius: "9px", padding: "10px 12px", display: "flex", flexDirection: "column", gap: "8px" }}>
+              <div style={{ fontSize: "11px", fontWeight: 700, color: "#1A1A1A" }}>Sab Products Par Ek Saath GST Rate Apply Karein</div>
+              <div style={{ fontSize: "10.5px", color: "#8B8576" }}>
+                Har product mein alag-alag jaake set karne ke bajaye, ek hi rate saari products par ek click mein laga sakte hain. Baad mein kisi ek product ka rate alag chahiye ho to usko alag se edit kar sakte hain.
+              </div>
+              <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                <select value={bulkGstRate} onChange={(e) => setBulkGstRate(e.target.value)} style={{ ...inputStyle, flex: 1 }}>
+                  {[0, 5, 12, 18, 28].map((r) => <option key={r} value={String(r)}>{r}%</option>)}
+                </select>
+                <button type="button" onClick={handleBulkApplyGst} disabled={bulkApplying} style={{ background: "#1B4332", color: "white", border: "none", borderRadius: "8px", padding: "9px 14px", fontSize: "11.5px", fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
+                  {bulkApplying ? "..." : "Sab Par Apply Karein"}
+                </button>
+              </div>
+              {bulkMsg && <div style={{ fontSize: "11px", color: bulkMsg.startsWith("Error") ? "#B3261E" : "#1B4332", fontWeight: 600 }}>{bulkMsg}</div>}
             </div>
           </div>
         )}

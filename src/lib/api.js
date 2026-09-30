@@ -176,6 +176,14 @@ export async function createStore(userId, { slug, name, business_type, whatsapp_
   return data;
 }
 
+// Ek hi click mein saare products ka GST rate set karna — har product
+// mein jaakar alag-alag edit karna practical nahi hai.
+export async function applyGstRateToAllProducts(storeId, rate) {
+  const { data, error } = await supabase.rpc("apply_gst_rate_to_all_products", { p_store_id: storeId, p_rate: rate });
+  if (error) throw error;
+  return data; // kitne variants update hue
+}
+
 // Signup URL mein agar ?ref=CODE tha, is store ko us distributor se
 // permanently jod deta hai (server-side RPC, invalid code par silently
 // no-op — signup kabhi fail nahi hona chahiye galat ref code ki wajah se).
