@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { TrendingUp, Bell, Package, Receipt, MessageCircle, AlertCircle, Minus, Plus, BookText, X, Trash2 } from "lucide-react";
-import { updateOrderStatus, updatePaymentStatus, updateVariantStock, assignDeliveryBoy, fetchTodaysKhataCollection, deleteOrder } from "../lib/api";
+import { updateOrderStatus, updatePaymentStatus, adjustVariantStock, assignDeliveryBoy, fetchTodaysKhataCollection, deleteOrder } from "../lib/api";
 
 // Order Status flow (extend hui hai — existing column/values nahi badle,
 // bas ek naya intermediate "Ready" status add kiya hai):
@@ -136,9 +136,8 @@ export default function DashboardView({ store, products, orders, deliveryBoys, h
   };
 
   const handleStockChange = async (variant, delta) => {
-    const newStock = Math.max(0, variant.stock + delta);
     try {
-      await updateVariantStock(variant.id, newStock);
+      await adjustVariantStock(variant.id, delta);
       onRefresh();
     } catch (e) {
       alert("Stock update nahi ho paaya: " + e.message);

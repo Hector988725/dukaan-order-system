@@ -241,12 +241,22 @@ export async function fetchProducts(storeId) {
   return data;
 }
 
+// Stock ab seedha table UPDATE se nahi badalta — database mein trigger
+// ise block karta hai. Saara stock change ek hi centralized function
+// (apply_stock_change) se guzarta hai, aur har change stock_movements
+// mein log hota hai. (migration_purchase_supplier.sql dekhein)
+
+// Absolute value set karta hai (Edit Variant form).
 export async function updateVariantStock(variantId, newStock) {
-  const { error } = await supabase
-    .from("variants")
-    .update({ stock: newStock })
-    .eq("id", variantId);
+  const { error } = await supabase.rpc("set_variant_stock", { p_variant_id: variantId, p_new_stock: Number(newStock) });
   if (error) throw error;
+}
+
+// +/- buttons ke liye — delta based, isliye 2 jagah se ek saath badalne par bhi galat nahi hota.
+export async function adjustVariantStock(variantId, delta) {
+  const { data, error } = await supabase.rpc("adjust_variant_stock", { p_variant_id: variantId, p_delta: Number(delta) });
+  if (error) throw error;
+  return data;
 }
 
 // ---- Product CRUD ----
@@ -413,7 +423,7 @@ export async function updateVariant(variantId, { label, unit, price, stock, barc
   const { error } = await supabase
     .from("variants")
     .update({
-      label, unit, price, stock, barcode: barcode || null, mrp: mrp || null,
+      label, unit, price, barcode: barcode || null, mrp: mrp || null,
       offer_enabled: offer_enabled || false, offer_price: offer_price || null,
       offer_starts_at: offer_starts_at || null, offer_ends_at: offer_ends_at || null,
       qty_deal_tiers: qty_deal_tiers && qty_deal_tiers.length > 0 ? qty_deal_tiers : null,
@@ -421,6 +431,10 @@ export async function updateVariant(variantId, { label, unit, price, stock, barc
     })
     .eq("id", variantId);
   if (error) throw error;
+  // Stock alag se, centralized function ke through (direct UPDATE block hai).
+  if (stock !== undefined && stock !== null && stock !== "") {
+    await updateVariantStock(variantId, stock);
+  }
 }
 
 export async function deleteVariant(variantId) {
@@ -909,4 +923,126 @@ export async function fetchAllStores() {
     .order("created_at", { ascending: false });
   if (error) throw error;
   return data;
+}
+
+
+// ============================================================
+// SUPPLIERS + PURCHASES
+// ============================================================
+// Saari writes security-definer RPCs se hoti hain (owner check ke saath);
+// reads RLS ke through (sirf apni dukaan ka data dikhta hai).
+// Detail: migration_purchase_supplier.sql
+
+function cleanRpcError(error) {
+  const msg = (error && error.message) || "Kuch gadbad ho gayi";
+  const m = msg.match(/^(?:STOCK_UNAVAILABLE|VARIANT_MISSING):\s*(.*)$/);
+  return new Error(m ? m[1] : msg);
+}
+
+export async function fetchSuppliers(storeId) {
+  const { data, error } = await supabase.rpc("get_suppliers_overview", { p_store_id: storeId });
+  if (error) throw cleanRpcError(error);
+  return data || [];
+}
+
+export async function saveSupplier(storeId, { id, name, phone, address, gstin, notes, openingPayable, isActive }) {
+  const { data, error } = await supabase.rpc("upsert_supplier", {
+    p_store_id: storeId,
+    p_name: name,
+    p_phone: phone || null,
+    p_address: address || null,
+    p_gstin: gstin || null,
+    p_notes: notes || null,
+    p_supplier_id: id || null,
+    p_opening_payable: id ? 0 : Number(openingPayable) || 0,
+    p_is_active: isActive !== false,
+  });
+  if (error) throw cleanRpcError(error);
+  return Array.isArray(data) ? data[0] : data;
+}
+
+export async function recordSupplierPayment(storeId, supplierId, amount, method, note) {
+  const { data, error } = await supabase.rpc("record_supplier_payment", {
+    p_store_id: storeId, p_supplier_id: supplierId, p_amount: Number(amount), p_method: method || "Cash", p_note: note || null,
+  });
+  if (error) throw cleanRpcError(error);
+  return data; // naya payable balance
+}
+
+export async function fetchSupplierTransactions(supplierId) {
+  const { data, error } = await supabase
+    .from("supplier_transactions")
+    .select("*")
+    .eq("supplier_id", supplierId)
+    .order("created_at", { ascending: false })
+    .limit(200);
+  if (error) throw cleanRpcError(error);
+  return data || [];
+}
+
+// supplierId optional — diya to sirf us supplier ki purchase history.
+export async function fetchPurchases(storeId, { supplierId, limit = 100 } = {}) {
+  let q = supabase
+    .from("purchases")
+    .select("*, suppliers(name), purchase_items(*)")
+    .eq("store_id", storeId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (supplierId) q = q.eq("supplier_id", supplierId);
+  const { data, error } = await q;
+  if (error) throw cleanRpcError(error);
+  return data || [];
+}
+
+// { variant_id: last_purchase_price } — New Purchase mein price prefill ke liye.
+export async function fetchLastPurchasePrices(storeId) {
+  const { data, error } = await supabase
+    .from("variant_purchase_prices")
+    .select("variant_id, last_purchase_price")
+    .eq("store_id", storeId);
+  if (error) throw cleanRpcError(error);
+  const map = {};
+  (data || []).forEach((r) => { map[r.variant_id] = Number(r.last_purchase_price); });
+  return map;
+}
+
+// status: "Draft" | "Ordered" | "Received" (Received = save + turant stock add)
+export async function savePurchase(storeId, { purchaseId, supplierId, items, status, invoiceNumber, purchaseDate, notes, paidNow, paymentMethod }) {
+  const { data, error } = await supabase.rpc("save_purchase", {
+    p_store_id: storeId,
+    p_supplier_id: supplierId,
+    p_items: items.map((i) => ({ variant_id: i.variantId, qty: Number(i.qty), purchase_price: Number(i.price) })),
+    p_status: status,
+    p_purchase_id: purchaseId || null,
+    p_invoice_number: invoiceNumber || null,
+    p_purchase_date: purchaseDate || null,
+    p_notes: notes || null,
+    p_paid_now: Number(paidNow) || 0,
+    p_payment_method: paymentMethod || "Cash",
+  });
+  if (error) throw cleanRpcError(error);
+  return Array.isArray(data) ? data[0] : data;
+}
+
+export async function markPurchaseOrdered(storeId, purchaseId) {
+  const { error } = await supabase.rpc("mark_purchase_ordered", { p_store_id: storeId, p_purchase_id: purchaseId });
+  if (error) throw cleanRpcError(error);
+}
+
+// receipts = null -> baaki sab receive; ya [{ itemId, qty }] (partial)
+export async function receivePurchase(storeId, purchaseId, { receipts, paidNow, paymentMethod } = {}) {
+  const { data, error } = await supabase.rpc("receive_purchase", {
+    p_store_id: storeId,
+    p_purchase_id: purchaseId,
+    p_receipts: receipts ? receipts.map((r) => ({ item_id: r.itemId, qty: Number(r.qty) })) : null,
+    p_paid_now: Number(paidNow) || 0,
+    p_payment_method: paymentMethod || "Cash",
+  });
+  if (error) throw cleanRpcError(error);
+  return Array.isArray(data) ? data[0] : data;
+}
+
+export async function cancelPurchase(storeId, purchaseId) {
+  const { error } = await supabase.rpc("cancel_purchase", { p_store_id: storeId, p_purchase_id: purchaseId });
+  if (error) throw cleanRpcError(error);
 }
