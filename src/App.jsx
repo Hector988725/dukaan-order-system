@@ -594,6 +594,11 @@ function OwnerArea() {
   const newOrderCount = orders.filter((o) => o.status === "New").length;
   const silentRefresh = () => loadStoreData(true);
 
+  // Salon/Beauty Parlour (booking-mode) mein services bikti hain, stock
+  // nahi — isliye wahan Purchase tab hide hai (Delivery Staff tab jaisa).
+  const showPurchaseTab = !isBookingCategory(store.business_type);
+  const visibleNavTabs = NAV_TABS.filter((t) => t !== "purchase" || showPurchaseTab);
+
   const handleToggleOpen = async () => {
     const newValue = !(store.is_open !== false);
     setStore((s) => ({ ...s, is_open: newValue })); // turant UI update, wait nahi
@@ -617,7 +622,7 @@ function OwnerArea() {
 
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           <div className="ddemo-toggle-track" style={{ overflowX: "auto", WebkitOverflowScrolling: "touch", flexShrink: 1 }}>
-            <div className="ddemo-toggle-bg" style={{ left: `calc(${NAV_TABS.indexOf(view)} * ${100 / NAV_TABS.length}% + 3px)`, width: `calc(${100 / NAV_TABS.length}% - 6px)` }} />
+            <div className="ddemo-toggle-bg" style={{ left: `calc(${visibleNavTabs.indexOf(view)} * ${100 / visibleNavTabs.length}% + 3px)`, width: `calc(${100 / visibleNavTabs.length}% - 6px)` }} />
             <button className={`ddemo-toggle-btn ${view === "dashboard" ? "active" : ""}`} onClick={() => setView("dashboard")}>
               <LayoutGrid size={13} /> Orders
               {newOrderCount > 0 && <span style={{ background: "#B3261E", color: "white", fontSize: "10px", fontWeight: 700, borderRadius: "999px", padding: "1px 6px" }}>{newOrderCount}</span>}
@@ -628,9 +633,11 @@ function OwnerArea() {
             <button className={`ddemo-toggle-btn ${view === "quickbill" ? "active" : ""}`} onClick={() => setView("quickbill")}>
               <Zap size={13} /> Bill
             </button>
-            <button className={`ddemo-toggle-btn ${view === "purchase" ? "active" : ""}`} onClick={() => setView("purchase")}>
-              <Truck size={13} /> Purchase
-            </button>
+            {showPurchaseTab && (
+              <button className={`ddemo-toggle-btn ${view === "purchase" ? "active" : ""}`} onClick={() => setView("purchase")}>
+                <Truck size={13} /> Purchase
+              </button>
+            )}
             {/* Shopkeeper apni dukaan ko customer ki nazar se, isi SPA ke andar,
                 bina kisi navigation/reload ke dekh sake — pehle sirf link
                 share/copy hoti thi, dekhne ke liye app se bahar jaana padta
@@ -658,7 +665,7 @@ function OwnerArea() {
       {view === "dashboard" && <DashboardView store={store} products={products} orders={orders} deliveryBoys={deliveryBoys} hasMoreOrders={hasMoreOrders} loadingMoreOrders={loadingMoreOrders} onLoadMoreOrders={loadMoreOrders} onRefresh={silentRefresh} />}
       {view === "khata" && <div style={{ padding: "16px 0 40px" }}><KhataPanel store={store} /></div>}
       {view === "quickbill" && <div style={{ maxWidth: "600px", margin: "0 auto", padding: "16px 18px 40px" }}><QuickBill store={store} products={products} onOrderPlaced={silentRefresh} /></div>}
-      {view === "purchase" && <div style={{ maxWidth: "600px", margin: "0 auto", padding: "16px 18px 40px" }}><PurchasePanel store={store} products={products} onRefresh={silentRefresh} /></div>}
+      {view === "purchase" && showPurchaseTab && <div style={{ maxWidth: "600px", margin: "0 auto", padding: "16px 18px 40px" }}><PurchasePanel store={store} products={products} onRefresh={silentRefresh} /></div>}
       {view === "admin" && <AdminPanel store={store} products={products} user={user} onRefresh={silentRefresh} />}
     </div>
   );
