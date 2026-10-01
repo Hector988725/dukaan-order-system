@@ -1,15 +1,18 @@
-import React, { useState, useRef } from "react";
-import { Settings, Package, Plus, Trash2, Edit2, X, Check, ChevronDown, ChevronUp, Save, Upload, Image, CreditCard, AlertCircle, Store, Star, ArrowUp, ArrowDown, Bike, FileSpreadsheet, UserCircle, Gift } from "lucide-react";
+import React, { useState, useRef, useEffect } from "react";
+import { Library, Settings, Package, Plus, Trash2, Edit2, X, Check, ChevronDown, ChevronUp, Save, Upload, Image, CreditCard, AlertCircle, Store, Star, ArrowUp, ArrowDown, Bike, FileSpreadsheet, UserCircle, Gift } from "lucide-react";
 import {
   updateStoreSettings,
   createProduct, updateProduct, deleteProduct, updateProductFeatured, updateProductOrder,
   createVariant, updateVariant, deleteVariant,
   uploadProductImage, deactivateStore,
   checkSlugAvailable, updateStoreSlug, applyGstRateToAllProducts,
+  fetchCatalogProducts,
 } from "../lib/api";
 import { slugify } from "./AuthGate";
 import DeliveryBoyManager from "./DeliveryBoyManager";
 import CsvBulkUploadModal from "./CsvBulkUpload";
+import CategoryFields from "./CategoryFields";
+import CatalogPicker from "./CatalogPicker";
 import AccountSettings from "./AccountSettings";
 import ComboManager from "./ComboManager";
 
@@ -555,6 +558,13 @@ function ProductManager({ store, products, onRefresh }) {
   const [expandedId, setExpandedId] = useState(null);
   const [reordering, setReordering] = useState(false);
   const [showCsvUpload, setShowCsvUpload] = useState(false);
+  const [showCatalog, setShowCatalog] = useState(false);
+  const [catalogCount, setCatalogCount] = useState(0);
+  // Central Catalog sirf un business types ke liye dikhta hai jinke liye catalog bana hai
+  // (Cosmetics, Gift/Toys). Purane types mein count 0 -> button hi nahi dikhta.
+  useEffect(() => {
+    fetchCatalogProducts(store.business_type).then((r) => setCatalogCount(r.length)).catch(() => setCatalogCount(0));
+  }, [store.business_type]);
 
   // Do products ke sort_order swap karke unka display sequence badalta hai
   // (list already sort_order se sorted aati hai fetchProducts() se).
@@ -588,6 +598,11 @@ function ProductManager({ store, products, onRefresh }) {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px", flexWrap: "wrap", gap: "8px" }}>
         <div style={{ fontSize: "12px", color: "#8B8576" }}>{products.length} products · ⭐ ya ↑↓ se apni dukaan saja sakte hain</div>
         <div style={{ display: "flex", gap: "6px" }}>
+          {catalogCount > 0 && (
+            <button onClick={() => setShowCatalog(true)} className="ddemo-btn" style={{ display: "flex", alignItems: "center", gap: "5px", background: "white", border: "1px solid #1B4332", color: "#1B4332", borderRadius: "8px", padding: "8px 12px", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}>
+              <Library size={13} /> Central Catalog
+            </button>
+          )}
           <button onClick={() => setShowCsvUpload(true)} className="ddemo-btn" style={{ display: "flex", alignItems: "center", gap: "5px", background: "white", border: "1px solid #1B4332", color: "#1B4332", borderRadius: "8px", padding: "8px 11px", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}>
             <FileSpreadsheet size={13} /> Bulk Upload
           </button>
@@ -607,6 +622,16 @@ function ProductManager({ store, products, onRefresh }) {
             setAdding(false);
             onRefresh();
           }}
+        />
+      )}
+
+      {showCatalog && (
+        <CatalogPicker
+          store={store}
+          products={products}
+          onClose={() => setShowCatalog(false)}
+          onCustom={() => { setShowCatalog(false); setAdding(true); }}
+          onAdded={() => { setShowCatalog(false); onRefresh(); }}
         />
       )}
 
@@ -698,13 +723,20 @@ function NewProductForm({ storeId, businessType, onCancel, onSave, prefillBarcod
   const [emoji, setEmoji] = useState("📦");
   const [imageUrl, setImageUrl] = useState(null);
   const [images, setImages] = useState([]);
+  const [subCategory, setSubCategory] = useState("");
+  const [brand, setBrand] = useState("");
+  const [ageGroup, setAgeGroup] = useState("");
+  const [hasPresets, setHasPresets] = useState(false);
   const [saving, setSaving] = useState(false);
   const valid = name.trim() && category.trim();
   const isGallery = getShoppingMode(businessType) === "gallery";
 
   const handleSave = async () => {
     setSaving(true);
-    await onSave({ name, category, emoji, description, image_url: isGallery ? undefined : imageUrl, image_urls: isGallery ? images : undefined });
+    await onSave({
+      name, category, emoji, description, image_url: isGallery ? undefined : imageUrl, image_urls: isGallery ? images : undefined,
+      ...(hasPresets ? { brand, sub_category: subCategory, age_group: ageGroup } : {}),
+    });
     setSaving(false);
   };
 
@@ -722,7 +754,15 @@ function NewProductForm({ storeId, businessType, onCancel, onSave, prefillBarcod
       }
       <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "10px" }}>
         <Field label="Product ka Naam" value={name} onChange={setName} placeholder="jaise Chini (Sugar)" />
-        <Field label="Category" value={category} onChange={setCategory} placeholder="jaise Staples, Hardware, Medical" />
+        <CategoryFields
+          businessType={businessType}
+          category={category} setCategory={setCategory}
+          subCategory={subCategory} setSubCategory={setSubCategory}
+          brand={brand} setBrand={setBrand}
+          ageGroup={ageGroup} setAgeGroup={setAgeGroup}
+          onActive={setHasPresets}
+          fallback={<Field label="Category" value={category} onChange={setCategory} placeholder="jaise Staples, Hardware, Medical" />}
+        />
         <Field label="Description (optional)" value={description} onChange={setDescription} placeholder={isGallery ? "jaise Cotton, Size M-XL available" : "koi khaas jaankari (optional)"} textarea />
       </div>
       <div style={{ display: "flex", gap: "8px", marginTop: "12px" }}>
@@ -880,12 +920,19 @@ function EditProductForm({ product, storeId, businessType, onCancel, onSave }) {
   const [emoji, setEmoji] = useState(product.emoji || "📦");
   const [imageUrl, setImageUrl] = useState(product.image_url || null);
   const [images, setImages] = useState(product.image_urls && product.image_urls.length > 0 ? product.image_urls : (product.image_url ? [product.image_url] : []));
+  const [subCategory, setSubCategory] = useState(product.sub_category || "");
+  const [brand, setBrand] = useState(product.brand || "");
+  const [ageGroup, setAgeGroup] = useState(product.age_group || "");
+  const [hasPresets, setHasPresets] = useState(false);
   const [saving, setSaving] = useState(false);
   const isGallery = getShoppingMode(businessType) === "gallery";
 
   const handleSave = async () => {
     setSaving(true);
-    await onSave({ name, category, emoji, description, image_url: isGallery ? undefined : imageUrl, image_urls: isGallery ? images : undefined });
+    await onSave({
+      name, category, emoji, description, image_url: isGallery ? undefined : imageUrl, image_urls: isGallery ? images : undefined,
+      ...(hasPresets ? { brand, sub_category: subCategory, age_group: ageGroup } : {}),
+    });
     setSaving(false);
   };
 
@@ -897,7 +944,15 @@ function EditProductForm({ product, storeId, businessType, onCancel, onSave }) {
       }
       <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "10px" }}>
         <Field label="Product ka Naam" value={name} onChange={setName} />
-        <Field label="Category" value={category} onChange={setCategory} />
+        <CategoryFields
+          businessType={businessType}
+          category={category} setCategory={setCategory}
+          subCategory={subCategory} setSubCategory={setSubCategory}
+          brand={brand} setBrand={setBrand}
+          ageGroup={ageGroup} setAgeGroup={setAgeGroup}
+          onActive={setHasPresets}
+          fallback={<Field label="Category" value={category} onChange={setCategory} />}
+        />
         <Field label="Description (optional)" value={description} onChange={setDescription} textarea />
       </div>
       <div style={{ display: "flex", gap: "8px", marginTop: "10px" }}>

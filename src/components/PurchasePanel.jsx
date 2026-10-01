@@ -59,7 +59,7 @@ function flattenVariants(products) {
         stock: v.stock ?? 0,
         barcode: v.barcode || "",
         displayName: showLabel && v.label ? `${p.name} · ${v.label}` : p.name,
-        haystack: `${p.name} ${v.label || ""} ${v.barcode || ""} ${p.category || ""}`.toLowerCase(),
+        haystack: `${p.name} ${v.label || ""} ${v.barcode || ""} ${p.category || ""} ${p.brand || ""} ${p.sub_category || ""}`.toLowerCase(),
       });
     });
   });

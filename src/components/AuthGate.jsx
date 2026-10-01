@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Store, Mail, Lock, ArrowRight, Loader2, Eye, EyeOff } from "lucide-react";
-import { signUp, signIn, createStore, checkSlugAvailable, resetPasswordForEmail, updatePassword, attributeStoreToReferral } from "../lib/api";
+import { signUp, signIn, createStore, checkSlugAvailable, resetPasswordForEmail, updatePassword, attributeStoreToReferral, fetchBusinessTypeSettings } from "../lib/api";
 import { BUSINESS_TYPE_LIST } from "../lib/theme";
 
 const BUSINESS_TYPES = BUSINESS_TYPE_LIST;
@@ -283,6 +283,14 @@ export function StoreDetailsForm({ user, onDone }) {
   const [slug, setSlug] = useState("");
   const [slugTouched, setSlugTouched] = useState(false);
   const [businessType, setBusinessType] = useState("kirana");
+  // Super Admin ne jo business types disable kiye hain woh signup dropdown mein
+  // nahi dikhte (naya signup hi rukta hai — purane shops par koi asar nahi).
+  // Settings load na ho paaye to saari types dikhti rahengi (fail-open).
+  const [typeSettings, setTypeSettings] = useState({});
+  useEffect(() => { fetchBusinessTypeSettings().then(setTypeSettings).catch(() => {}); }, []);
+  const visibleTypes = BUSINESS_TYPES
+    .filter((b) => typeSettings[b.id]?.is_enabled !== false)
+    .map((b) => ({ ...b, label: typeSettings[b.id]?.label || b.label }));
   const [whatsapp, setWhatsapp] = useState("");
   const [address, setAddress] = useState("");
   const [error, setError] = useState("");
@@ -381,7 +389,7 @@ export function StoreDetailsForm({ user, onDone }) {
       <div>
         <div style={{ fontSize: "11.5px", fontWeight: 600, color: "#5C5747", marginBottom: "4px" }}>Business Type</div>
         <select value={businessType} onChange={(e) => setBusinessType(e.target.value)} style={{ width: "100%", border: "1px solid #E3DECF", borderRadius: "7px", padding: "9px 10px", fontSize: "12.5px", fontFamily: "inherit", outline: "none", background: "white" }}>
-          {BUSINESS_TYPES.map((b) => <option key={b.id} value={b.id}>{b.label}</option>)}
+          {visibleTypes.map((b) => <option key={b.id} value={b.id}>{b.label}</option>)}
         </select>
       </div>
 

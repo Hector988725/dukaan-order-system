@@ -260,7 +260,7 @@ export async function adjustVariantStock(variantId, delta) {
 }
 
 // ---- Product CRUD ----
-export async function createProduct(storeId, { name, category, emoji, image_url, image_urls, description, sort_order }) {
+export async function createProduct(storeId, { name, category, emoji, image_url, image_urls, description, sort_order, brand, sub_category, age_group }) {
   const photos = image_urls && image_urls.length > 0 ? image_urls : (image_url ? [image_url] : []);
   const { data, error } = await supabase
     .from("products")
@@ -268,6 +268,11 @@ export async function createProduct(storeId, { name, category, emoji, image_url,
       store_id: storeId, name, category, emoji: emoji || "📦",
       image_url: photos[0] || null, image_urls: photos, description: description || null,
       sort_order: sort_order || 0,
+      // Naye optional fields (Cosmetics / Gift-Toys). Purane business types
+      // ye bhejte hi nahi, to unke rows mein yeh NULL rehte hain.
+      ...(brand !== undefined ? { brand: brand || null } : {}),
+      ...(sub_category !== undefined ? { sub_category: sub_category || null } : {}),
+      ...(age_group !== undefined ? { age_group: age_group || null } : {}),
     })
     .select()
     .single();
@@ -275,11 +280,16 @@ export async function createProduct(storeId, { name, category, emoji, image_url,
   return data;
 }
 
-export async function updateProduct(productId, { name, category, emoji, image_url, image_urls, description }) {
+export async function updateProduct(productId, { name, category, emoji, image_url, image_urls, description, brand, sub_category, age_group }) {
   const photos = image_urls && image_urls.length > 0 ? image_urls : (image_url ? [image_url] : []);
   const { error } = await supabase
     .from("products")
-    .update({ name, category, emoji, image_url: photos[0] || null, image_urls: photos, description: description || null })
+    .update({
+      name, category, emoji, image_url: photos[0] || null, image_urls: photos, description: description || null,
+      ...(brand !== undefined ? { brand: brand || null } : {}),
+      ...(sub_category !== undefined ? { sub_category: sub_category || null } : {}),
+      ...(age_group !== undefined ? { age_group: age_group || null } : {}),
+    })
     .eq("id", productId);
   if (error) throw error;
 }
@@ -1045,4 +1055,83 @@ export async function receivePurchase(storeId, purchaseId, { receipts, paidNow, 
 export async function cancelPurchase(storeId, purchaseId) {
   const { error } = await supabase.rpc("cancel_purchase", { p_store_id: storeId, p_purchase_id: purchaseId });
   if (error) throw cleanRpcError(error);
+}
+
+
+// ============================================================
+// BUSINESS CATEGORIES (Cosmetics / Gift-Toys) + CENTRAL CATALOG
+// ============================================================
+// Config tables (business_type_settings / business_categories) sabke
+// liye readable hain; catalog_products / catalog_brands sirf apne
+// business type ke shop owner ko dikhte hain (RLS). Saari writes
+// sirf Super Admin ki. Detail: migration_beauty_kids_catalog.sql
+
+// { business_type: { is_enabled, label, description } } — row na ho to enabled maana jaata hai.
+export async function fetchBusinessTypeSettings() {
+  const { data, error } = await supabase.from("business_type_settings").select("*");
+  if (error) throw error;
+  const map = {};
+  (data || []).forEach((r) => { map[r.business_type] = r; });
+  return map;
+}
+
+const _categoryCache = {};
+// [{ name, subs: [name, ...] }] — is business type ki main + sub categories.
+// Khaali array = is type ke liye koi preset nahi (purane types), form pehle jaisa rahega.
+export async function fetchBusinessCategories(businessType) {
+  if (_categoryCache[businessType]) return _categoryCache[businessType];
+  const { data, error } = await supabase
+    .from("business_categories")
+    .select("id, name, parent_id, sort_order")
+    .eq("business_type", businessType)
+    .eq("is_active", true)
+    .order("sort_order", { ascending: true });
+  if (error) throw error;
+  const rows = data || [];
+  const mains = rows.filter((r) => !r.parent_id);
+  const tree = mains.map((m) => ({ name: m.name, subs: rows.filter((r) => r.parent_id === m.id).map((r) => r.name) }));
+  _categoryCache[businessType] = tree;
+  return tree;
+}
+
+export async function fetchCatalogProducts(businessType) {
+  const { data, error } = await supabase
+    .from("catalog_products")
+    .select("*")
+    .eq("business_type", businessType)
+    .eq("is_active", true)
+    .order("category")
+    .order("name");
+  if (error) throw error;
+  return data || [];
+}
+
+export async function fetchCatalogBrands(businessType) {
+  const { data, error } = await supabase
+    .from("catalog_brands")
+    .select("name, business_type")
+    .eq("is_active", true)
+    .order("name");
+  if (error) throw error;
+  return (data || []).filter((b) => !b.business_type || b.business_type === businessType).map((b) => b.name);
+}
+
+// variants: [{ label, unit, price, mrp, stock, barcode, gst_rate }]
+export async function addCatalogProductToShop(storeId, catalogProductId, variants, brand) {
+  const { data, error } = await supabase.rpc("add_catalog_product_to_shop", {
+    p_store_id: storeId,
+    p_catalog_product_id: catalogProductId,
+    p_variants: variants.map((v) => ({
+      label: v.label || "Standard",
+      unit: v.unit || null,
+      price: Number(v.price),
+      mrp: v.mrp === "" || v.mrp == null ? null : Number(v.mrp),
+      stock: Number(v.stock) || 0,
+      barcode: v.barcode || null,
+      gst_rate: v.gst_rate === "" || v.gst_rate == null ? null : Number(v.gst_rate),
+    })),
+    p_brand: brand || null,
+  });
+  if (error) throw new Error((error.message || "Add nahi ho paaya").replace(/^(STOCK_UNAVAILABLE|VARIANT_MISSING):\s*/, ""));
+  return Array.isArray(data) ? data[0] : data;
 }

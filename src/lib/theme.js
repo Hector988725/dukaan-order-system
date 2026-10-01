@@ -118,6 +118,26 @@ export const BUSINESS_THEMES = {
     description: "Har kadam ke liye sahi jode — style aur comfort dono",
     emojis: ["👟", "👡", "👞"],
   },
+  cosmetics: {
+    label: "Cosmetics / Beauty Store",
+    primary: "#8E2C5A",
+    primaryDark: "#5E1A3B",
+    accent: "#E8A5BF",
+    accentDark: "#C9799A",
+    icon: "Sparkles",
+    description: "Makeup, skin care, hair care — sab beauty products ek hi jagah",
+    emojis: ["💄", "🧴", "💅", "🪞"],
+  },
+  giftstoy: {
+    label: "Gift / Toys / Kids Store",
+    primary: "#1F6F8B",
+    primaryDark: "#134B60",
+    accent: "#F2A541",
+    accentDark: "#D18420",
+    icon: "Gift",
+    description: "Toys, games, gifts aur bachchon ka saaman — har khushi ke liye",
+    emojis: ["🧸", "🎁", "🎈", "🧩"],
+  },
   general: {
     label: "Koi Aur Business",
     primary: "#1B4332",
@@ -144,7 +164,7 @@ export function getTheme(businessType) {
 //   carousel, description, phir variant/size choose karke Add. Kapde,
 //   Footwear, Mobile jaise items ke liye jinme dekh-samajh ke lena
 //   padta hai, jaisa Amazon/Flipkart.
-const GALLERY_MODE_TYPES = new Set(["clothing", "footwear", "mobile"]);
+const GALLERY_MODE_TYPES = new Set(["clothing", "footwear", "mobile", "cosmetics", "giftstoy"]);
 
 export function getShoppingMode(businessType) {
   return GALLERY_MODE_TYPES.has(businessType) ? "gallery" : "quick";
@@ -179,6 +199,8 @@ const UNIT_PRESETS_BY_TYPE = {
   salon: ["service"],
   restaurant: ["plate", "piece", "bowl", "kg"],
   footwear: ["pair"],
+  cosmetics: ["piece", "ml", "gram", "bottle", "tube", "box", "set"],
+  giftstoy: ["piece", "set", "box", "packet", "pack"],
   general: ["piece", "kg", "gram", "litre", "ml", "packet", "box", "dozen"],
 };
 

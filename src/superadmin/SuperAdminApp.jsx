@@ -8,6 +8,7 @@ import {
   fetchDistributorsOverview, createDistributor, runMonthlyCommission, markCommissionPaid,
   fetchCommissionTiers, updateCommissionTier, setDistributorType, updateReferralCode,
 } from "./api";
+import CatalogManager from "./CatalogManager";
 
 // ============================================================
 // ROOT — login gate, phir authorization check, phir dashboard
@@ -124,6 +125,7 @@ function SuperAdminDashboard({ user }) {
           { id: "orders", label: "Orders", icon: <Package size={14} /> },
           { id: "payments", label: "Payments", icon: <CreditCard size={14} /> },
           { id: "distributors", label: "Distributors", icon: <Users size={14} /> },
+          { id: "catalog", label: "Categories & Catalog", icon: <Package size={14} /> },
         ].map((t) => (
           <button key={t.id} onClick={() => setTab(t.id)} style={{
             display: "flex", alignItems: "center", gap: "6px", padding: "9px 14px", fontSize: "12.5px", fontWeight: 700,
@@ -141,6 +143,7 @@ function SuperAdminDashboard({ user }) {
         {tab === "orders" && <OrdersTab />}
         {tab === "payments" && <PaymentsTab />}
         {tab === "distributors" && <DistributorsTab />}
+        {tab === "catalog" && <CatalogManager />}
       </div>
     </div>
   );

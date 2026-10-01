@@ -65,6 +65,7 @@ const CustomerView = forwardRef(function CustomerView({ store, products, onOrder
   const [bookingConfirmed, setBookingConfirmed] = useState(null);
   const [detailProduct, setDetailProduct] = useState(null);
   const [activeCategory, setActiveCategory] = useState("All");
+  const [activeSub, setActiveSub] = useState("All");
   const [search, setSearch] = useState("");
   const [cart, setCart] = useState({}); // variantId -> qty
   // Combo cart alag state mein rakha hai (regular `cart` se mix nahi
@@ -173,8 +174,14 @@ const CustomerView = forwardRef(function CustomerView({ store, products, onOrder
   }, []);
 
   const categories = ["All", ...Array.from(new Set(products.map((p) => p.category)))];
+  // Sub-category chips (Cosmetics / Gift-Toys): sirf tab jab chuni hui category ke
+  // products mein sub_category bhari ho. Purane shops mein yeh row kabhi dikhti hi nahi.
+  const subCategories = activeCategory === "All" ? [] :
+    Array.from(new Set(products.filter((p) => p.category === activeCategory && p.sub_category).map((p) => p.sub_category)));
   const filtered = products.filter(
-    (p) => (activeCategory === "All" || p.category === activeCategory) && p.name.toLowerCase().includes(search.toLowerCase())
+    (p) => (activeCategory === "All" || p.category === activeCategory)
+      && (activeSub === "All" || p.sub_category === activeSub)
+      && `${p.name} ${p.brand || ""}`.toLowerCase().includes(search.toLowerCase())
   );
 
   // Flat lookup: variantId -> { product, variant }
@@ -514,7 +521,7 @@ const CustomerView = forwardRef(function CustomerView({ store, products, onOrder
             return (
               <button
                 key={cat}
-                onClick={() => setActiveCategory(cat)}
+                onClick={() => { setActiveCategory(cat); setActiveSub("All"); }}
                 className="ddemo-btn"
                 style={{
                   display: "flex", flexDirection: "column", alignItems: "center", gap: "5px",
@@ -541,6 +548,16 @@ const CustomerView = forwardRef(function CustomerView({ store, products, onOrder
             );
           })}
         </div>
+        {subCategories.length > 0 && (
+          <div style={{ display: "flex", gap: "6px", overflowX: "auto", padding: "4px 2px 4px" }}>
+            {["All", ...subCategories].map((sc) => {
+              const on = sc === activeSub;
+              return (
+                <button key={sc} onClick={() => setActiveSub(sc)} style={{ whiteSpace: "nowrap", flexShrink: 0, cursor: "pointer", fontSize: "11.5px", fontWeight: 700, borderRadius: "999px", padding: "6px 12px", border: on ? `1.5px solid ${theme.primary}` : "1px solid #E3DECF", background: on ? theme.primary : "white", color: on ? "white" : "#5C5747" }}>{sc}</button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Combo Deals — alag-alag products ko ek fixed bundle price par
@@ -1138,6 +1155,7 @@ function ProductCard({ product: p, idx, theme, isGalleryMode, bookingMode, onBoo
       </div>
       <div style={{ padding: "8px 13px 0", display: "flex", flexDirection: "column", gap: "8px" }}>
       <div>
+        {p.brand && <div style={{ fontSize: "10px", fontWeight: 700, color: "#8B8576", textTransform: "uppercase", letterSpacing: "0.3px" }}>{p.brand}</div>}
         <div style={{ fontWeight: 600, fontSize: "13px", lineHeight: 1.3 }}>{p.name}</div>
 
         {/* Limited-Time Offer block — header, exact expiry, aur live countdown */}
@@ -1299,7 +1317,9 @@ function ProductDetailModal({ product, cart, addToCart, decFromCart, onBuyNow, t
         </div>
 
         <div style={{ padding: "16px" }}>
+          {product.brand && <div style={{ fontSize: "11.5px", fontWeight: 700, color: "#8B8576", letterSpacing: "0.3px", textTransform: "uppercase", marginBottom: "2px" }}>{product.brand}</div>}
           <div style={{ fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: "18px" }}>{product.name}</div>
+          {product.age_group && <div style={{ display: "inline-block", marginTop: "6px", fontSize: "11px", fontWeight: 700, color: theme.primary, background: "#F3ECDC", borderRadius: "999px", padding: "3px 10px" }}>Age: {product.age_group}</div>}
           {product.description && (
             <div style={{ fontSize: "12.5px", color: "#1A1A1A", marginTop: "8px", lineHeight: 1.55 }}>{product.description}</div>
           )}
