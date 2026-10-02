@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { Store, ShoppingCart, LayoutGrid, Loader2, AlertTriangle, ShieldCheck, LogOut, Pill, Wrench, Smartphone, Shirt, BookOpen, Cake, Scissors, UtensilsCrossed, Footprints, Plus, BookText, Zap, Eye, Menu, Truck } from "lucide-react";
+import { Store, ShoppingCart, LayoutGrid, Loader2, AlertTriangle, ShieldCheck, LogOut, Pill, Wrench, Smartphone, Shirt, BookOpen, Cake, Scissors, UtensilsCrossed, Footprints, Plus, BookText, Zap, Eye, Menu, Truck, Sparkles, Gift } from "lucide-react";
 import { getTheme, getHeaderBackground, isBookingCategory } from "./lib/theme";
 
 // Business-type icon naam (theme.js mein string ke roop mein) ko
@@ -165,9 +165,11 @@ const DEMO_STORES = [
   { businessType: "bakery", slug: "demo-bakery", name: "Sweet Corner Bakery" },
   { businessType: "restaurant", slug: "demo-restaurant", name: "Annapurna Dhaba" },
   { businessType: "salon", slug: "demo-salon", name: "Glamour Salon & Spa" },
+  { businessType: "cosmetics", slug: "demo-cosmetics", name: "Rose & Glow Cosmetics" },
+  { businessType: "giftstoy", slug: "demo-toys", name: "Happy Kids Toys & Gifts" },
 ];
 
-const DEMO_ICONS = { Store, Pill, Wrench, Smartphone, Shirt, BookOpen, Cake, Scissors, UtensilsCrossed, Footprints };
+const DEMO_ICONS = { Store, Pill, Wrench, Smartphone, Shirt, BookOpen, Cake, Scissors, UtensilsCrossed, Footprints, Sparkles, Gift };
 
 function DemoLandingPage() {
   return (
