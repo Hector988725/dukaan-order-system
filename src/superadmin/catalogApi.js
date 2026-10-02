@@ -75,3 +75,60 @@ export async function uploadCatalogImage(file) {
   if (error) throw error;
   return supabase.storage.from("product-images").getPublicUrl(path).data.publicUrl;
 }
+
+// Kitni dukaanon ne yeh catalog product apni shop mein add kiya hai (deactivate/delete se pehle warning ke liye).
+export async function countShopsUsingCatalogProduct(id) {
+  const { count, error } = await supabase.from("products").select("id", { count: "exact", head: true }).eq("catalog_product_id", id);
+  if (error) throw error;
+  return count || 0;
+}
+
+// CSV import: rows = [{ name, brand, category, sub_category, mrp, gst_rate, unit, barcode, age_group, description, image_url, is_active }]
+// Duplicate (naam + brand, us business type mein) skip hota hai. Result: { added, skipped, failed: [{row, reason}] }
+export async function importCatalogProducts(businessType, rows) {
+  const existing = await listCatalogProducts(businessType);
+  const seen = new Set(existing.map((e) => `${e.name.toLowerCase()}|${(e.brand || "").toLowerCase()}`));
+  const toInsert = [];
+  const failed = [];
+  let skipped = 0;
+  rows.forEach((r, idx) => {
+    const name = (r.name || "").trim();
+    const category = (r.category || "").trim();
+    if (!name || !category) { failed.push({ row: idx + 2, reason: "name aur category zaroori hain" }); return; }
+    const mrp = r.mrp === "" || r.mrp == null ? null : Number(r.mrp);
+    const gst = r.gst_rate === "" || r.gst_rate == null ? 0 : Number(r.gst_rate);
+    if ((mrp !== null && !(mrp >= 0)) || !(gst >= 0)) { failed.push({ row: idx + 2, reason: "mrp / gst_rate number hona chahiye" }); return; }
+    const key = `${name.toLowerCase()}|${(r.brand || "").trim().toLowerCase()}`;
+    if (seen.has(key)) { skipped++; return; }
+    seen.add(key);
+    const active = String(r.is_active ?? "").trim().toLowerCase();
+    toInsert.push({
+      business_type: businessType, name, category,
+      brand: (r.brand || "").trim() || null,
+      sub_category: (r.sub_category || "").trim() || null,
+      mrp, gst_rate: gst,
+      unit: (r.unit || "").trim() || "piece",
+      barcode: (r.barcode || "").trim() || null,
+      age_group: (r.age_group || "").trim() || null,
+      description: (r.description || "").trim() || null,
+      image_url: (r.image_url || "").trim() || null,
+      is_active: !["false", "no", "0", "inactive"].includes(active),
+    });
+  });
+  let added = 0;
+  for (let i = 0; i < toInsert.length; i += 200) {
+    const chunk = toInsert.slice(i, i + 200);
+    const { error } = await supabase.from("catalog_products").insert(chunk);
+    if (error) failed.push({ row: `batch ${i / 200 + 1}`, reason: error.message });
+    else added += chunk.length;
+  }
+  // naye brands ko brand list mein bhi daalo (jo pehle se hain unhe chhod ke)
+  try {
+    const have = new Set((await listBrands(businessType)).map((b) => b.name.toLowerCase()));
+    const fresh = Array.from(new Set(toInsert.map((r) => r.brand).filter(Boolean))).filter((b) => !have.has(b.toLowerCase()));
+    if (fresh.length) await supabase.from("catalog_brands").insert(fresh.map((name) => ({ name, business_type: businessType })));
+  } catch (e) { /* brand list optional hai — import fail nahi hota */ }
+  return { added, skipped, failed };
+}
+
+export const CSV_TEMPLATE = "name,brand,category,sub_category,mrp,gst_rate,unit,barcode,age_group,description,image_url,is_active\nParle-G Biscuit,Parle,Biscuits & Snacks,,10,18,79g,,,,,true\n";

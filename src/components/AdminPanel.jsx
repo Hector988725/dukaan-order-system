@@ -1,12 +1,12 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Library, Settings, Package, Plus, Trash2, Edit2, X, Check, ChevronDown, ChevronUp, Save, Upload, Image, CreditCard, AlertCircle, Store, Star, ArrowUp, ArrowDown, Bike, FileSpreadsheet, UserCircle, Gift } from "lucide-react";
+import { Eye, EyeOff, Settings, Package, Plus, Trash2, Edit2, X, Check, ChevronDown, ChevronUp, Save, Upload, Image, CreditCard, AlertCircle, Store, Star, ArrowUp, ArrowDown, Bike, FileSpreadsheet, UserCircle, Gift } from "lucide-react";
 import {
   updateStoreSettings,
   createProduct, updateProduct, deleteProduct, updateProductFeatured, updateProductOrder,
   createVariant, updateVariant, deleteVariant,
   uploadProductImage, deactivateStore,
   checkSlugAvailable, updateStoreSlug, applyGstRateToAllProducts,
-  fetchCatalogProducts,
+  fetchCatalogProducts, fetchCatalogLinkStatus, updateProductAvailability,
 } from "../lib/api";
 import { slugify } from "./AuthGate";
 import DeliveryBoyManager from "./DeliveryBoyManager";
@@ -560,6 +560,11 @@ function ProductManager({ store, products, onRefresh }) {
   const [showCsvUpload, setShowCsvUpload] = useState(false);
   const [showCatalog, setShowCatalog] = useState(false);
   const [catalogCount, setCatalogCount] = useState(0);
+  // Super Admin ne jin catalog products ko deactivate kiya, unke shop products yahan warning ke saath dikhte hain.
+  const [catalogGone, setCatalogGone] = useState({});
+  useEffect(() => {
+    fetchCatalogLinkStatus(store.id).then(setCatalogGone).catch(() => setCatalogGone({}));
+  }, [store.id, products.length]);
   // Central Catalog sirf un business types ke liye dikhta hai jinke liye catalog bana hai
   // (Cosmetics, Gift/Toys). Purane types mein count 0 -> button hi nahi dikhta.
   useEffect(() => {
@@ -598,16 +603,11 @@ function ProductManager({ store, products, onRefresh }) {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px", flexWrap: "wrap", gap: "8px" }}>
         <div style={{ fontSize: "12px", color: "#8B8576" }}>{products.length} products · ⭐ ya ↑↓ se apni dukaan saja sakte hain</div>
         <div style={{ display: "flex", gap: "6px" }}>
-          {catalogCount > 0 && (
-            <button onClick={() => setShowCatalog(true)} className="ddemo-btn" style={{ display: "flex", alignItems: "center", gap: "5px", background: "white", border: "1px solid #1B4332", color: "#1B4332", borderRadius: "8px", padding: "8px 12px", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}>
-              <Library size={13} /> Central Catalog
-            </button>
-          )}
           <button onClick={() => setShowCsvUpload(true)} className="ddemo-btn" style={{ display: "flex", alignItems: "center", gap: "5px", background: "white", border: "1px solid #1B4332", color: "#1B4332", borderRadius: "8px", padding: "8px 11px", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}>
             <FileSpreadsheet size={13} /> Bulk Upload
           </button>
-          <button onClick={() => setAdding(true)} className="ddemo-btn" style={{ display: "flex", alignItems: "center", gap: "6px", background: "#1B4332", color: "white", border: "none", borderRadius: "8px", padding: "8px 14px", fontSize: "12.5px", fontWeight: 700, cursor: "pointer" }}>
-            <Plus size={14} /> Naya Product
+          <button onClick={() => (catalogCount > 0 ? setShowCatalog(true) : setAdding(true))} className="ddemo-btn" style={{ display: "flex", alignItems: "center", gap: "6px", background: "#1B4332", color: "white", border: "none", borderRadius: "8px", padding: "8px 14px", fontSize: "12.5px", fontWeight: 700, cursor: "pointer" }}>
+            <Plus size={14} /> Add Product
           </button>
         </div>
       </div>
@@ -657,6 +657,7 @@ function ProductManager({ store, products, onRefresh }) {
             onMoveUp={idx > 0 ? () => moveProduct(idx, -1) : null}
             onMoveDown={idx < products.length - 1 ? () => moveProduct(idx, 1) : null}
             reordering={reordering}
+            catalogGone={!!catalogGone[p.id]}
           />
         ))}
       </div>
@@ -833,10 +834,12 @@ function MultiImagePicker({ images, storeId, onChange }) {
 // ============================================================
 // PRODUCT ROW
 // ============================================================
-function ProductRow({ product, storeId, businessType, gstEnabled, expanded, onToggle, onRefresh, onMoveUp, onMoveDown, reordering }) {
+function ProductRow({ product, storeId, businessType, gstEnabled, expanded, onToggle, onRefresh, onMoveUp, onMoveDown, reordering, catalogGone }) {
   const [editing, setEditing] = useState(false);
   const [addingVariant, setAddingVariant] = useState(false);
   const [togglingFeatured, setTogglingFeatured] = useState(false);
+  const [togglingAvail, setTogglingAvail] = useState(false);
+  const isAvailable = product.is_available !== false;
 
   const handleDeleteProduct = async () => {
     if (!confirm(`"${product.name}" ko delete karein?`)) return;
@@ -850,6 +853,14 @@ function ProductRow({ product, storeId, businessType, gstEnabled, expanded, onTo
     try { await updateProductFeatured(product.id, !product.featured); onRefresh(); }
     catch (err) { alert("Featured toggle nahi ho paaya: " + err.message); }
     finally { setTogglingFeatured(false); }
+  };
+
+  const handleToggleAvailable = async (e) => {
+    e.stopPropagation();
+    setTogglingAvail(true);
+    try { await updateProductAvailability(product.id, !isAvailable); onRefresh(); }
+    catch (err) { alert("Availability badal nahi payi: " + err.message); }
+    finally { setTogglingAvail(false); }
   };
 
   // Display: photo > emoji
@@ -870,8 +881,14 @@ function ProductRow({ product, storeId, businessType, gstEnabled, expanded, onTo
         }
         <div style={{ flex: 1 }}>
           <div style={{ fontWeight: 700, fontSize: "13px" }}>{product.name}</div>
-          <div style={{ fontSize: "10.5px", color: "#8B8576" }}>{product.category} · {product.variants.length} variant{product.variants.length !== 1 ? "s" : ""}</div>
+          <div style={{ fontSize: "10.5px", color: "#8B8576" }}>{product.category} · {product.variants.length} variant{product.variants.length !== 1 ? "s" : ""}{!isAvailable && <span style={{ color: "#B3261E", fontWeight: 700 }}> · Unavailable</span>}</div>
+          {catalogGone && (
+            <div style={{ fontSize: "10.5px", color: "#9A6B00", fontWeight: 600, marginTop: "2px" }}>⚠ Yeh product Central Catalog se hata diya gaya hai — aapka product safe hai aur chalta rahega</div>
+          )}
         </div>
+        <button onClick={handleToggleAvailable} disabled={togglingAvail} title={isAvailable ? "Available hai — dabane par unavailable" : "Unavailable hai — dabane par available"} style={{ ...iconBtnStyle, color: isAvailable ? "#1B4332" : "#B3261E" }}>
+          {isAvailable ? <Eye size={15} /> : <EyeOff size={15} />}
+        </button>
         <button onClick={handleToggleFeatured} disabled={togglingFeatured} title="Customer ko badi photo ke saath dikhayein" style={{ ...iconBtnStyle, color: product.featured ? "#D4A24C" : "#B7AF9B" }}>
           <Star size={15} fill={product.featured ? "#D4A24C" : "none"} />
         </button>

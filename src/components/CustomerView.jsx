@@ -296,7 +296,7 @@ const CustomerView = forwardRef(function CustomerView({ store, products, onOrder
 
   const addToCart = (variantId) => {
     const entry = variantIndex[variantId];
-    if (!entry || entry.variant.stock <= 0) return;
+    if (!entry || entry.variant.stock <= 0 || entry.product.is_available === false) return;
     setCart((c) => ({ ...c, [variantId]: (c[variantId] || 0) + 1 }));
   };
 
@@ -306,7 +306,7 @@ const CustomerView = forwardRef(function CustomerView({ store, products, onOrder
   // hi leni hon.
   const buyNow = (variantId) => {
     const entry = variantIndex[variantId];
-    if (!entry || entry.variant.stock <= 0) return;
+    if (!entry || entry.variant.stock <= 0 || entry.product.is_available === false) return;
     setCart((c) => ({ ...c, [variantId]: (c[variantId] || 0) + 1 }));
     setCheckoutOpen(true);
   };
@@ -1084,7 +1084,8 @@ function ComboCard({ combo, qty, onAdd, onDec, theme }) {
 
 function ProductCard({ product: p, idx, theme, isGalleryMode, bookingMode, onBookNow, cart, addToCart, decFromCart, onBuyNow, triggerFlyToCart, setDetailProduct, setVariantPicker, serverOffsetMs }) {
   const totalStock = p.variants.reduce((s, v) => s + v.stock, 0);
-  const outOfStock = totalStock <= 0;
+  // "Available: No" (dukaandar ne band kiya) ko bhi out-of-stock jaisa dikhate hain
+  const outOfStock = totalStock <= 0 || p.is_available === false;
   const prices = p.variants.map((v) => v.price);
   const minPrice = Math.min(...prices), maxPrice = Math.max(...prices);
   const singleVariant = p.variants.length === 1;
@@ -1327,7 +1328,7 @@ function ProductDetailModal({ product, cart, addToCart, decFromCart, onBuyNow, t
           <div style={{ marginTop: "16px", display: "flex", flexDirection: "column", gap: "8px" }}>
             {product.variants.map((v) => {
               const qty = cart[v.id] || 0;
-              const out = v.stock <= 0;
+              const out = v.stock <= 0 || product.is_available === false;
               const vPricing = getVariantPricing(v);
               const vQtyBadge = getBestQuantityDealBadge(v);
               // Sirf ek hi variant ho to uska label (jo aksar "Standard"
@@ -1427,7 +1428,7 @@ function VariantPickerModal({ product, cart, addToCart, decFromCart, theme, onCl
         <div style={{ overflowY: "auto", padding: "8px 18px 20px" }}>
           {product.variants.map((v) => {
             const qty = cart[v.id] || 0;
-            const out = v.stock <= 0;
+            const out = v.stock <= 0 || product.is_available === false;
             const vPricing = getVariantPricing(v);
             return (
               <div key={v.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0", borderBottom: "1px solid #E3DECF", opacity: out ? 0.5 : 1 }}>

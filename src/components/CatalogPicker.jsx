@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { X, Search, Plus, Loader2, Check, ArrowLeft } from "lucide-react";
 import { fetchCatalogProducts, fetchCatalogBrands, addCatalogProductToShop } from "../lib/api";
+import { isBookingCategory } from "../lib/theme";
 
 // ============================================================
 // CENTRAL CATALOG PICKER (Dukaandar side)
@@ -27,6 +28,8 @@ export default function CatalogPicker({ store, products, onClose, onAdded, onCus
   const [brands, setBrands] = useState([]);
   const [q, setQ] = useState("");
   const [cat, setCat] = useState("All");
+  const [brandFilter, setBrandFilter] = useState("All");
+  const [available, setAvailable] = useState(true);
   const [picked, setPicked] = useState(null);
   const [rows, setRows] = useState([]);
   const [brand, setBrand] = useState("");
@@ -40,13 +43,17 @@ export default function CatalogPicker({ store, products, onClose, onAdded, onCus
 
   const added = useMemo(() => new Set((products || []).map((p) => p.catalog_product_id).filter(Boolean)), [products]);
   const cats = useMemo(() => ["All", ...Array.from(new Set((items || []).map((i) => i.category)))], [items]);
+  const brandList = useMemo(() => Array.from(new Set((items || []).map((i) => i.brand).filter(Boolean))).sort(), [items]);
   const shown = useMemo(() => {
     const t = q.toLowerCase().split(/\s+/).filter(Boolean);
     return (items || []).filter((i) => (cat === "All" || i.category === cat) &&
+      (brandFilter === "All" || i.brand === brandFilter) &&
       t.every((w) => `${i.name} ${i.brand || ""} ${i.sub_category || ""} ${i.category}`.toLowerCase().includes(w)));
-  }, [items, q, cat]);
+  }, [items, q, cat, brandFilter]);
+  // Salon jaisi services mein stock nahi hota (default 9999 jaise baaki flow mein) — stock ka box nahi dikhate.
+  const isService = isBookingCategory(store.business_type);
 
-  const pick = (cp) => { setPicked(cp); setRows(rowsFor(cp)); setBrand(cp.brand || ""); setErr(""); };
+  const pick = (cp) => { setPicked(cp); setRows(rowsFor(cp).map((r) => (isService ? { ...r, stock: "9999" } : r))); setBrand(cp.brand || ""); setAvailable(true); setErr(""); };
   const upd = (i, patch) => setRows((rs) => rs.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
 
   const submit = async () => {
@@ -57,7 +64,7 @@ export default function CatalogPicker({ store, products, onClose, onAdded, onCus
     }
     setBusy(true); setErr("");
     try {
-      await addCatalogProductToShop(store.id, picked.id, rows, brand);
+      await addCatalogProductToShop(store.id, picked.id, rows, brand, available);
       onAdded();
     } catch (e) { setErr(e.message); setBusy(false); }
   };
@@ -85,6 +92,12 @@ export default function CatalogPicker({ store, products, onClose, onAdded, onCus
                   <button key={c} onClick={() => setCat(c)} style={{ whiteSpace: "nowrap", border: `1px solid ${cat === c ? C.green : C.border}`, background: cat === c ? C.green : "white", color: cat === c ? "white" : C.muted, borderRadius: 999, padding: "6px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>{c}</button>
                 ))}
               </div>
+              {brandList.length > 1 && (
+                <select value={brandFilter} onChange={(e) => setBrandFilter(e.target.value)} style={{ ...inputStyle, marginTop: 4, padding: "9px 10px", fontSize: 13 }}>
+                  <option value="All">Saare brands</option>
+                  {brandList.map((b) => <option key={b} value={b}>{b}</option>)}
+                </select>
+              )}
               {items === null && <div style={{ textAlign: "center", padding: 30, color: C.muted }}><Loader2 size={20} style={{ animation: "spin 1s linear infinite" }} /></div>}
               {items && shown.length === 0 && <div style={{ textAlign: "center", color: C.muted, fontSize: 13, padding: "22px 8px" }}>Catalog mein nahi mila.</div>}
               <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 4 }}>
@@ -126,10 +139,10 @@ export default function CatalogPicker({ store, products, onClose, onAdded, onCus
                       </div>
                       {rows.length > 1 && <button onClick={() => setRows((rs) => rs.filter((_, idx) => idx !== i))} style={{ background: "none", border: "none", color: C.red, padding: 8, cursor: "pointer" }}><X size={16} /></button>}
                     </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginTop: 8 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: isService ? "1fr 1fr" : "1fr 1fr 1fr", gap: 8, marginTop: 8 }}>
                       <div><label style={labelStyle}>MRP ₹</label><input style={inputStyle} inputMode="decimal" value={r.mrp} onChange={(e) => upd(i, { mrp: e.target.value.replace(/[^0-9.]/g, "") })} /></div>
                       <div><label style={labelStyle}>Selling Price ₹ *</label><input style={{ ...inputStyle, borderColor: C.green }} inputMode="decimal" value={r.price} onChange={(e) => upd(i, { price: e.target.value.replace(/[^0-9.]/g, "") })} /></div>
-                      <div><label style={labelStyle}>Stock</label><input style={inputStyle} inputMode="numeric" placeholder="0" value={r.stock} onChange={(e) => upd(i, { stock: e.target.value.replace(/\D/g, "") })} /></div>
+                      {!isService && <div><label style={labelStyle}>Stock</label><input style={inputStyle} inputMode="numeric" placeholder="0" value={r.stock} onChange={(e) => upd(i, { stock: e.target.value.replace(/\D/g, "") })} /></div>}
                     </div>
                     <div style={{ display: "grid", gridTemplateColumns: store.gst_enabled ? "1fr 1fr" : "1fr", gap: 8, marginTop: 8 }}>
                       <div><label style={labelStyle}>Barcode / SKU (optional)</label><input style={inputStyle} value={r.barcode} onChange={(e) => upd(i, { barcode: e.target.value })} /></div>
@@ -139,6 +152,10 @@ export default function CatalogPicker({ store, products, onClose, onAdded, onCus
                 ))}
               </div>
               <button onClick={() => setRows((rs) => [...rs, { ...blankRow(picked), label: "" }])} style={{ ...btn, width: "100%", marginTop: 10, background: "white", color: C.green, border: `1.5px solid ${C.green}` }}><Plus size={14} /> Aur Variant (shade / size)</button>
+              <label style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 12, fontSize: 13.5, fontWeight: 700, color: C.text }}>
+                <input type="checkbox" checked={available} onChange={(e) => setAvailable(e.target.checked)} style={{ width: 18, height: 18 }} />
+                Available (customer ko order ke liye dikhe)
+              </label>
               <button onClick={submit} disabled={busy} style={{ ...btn, width: "100%", marginTop: 10, background: C.green, color: "white", fontSize: 14, padding: 14, opacity: busy ? 0.6 : 1 }}>
                 {busy ? <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> : <Check size={16} />} Add to My Shop
               </button>

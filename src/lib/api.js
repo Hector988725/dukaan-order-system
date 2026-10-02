@@ -1117,7 +1117,7 @@ export async function fetchCatalogBrands(businessType) {
 }
 
 // variants: [{ label, unit, price, mrp, stock, barcode, gst_rate }]
-export async function addCatalogProductToShop(storeId, catalogProductId, variants, brand) {
+export async function addCatalogProductToShop(storeId, catalogProductId, variants, brand, available = true) {
   const { data, error } = await supabase.rpc("add_catalog_product_to_shop", {
     p_store_id: storeId,
     p_catalog_product_id: catalogProductId,
@@ -1131,7 +1131,25 @@ export async function addCatalogProductToShop(storeId, catalogProductId, variant
       gst_rate: v.gst_rate === "" || v.gst_rate == null ? null : Number(v.gst_rate),
     })),
     p_brand: brand || null,
+    p_available: available !== false,
   });
   if (error) throw new Error((error.message || "Add nahi ho paaya").replace(/^(STOCK_UNAVAILABLE|VARIANT_MISSING):\s*/, ""));
   return Array.isArray(data) ? data[0] : data;
+}
+
+// Catalog se Super Admin ne jin products ko deactivate kiya, unki id -> true.
+// Shop ka product safe rehta hai (order bhi chalta hai); owner ko sirf warning dikhti hai.
+export async function fetchCatalogLinkStatus(storeId) {
+  const { data, error } = await supabase.rpc("get_catalog_link_status", { p_store_id: storeId });
+  if (error) return {};
+  const map = {};
+  (data || []).forEach((r) => { map[r.product_id] = true; });
+  return map;
+}
+
+// Dukaandar ka "Available: Yes/No" — No hone par storefront mein "Out of Stock" jaisa dikhta hai
+// aur order server-side par bhi reject hota hai.
+export async function updateProductAvailability(productId, available) {
+  const { error } = await supabase.from("products").update({ is_available: !!available }).eq("id", productId);
+  if (error) throw error;
 }
