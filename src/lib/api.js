@@ -83,18 +83,14 @@ export async function changePassword(newPassword) {
 // STORE
 // ============================================================
 export async function fetchStoreBySlug(slug) {
+  // Public storefront sirf `public_stores` view se padhta hai (safe columns).
+  // is_active yahan server-side computed hai (flag AND expiry), is_owner bhi.
   const { data, error } = await supabase
-    .from("stores")
+    .from("public_stores")
     .select("*")
     .eq("slug", slug)
     .single();
   if (error) throw error;
-  // Subscription check: agar expire ho gayi toh inactive mark karo
-  if (data && data.subscription_expires_at && new Date(data.subscription_expires_at) < new Date()) {
-    // Auto-deactivate (background mein)
-    supabase.from("stores").update({ is_active: false }).eq("id", data.id);
-    return { ...data, is_active: false };
-  }
   return data;
 }
 
@@ -147,10 +143,7 @@ export async function createStore(userId, { slug, name, business_type, whatsapp_
   // testing ke liye banayi hui stores) is count mein shamil NAHI hoti —
   // isliye asli 20 slots hamesha sirf real customers ke liye reserved
   // rehte hain, chahe kitni bhi test stores bani ho.
-  const { count, error: countError } = await supabase
-    .from("stores")
-    .select("id", { count: "exact", head: true })
-    .or("is_test_store.is.null,is_test_store.eq.false");
+  const { data: count, error: countError } = await supabase.rpc("count_real_stores");
   if (countError) throw countError;
 
   const isFoundingMember = (count || 0) < FOUNDING_MEMBER_LIMIT;
@@ -576,16 +569,13 @@ export async function fetchCustomerByPhone(storeId, phone) {
 // (store_id + phone par unique, isliye dobara order karne par naya
 // duplicate record nahi banta, existing record hi update ho jaata hai).
 export async function upsertCustomerDetails(storeId, { phone, name, address, landmark, pincode }) {
-  const payload = { store_id: storeId, phone, name, address, pincode, updated_at: new Date().toISOString() };
-  // undefined = is order-type mein yeh field maanga hi nahi gaya tha
-  // (jaise Pickup order mein landmark) — isse column ko bilkul touch
-  // nahi karte, jo pehle se saved hai wahi rehta hai. Explicit khaali
-  // string = customer ne Delivery order mein jaan-bujh kar landmark
-  // khaali chhoda — usse null store karte hain (jaisa pehle tha).
-  if (landmark !== undefined) payload.landmark = landmark || null;
-  const { error } = await supabase
-    .from("customers")
-    .upsert(payload, { onConflict: "store_id,phone" });
+  // undefined = landmark touch nahi karna; "" = jaan-bujh kar khaali (null store).
+  const { error } = await supabase.rpc("save_customer_details", {
+    p_store_id: storeId, p_phone: phone, p_name: name, p_address: address,
+    p_landmark: landmark === undefined ? null : (landmark || ""),
+    p_update_landmark: landmark !== undefined,
+    p_pincode: pincode,
+  });
   if (error) throw error;
 }
 

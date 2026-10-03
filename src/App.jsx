@@ -271,7 +271,7 @@ function CustomerStorefrontPage({ slug }) {
       // "X" band karne ke alawa koi tareeka nahi milta tha wapas jaane ka.
       try {
         const currentUser = await getCurrentUser();
-        setIsOwnerPreview(!!currentUser && currentUser.id === storeData.user_id);
+        setIsOwnerPreview(!!currentUser && storeData.is_owner === true);
       } catch {
         setIsOwnerPreview(false);
       }
