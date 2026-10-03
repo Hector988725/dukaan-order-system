@@ -31,6 +31,7 @@ import RazorpaySubscription from "./components/RazorpaySubscription";
 import SuperAdminApp from "./superadmin/SuperAdminApp";
 import DistributorApp from "./components/DistributorApp";
 
+import DeliveryApp from "./components/DeliveryApp";
 export default function App() {
   // Deployment mein VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY set nahi hain —
   // pehle ye poori app ko blank white page bana ke crash kar deta tha. Ab
@@ -51,6 +52,15 @@ export default function App() {
       <div style={shellStyle}>
         <GlobalStyles />
         <SuperAdminApp />
+      </div>
+    );
+  }
+  if (path === "delivery") {
+    // Delivery boy ka alag mobile app (/delivery) — existing auth, sirf apna data
+    return (
+      <div style={shellStyle}>
+        <GlobalStyles />
+        <DeliveryApp />
       </div>
     );
   }

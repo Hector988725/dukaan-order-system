@@ -334,7 +334,7 @@ function OrderCard({ order, store, deliveryBoys, onAdvance, onPaymentConfirm, on
 
   // Delivery order jab "Ready" ho jaaye, tabhi delivery boy assign karne
   // ka option dikhta hai (Pickup orders ko delivery boy ki zaroorat nahi).
-  const showAssignDeliveryBoy = !isPickup && !isAppointment && !isDineIn && order.status === "Ready";
+  const showAssignDeliveryBoy = !isPickup && !isAppointment && !isDineIn && ["Accepted", "Preparing", "Ready"].includes(order.status);
   const assignedBoy = order.delivery_boy_id ? (deliveryBoys || []).find((b) => b.id === order.delivery_boy_id) : null;
 
   const handleDelete = () => {
@@ -417,7 +417,7 @@ function OrderCard({ order, store, deliveryBoys, onAdvance, onPaymentConfirm, on
         ) : (
           <InfoPill label="Type" value={isPickup ? "Pickup se Milega" : "Delivery"} color={isPickup ? "#9A6B00" : "#1B4332"} bg={isPickup ? "#FFF4DB" : "#E7F0EA"} />
         )}
-        {assignedBoy && <InfoPill label="Delivery Boy" value={assignedBoy.name} color="#1B4332" bg="#E7F0EA" />}
+        {assignedBoy && <InfoPill label="Delivery" value={order.status === "Delivered" ? `Delivered by ${assignedBoy.name}` : order.status === "Out for Delivery" ? `Out for Delivery · ${assignedBoy.name}` : `Assigned to ${assignedBoy.name}`} color="#1B4332" bg="#E7F0EA" />}
       </div>
 
       {!isPickup && !isAppointment && !isDineIn && (
@@ -433,7 +433,7 @@ function OrderCard({ order, store, deliveryBoys, onAdvance, onPaymentConfirm, on
 
       {showAssignDeliveryBoy && (
         <div style={{ marginBottom: "10px" }}>
-          <div style={{ fontSize: "11px", fontWeight: 700, color: "#5C5747", marginBottom: "5px" }}>Delivery Boy Assign Karein</div>
+          <div style={{ fontSize: "11px", fontWeight: 700, color: "#5C5747", marginBottom: "5px" }}>Assign Delivery</div>
           <select
             value={order.delivery_boy_id || ""}
             onChange={(e) => onAssignDeliveryBoy(e.target.value || null)}

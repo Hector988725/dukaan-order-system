@@ -727,18 +727,28 @@ export async function fetchDeliveryBoys(storeId) {
   return data || [];
 }
 
-export async function createDeliveryBoy(storeId, { name, phone, photo_url }) {
+export async function createDeliveryBoy(storeId, { name, phone, photo_url, vehicle_type, vehicle_number }) {
   const { data, error } = await supabase
     .from("delivery_boys")
-    .insert({ store_id: storeId, name, phone, photo_url: photo_url || null })
+    .insert({
+      store_id: storeId, name, phone, photo_url: photo_url || null,
+      vehicle_type: vehicle_type || "Bike", vehicle_number: vehicle_number || null,
+    })
     .select()
     .single();
   if (error) throw error;
   return data;
 }
 
-export async function updateDeliveryBoy(id, { name, phone, photo_url }) {
-  const { error } = await supabase.from("delivery_boys").update({ name, phone, photo_url }).eq("id", id);
+export async function updateDeliveryBoy(id, { name, phone, photo_url, vehicle_type, vehicle_number }) {
+  const { error } = await supabase.from("delivery_boys")
+    .update({ name, phone, photo_url, vehicle_type: vehicle_type || "Bike", vehicle_number: vehicle_number || null })
+    .eq("id", id);
+  if (error) throw error;
+}
+
+export async function setDeliveryBoyLoginEnabled(id, enabled) {
+  const { error } = await supabase.from("delivery_boys").update({ login_enabled: enabled }).eq("id", id);
   if (error) throw error;
 }
 
@@ -752,12 +762,89 @@ export async function deleteDeliveryBoy(id) {
   if (error) throw error;
 }
 
-// Order par delivery boy assign karna — order status ko touch nahi
-// karta, sirf delivery_boy_id set karta hai. Dukaandar isके baad
-// alag se "Out for Delivery" status pe advance karega.
-export async function assignDeliveryBoy(orderId, deliveryBoyId) {
-  const { error } = await supabase.from("orders").update({ delivery_boy_id: deliveryBoyId }).eq("id", orderId);
+// Order par delivery boy assign / reassign karna (server-side RPC).
+// Yeh delivery_assignments mein current assignment banata hai, orders.
+// delivery_boy_id sync karta hai aur boy ko in-app notification bhejta
+// hai. Order status ko touch nahi karta. deliveryBoyId = null => unassign.
+export async function assignDeliveryBoy(orderId, deliveryBoyId, method = "SHOP_DELIVERY") {
+  const { error } = await supabase.rpc("assign_delivery", {
+    p_order_id: orderId, p_boy_id: deliveryBoyId || null, p_method: method,
+  });
   if (error) throw error;
+}
+
+// ---- Owner: delivery methods / dashboard / history / login invite ----
+export async function fetchStoreDeliveryMethods(storeId) {
+  const { data, error } = await supabase.rpc("list_store_delivery_methods", { p_store_id: storeId });
+  if (error) throw error;
+  return data || [];
+}
+export async function setStoreDeliveryMethod(storeId, method, enabled) {
+  const { error } = await supabase.rpc("set_store_delivery_method", { p_store_id: storeId, p_method: method, p_enabled: enabled });
+  if (error) throw error;
+}
+export async function fetchDeliveryDashboard(storeId) {
+  const { data, error } = await supabase.rpc("get_delivery_dashboard", { p_store_id: storeId });
+  if (error) throw error;
+  return data;
+}
+export async function fetchStoreDeliveryAssignments(storeId, { boyId = null, from = null, to = null } = {}) {
+  const { data, error } = await supabase.rpc("get_store_delivery_assignments", {
+    p_store_id: storeId, p_boy_id: boyId, p_from: from, p_to: to,
+  });
+  if (error) throw error;
+  return data || [];
+}
+export async function generateDeliveryInvite(boyId) {
+  const { data, error } = await supabase.rpc("generate_delivery_invite", { p_boy_id: boyId });
+  if (error) throw error;
+  return data;
+}
+export async function revokeDeliveryLogin(boyId) {
+  const { error } = await supabase.rpc("revoke_delivery_login", { p_boy_id: boyId });
+  if (error) throw error;
+}
+
+// ---- Delivery boy app (sirf apna data; sab kuch RPC se) ----
+export async function claimDeliveryInvite(code) {
+  const { data, error } = await supabase.rpc("claim_delivery_invite", { p_code: code });
+  if (error) throw error;
+  return data;
+}
+export async function fetchMyDeliveryProfile() {
+  const { data, error } = await supabase.rpc("get_my_delivery_profile");
+  if (error) throw error;
+  return (data && data[0]) || null;
+}
+export async function fetchMyDeliveries(scope = "active", from = null, to = null) {
+  const { data, error } = await supabase.rpc("get_my_deliveries", { p_scope: scope, p_from: from, p_to: to });
+  if (error) throw error;
+  return data || [];
+}
+export async function updateDeliveryStatus(assignmentId, newStatus) {
+  const { data, error } = await supabase.rpc("delivery_update_status", { p_assignment_id: assignmentId, p_new_status: newStatus });
+  if (error) throw error;
+  return data;
+}
+export async function fetchMyDeliveryNotifications() {
+  const { data, error } = await supabase.from("delivery_notifications").select("*").order("created_at", { ascending: false }).limit(30);
+  if (error) throw error;
+  return data || [];
+}
+export async function markDeliveryNotificationsRead() {
+  const { error } = await supabase.rpc("mark_delivery_notifications_read");
+  if (error) throw error;
+}
+// Realtime: naya notification aate hi callback (RLS ki wajah se sirf apne milte hain).
+// Realtime na chale to DeliveryApp polling fallback use karta hai.
+export function subscribeToMyDeliveryNotifications(boyId, onNew) {
+  const channel = supabase
+    .channel("delivery-notif-" + boyId)
+    .on("postgres_changes",
+      { event: "INSERT", schema: "public", table: "delivery_notifications", filter: `delivery_boy_id=eq.${boyId}` },
+      (payload) => onNew(payload.new))
+    .subscribe();
+  return () => supabase.removeChannel(channel);
 }
 
 // ============================================================
