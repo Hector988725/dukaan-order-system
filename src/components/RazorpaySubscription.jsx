@@ -11,7 +11,7 @@ import { loadRazorpayScript, createSubscriptionOrder, verifySubscriptionPayment,
 // server tay karta hai, aur subscription sirf server-verified payment ya
 // Razorpay webhook se activate hoti hai — browser kuch activate nahi karta.
 // ============================================================
-export default function RazorpaySubscription({ store, user, onSuccess }) {
+export default function RazorpaySubscription({ store, user, onSuccess, canPay = true }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [selectedPlan, setSelectedPlan] = useState("monthly");
@@ -186,20 +186,28 @@ export default function RazorpaySubscription({ store, user, onSuccess }) {
     }
   };
 
+  // Renewal ka waqt nahi aaya: sirf AutoPay status (agar hai) dikhao, payment options nahi.
+  if (!canPay && !hasAutopayHistory) return null;
+
   return (
     <div style={{ maxWidth: "400px", margin: "0 auto", padding: "24px 18px" }}>
+      {canPay && (
+        <>
       {/* Header */}
-      <div style={{ textAlign: "center", marginBottom: "24px" }}>
-        <div style={{ width: 56, height: 56, borderRadius: "50%", background: "#E7F0EA", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px" }}>
-          <CreditCard size={26} color="#1B4332" />
+        <div style={{ textAlign: "center", marginBottom: "24px" }}>
+          <div style={{ width: 56, height: 56, borderRadius: "50%", background: "#E7F0EA", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px" }}>
+            <CreditCard size={26} color="#1B4332" />
+          </div>
+          <div style={{ fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: "19px", color: "#1A1A1A" }}>
+            Subscription Activate Karein
+          </div>
+          <div style={{ fontSize: "12.5px", color: "#8B8576", marginTop: "4px" }}>
+            {store.name} — UPI se pay karein, koi card nahi chahiye
+          </div>
         </div>
-        <div style={{ fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: "19px", color: "#1A1A1A" }}>
-          Subscription Activate Karein
-        </div>
-        <div style={{ fontSize: "12.5px", color: "#8B8576", marginTop: "4px" }}>
-          {store.name} — UPI se pay karein, koi card nahi chahiye
-        </div>
-      </div>
+
+        </>
+      )}
 
       {paidInfo && (
         <div style={{ display: "flex", gap: "8px", alignItems: "flex-start", background: "#E7F0EA", borderRadius: "9px", padding: "12px 14px", marginBottom: "16px" }}>
@@ -221,7 +229,7 @@ export default function RazorpaySubscription({ store, user, onSuccess }) {
         <AutopayStatusCard store={store} onCancel={handleCancelAutopay} onRetry={() => { /* neeche naya setup dikhega */ }} loading={loading} />
       )}
 
-      {(!hasAutopayHistory || store.subscription_status === "cancelled" || store.subscription_status === "payment_failed") && !autopaySuccess && (
+      {canPay && (!hasAutopayHistory || store.subscription_status === "cancelled" || store.subscription_status === "payment_failed") && !autopaySuccess && (
         <>
           {/* Payment mode toggle */}
           <div style={{ display: "flex", gap: "8px", marginBottom: "16px" }}>

@@ -27,6 +27,7 @@ import CustomerKhataButton from "./components/CustomerKhata";
 import OrderTrackingButton from "./components/OrderTracking";
 import { AuthGate, StoreDetailsForm, ResetPasswordScreen } from "./components/AuthGate";
 import RazorpaySubscription from "./components/RazorpaySubscription";
+import { getRenewalState } from "./lib/subscription";
 import SuperAdminApp from "./superadmin/SuperAdminApp";
 import DistributorApp from "./components/DistributorApp";
 
@@ -372,6 +373,7 @@ function OwnerArea() {
   const [loadingMoreOrders, setLoadingMoreOrders] = useState(false);
   const [deliveryBoys, setDeliveryBoys] = useState([]);
   const [view, setView] = useState("dashboard");
+  const [adminTab, setAdminTab] = useState(null);
   const [loadingStore, setLoadingStore] = useState(false);
   const authSettledRef = React.useRef(false);
   const previewCustomerViewRef = useRef(null);
@@ -644,7 +646,7 @@ function OwnerArea() {
             <button className={`ddemo-toggle-btn ${view === "storepreview" ? "active" : ""}`} onClick={() => setView("storepreview")}>
               <Eye size={13} /> Dukaan
             </button>
-            <button className={`ddemo-toggle-btn ${view === "admin" ? "active" : ""}`} onClick={() => setView("admin")}>
+            <button className={`ddemo-toggle-btn ${view === "admin" ? "active" : ""}`} onClick={() => { setAdminTab(null); setView("admin"); }}>
               <ShieldCheck size={13} /> Admin
             </button>
           </div>
@@ -656,6 +658,19 @@ function OwnerArea() {
 
       {(store.tagline || store.address) && <ScrollingTicker text={store.tagline || store.address} />}
 
+      {(() => {
+        const renewal = getRenewalState(store);
+        if (!renewal.expiringSoon) return null;
+        return (
+          <div style={{ background: "#FFF4DB", borderBottom: "1px solid #E8C877", padding: "9px 18px", display: "flex", alignItems: "center", justifyContent: "center", gap: "10px", flexWrap: "wrap", fontSize: "12.5px", color: "#8A6A0F", fontWeight: 700 }}>
+            <span>⚠️ Subscription {Math.max(renewal.daysLeft, 0)} din mein khatam hogi</span>
+            <button onClick={() => { setAdminTab("subscription"); setView("admin"); }} style={{ background: "#1B4332", color: "white", border: "none", borderRadius: "7px", padding: "5px 12px", fontSize: "11.5px", fontWeight: 800, cursor: "pointer" }}>
+              Renew Karein
+            </button>
+          </div>
+        );
+      })()}
+
       <div style={{ maxWidth: "900px", margin: "0 auto", padding: "10px 18px 0" }}>
         <StoreLinkShareButton store={store} />
       </div>
@@ -664,7 +679,7 @@ function OwnerArea() {
       {view === "khata" && <div style={{ padding: "16px 0 40px" }}><KhataPanel store={store} /></div>}
       {view === "quickbill" && <div style={{ maxWidth: "600px", margin: "0 auto", padding: "16px 18px 40px" }}><QuickBill store={store} products={products} onOrderPlaced={silentRefresh} /></div>}
       {view === "purchase" && showPurchaseTab && <div style={{ maxWidth: "600px", margin: "0 auto", padding: "16px 18px 40px" }}><PurchasePanel store={store} products={products} onRefresh={silentRefresh} /></div>}
-      {view === "admin" && <AdminPanel store={store} products={products} user={user} onRefresh={silentRefresh} />}
+      {view === "admin" && <AdminPanel key={adminTab || "default"} store={store} products={products} user={user} onRefresh={silentRefresh} initialTab={adminTab || undefined} />}
     </div>
   );
 }

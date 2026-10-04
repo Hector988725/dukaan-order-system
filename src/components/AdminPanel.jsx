@@ -16,12 +16,12 @@ import CatalogPicker from "./CatalogPicker";
 import AccountSettings from "./AccountSettings";
 import ComboManager from "./ComboManager";
 
-export default function AdminPanel({ store, products, user, onRefresh }) {
-  return <AdminContent store={store} products={products} user={user} onRefresh={onRefresh} />;
+export default function AdminPanel({ store, products, user, onRefresh, initialTab }) {
+  return <AdminContent store={store} products={products} user={user} onRefresh={onRefresh} initialTab={initialTab} />;
 }
 
-function AdminContent({ store, products, user, onRefresh }) {
-  const [tab, setTab] = useState("products");
+function AdminContent({ store, products, user, onRefresh, initialTab }) {
+  const [tab, setTab] = useState(initialTab || "products");
 
   // Salon/Beauty Parlour (booking-mode) mein delivery boy ka concept
   // hai hi nahi (appointment hai, delivery nahi) — isliye sirf isi
@@ -64,6 +64,7 @@ function AdminContent({ store, products, user, onRefresh }) {
 }
 
 import RazorpaySubscription from "./RazorpaySubscription";
+import { getRenewalState, RENEWAL_WINDOW_DAYS } from "../lib/subscription";
 import { getShoppingMode, getDiscountInfo, getUnitPresets, isBookingCategory } from "../lib/theme";
 import { INDIAN_STATES } from "../lib/gst";
 
@@ -74,6 +75,7 @@ function SubscriptionPanel({ store, onRefresh }) {
   const [deactivating, setDeactivating] = useState(false);
   const [msg, setMsg] = useState(null);
 
+  const renewal = getRenewalState(store);
   const isActive = store.is_active !== false;
   const expiry = store.subscription_expires_at ? new Date(store.subscription_expires_at) : null;
   const daysLeft = expiry ? Math.ceil((expiry - new Date()) / (1000 * 60 * 60 * 24)) : null;
@@ -122,9 +124,24 @@ function SubscriptionPanel({ store, onRefresh }) {
         </div>
       )}
 
-      {/* Razorpay Payment — real UPI payment */}
+      {/* Renewal ka waqt nahi aaya: payment options chhupe rehte hain */}
+      {isActive && !isExpired && !renewal.due && (
+        <div style={{ background: "#F7F5F0", borderRadius: "10px", padding: "12px 14px", fontSize: "12.5px", color: "#5C5747", lineHeight: 1.6 }}>
+          {renewal.isFree
+            ? "Is dukaan par abhi koi subscription charge nahi lagta."
+            : `Aapka subscription chal raha hai. Renewal ka option expiry se ${RENEWAL_WINDOW_DAYS} din pehle (${renewal.renewalOpensOn.toLocaleDateString("en-IN")} se) khulega. Tab tak payment ki zaroorat nahi.`}
+        </div>
+      )}
+      {renewal.expiringSoon && (
+        <div style={{ background: "#FFF4DB", border: "1px solid #E8C877", borderRadius: "10px", padding: "11px 14px", fontSize: "12.5px", color: "#8A6A0F", fontWeight: 600 }}>
+          ⚠️ Subscription {Math.max(renewal.daysLeft, 0)} din mein khatam hogi — neeche renew kar lein. Abhi renew karne par bachi hui validity mein naye mahine jud jaayenge.
+        </div>
+      )}
+
+      {/* Razorpay Payment — sirf renewal ke waqt (ya AutoPay status) */}
       <RazorpaySubscription
         store={store}
+        canPay={renewal.due}
         onSuccess={() => {
           setMsg({ type: "success", text: "Payment successful! Dukaan active ho gayi." });
           onRefresh();
