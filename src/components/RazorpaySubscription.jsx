@@ -17,6 +17,7 @@ export default function RazorpaySubscription({ store, user, onSuccess }) {
   const [selectedPlan, setSelectedPlan] = useState("monthly");
   const [paymentMode, setPaymentMode] = useState("onetime"); // "onetime" | "autopay"
   const [autopaySuccess, setAutopaySuccess] = useState(false);
+  const [paidInfo, setPaidInfo] = useState(null); // one-time payment verify hone ke baad
 
   const basePrice = Number(store.subscription_base_price) === 49 ? 49 : 199;
 
@@ -153,6 +154,10 @@ export default function RazorpaySubscription({ store, user, onSuccess }) {
               `✅ *Dukaan Order System — Payment Confirmed*\n\nDukaan: ${store.name}\nPlan: ${selected.label}\nAmount: ₹${selected.amount}\nPayment ID: ${response.razorpay_payment_id}\n${expiry ? `Valid Till: ${expiry.toLocaleDateString("en-IN")}\n` : ""}\nAapki dukaan active ho gayi hai! 🎉`
             );
             window.open(`https://wa.me/${store.whatsapp_number}?text=${msg}`, "_blank");
+            // Shop pehle se active ho to ye panel screen par rehta hai — isliye
+            // loading band karke success dikhate hain (warna button atka rehta).
+            setPaidInfo({ amount: selected.amount, expiry });
+            setLoading(false);
             onSuccess?.();
           } catch (err) {
             setError(
@@ -195,6 +200,15 @@ export default function RazorpaySubscription({ store, user, onSuccess }) {
           {store.name} — UPI se pay karein, koi card nahi chahiye
         </div>
       </div>
+
+      {paidInfo && (
+        <div style={{ display: "flex", gap: "8px", alignItems: "flex-start", background: "#E7F0EA", borderRadius: "9px", padding: "12px 14px", marginBottom: "16px" }}>
+          <Check size={16} color="#1B4332" style={{ flexShrink: 0, marginTop: "1px" }} />
+          <div style={{ fontSize: "12.5px", color: "#1B4332" }}>
+            Payment ho gaya ₹{paidInfo.amount}. {paidInfo.expiry ? `Subscription ${paidInfo.expiry.toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })} tak valid hai.` : "Subscription badh gayi hai."}
+          </div>
+        </div>
+      )}
 
       {autopaySuccess && (
         <div style={{ display: "flex", gap: "8px", alignItems: "flex-start", background: "#E7F0EA", borderRadius: "9px", padding: "12px 14px", marginBottom: "16px" }}>
