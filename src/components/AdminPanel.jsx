@@ -4,7 +4,7 @@ import {
   updateStoreSettings,
   createProduct, updateProduct, deleteProduct, updateProductFeatured, updateProductOrder,
   createVariant, updateVariant, deleteVariant,
-  uploadProductImage, deactivateStore,
+  uploadProductImage, toggleStoreOpen,
   checkSlugAvailable, updateStoreSlug, applyGstRateToAllProducts,
   fetchCatalogProducts, fetchCatalogLinkStatus, updateProductAvailability,
 } from "../lib/api";
@@ -80,11 +80,11 @@ function SubscriptionPanel({ store, onRefresh }) {
   const isExpired = daysLeft !== null && daysLeft < 0;
 
   const handleDeactivate = async () => {
-    if (!confirm("Kya aap is dukaan ko pause karna chahte hain? Customer ko 'Store unavailable' dikhega.")) return;
+    if (!confirm("Kya aap dukaan ko abhi band (Closed) karna chahte hain? Customer order nahi de payenge. Dobara kholne ke liye upar 'OPEN' button dabayein.")) return;
     setDeactivating(true);
     try {
-      await deactivateStore(store.id);
-      setMsg({ type: "success", text: "Dukaan pause kar di gayi." });
+      await toggleStoreOpen(store.id, false);
+      setMsg({ type: "success", text: "Dukaan band (Closed) kar di gayi." });
       onRefresh();
     } catch (e) {
       setMsg({ type: "error", text: "Error: " + e.message });
@@ -138,7 +138,7 @@ function SubscriptionPanel({ store, onRefresh }) {
           disabled={deactivating}
           style={{ background: "white", border: "1px solid #B3261E", color: "#B3261E", borderRadius: "9px", padding: "10px 0", fontSize: "12.5px", fontWeight: 700, cursor: "pointer", marginTop: "4px" }}
         >
-          {deactivating ? "Ho raha hai..." : "⏸️ Dukaan Pause Karein"}
+          {deactivating ? "Ho raha hai..." : "⏸️ Dukaan Band Karein"}
         </button>
       )}
     </div>

@@ -21,7 +21,6 @@ import DashboardView from "./components/DashboardView";
 import AdminPanel from "./components/AdminPanel";
 import QuickBill from "./components/QuickBill";
 import PurchasePanel from "./components/PurchasePanel";
-import FoundingTermsPage from "./components/FoundingTermsPage";
 import { TERMS_CONTENT, PRIVACY_CONTENT, REFUND_CONTENT, PLATFORM_NAME } from "./legalContent";
 import KhataPanel from "./components/KhataPanel";
 import CustomerKhataButton from "./components/CustomerKhata";
@@ -525,12 +524,6 @@ function OwnerArea() {
     new Date(store.subscription_expires_at) > new Date();
 
   if (!isSubscriptionActive) {
-    // Founding Shops ko payment se pehle ek baar terms accept karni
-    // zaroori hai (₹49 lifetime-lock + 7-din grace period ki shart) —
-    // sirf pehli baar, dobara nahi dikhta.
-    if (store.founding_member && !store.founding_terms_accepted_at) {
-      return <FoundingTermsPage store={store} onAccept={() => loadStoreData()} onSignOut={signOut} />;
-    }
     return (
       <div style={shellStyle}>
         <GlobalStyles />
@@ -547,14 +540,7 @@ function OwnerArea() {
         </div>
         {store.subscription_expires_at && new Date(store.subscription_expires_at) < new Date() && (
           <div style={{ background: "#FDECEA", padding: "10px 18px", textAlign: "center", fontSize: "12.5px", color: "#B3261E", fontWeight: 600 }}>
-            {(() => {
-              const daysSinceExpiry = Math.floor((Date.now() - new Date(store.subscription_expires_at).getTime()) / (24 * 60 * 60 * 1000));
-              if (store.founding_member) {
-                const daysLeft = Math.max(0, 7 - daysSinceExpiry);
-                return `⚠️ Aapki subscription expire ho gayi hai — ${daysLeft} din baaki hain apna ₹${store.subscription_base_price}/month lifetime-lock bachane ke liye. Neeche renew karein.`;
-              }
-              return "⚠️ Aapki subscription expire ho gayi hai — neeche renew karein";
-            })()}
+            ⚠️ Aapki subscription expire ho gayi hai — neeche renew karein
           </div>
         )}
         <RazorpaySubscription

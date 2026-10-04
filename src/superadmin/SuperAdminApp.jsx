@@ -3,7 +3,7 @@ import { Loader2, ShieldCheck, LogOut, Mail, Lock, Store, Package, TrendingUp, U
 import { signIn, signOut, onAuthChange } from "../lib/api";
 import {
   checkIsSuperAdmin, fetchDashboardStats, fetchAllStoresAdmin, fetchStoreOrders,
-  adminActivateStore, adminDeactivateStore, adminExtendSubscription, adminDeleteStore,
+  adminActivateStore, adminDeactivateStore, adminExtendSubscription, adminDeleteStore, adminSetStorePrice,
   fetchAllOrdersAdmin, fetchAllPaymentsAdmin, fetchAnalytics,
   fetchDistributorsOverview, createDistributor, runMonthlyCommission, markCommissionPaid,
   fetchCommissionTiers, updateCommissionTier, setDistributorType, updateReferralCode,
@@ -220,10 +220,12 @@ function StoresTab() {
 
   const filtered = stores.filter((s) => !search || s.name?.toLowerCase().includes(search.toLowerCase()) || s.slug?.toLowerCase().includes(search.toLowerCase()));
 
-  const handleActivate = async (id) => { await adminActivateStore(id); load(); };
-  const handleDeactivate = async (id) => { if (confirm("Is dukaan ko deactivate karein?")) { await adminDeactivateStore(id); load(); } };
-  const handleExtend = async (id, months) => { await adminExtendSubscription(id, months); load(); };
-  const handleDelete = async (id, name) => { if (confirm(`"${name}" ko HAMESHA ke liye delete karein? Yeh wapas nahi hoga.`)) { await adminDeleteStore(id); load(); } };
+  const run = async (fn) => { try { await fn(); load(); } catch (e) { alert("Error: " + (e.message || e)); } };
+  const handleActivate = (id) => run(() => adminActivateStore(id));
+  const handleDeactivate = (id) => { if (confirm("Is dukaan ko deactivate karein?")) run(() => adminDeactivateStore(id)); };
+  const handleExtend = (id, months) => run(() => adminExtendSubscription(id, months));
+  const handleDelete = (id, name) => { if (confirm(`"${name}" ko HAMESHA ke liye delete karein? Yeh wapas nahi hoga.`)) run(() => adminDeleteStore(id)); };
+  const handleSetPrice = (id, name, price) => { if (confirm(`"${name}" ka price ₹${price}/month karein? (Naya Razorpay plan isi price ka use hoga.)`)) run(() => adminSetStorePrice(id, price)); };
   const toggleOrders = async (id) => {
     if (expandedOrders === id) { setExpandedOrders(null); return; }
     const orders = await fetchStoreOrders(id);
@@ -259,6 +261,11 @@ function StoresTab() {
                     <button onClick={() => handleActivate(s.id)} style={{ ...smallBtnStyle, background: "#1B4332", color: "white" }}>Activate (1 mahina)</button>
                   )}
                   <button onClick={() => handleExtend(s.id, 1)} style={smallBtnStyle}>+1 mahina</button>
+                  {Number(s.subscription_base_price) === 49 ? (
+                    <button onClick={() => handleSetPrice(s.id, s.name, 199)} style={smallBtnStyle}>Price ₹49 → ₹199</button>
+                  ) : (
+                    <button onClick={() => handleSetPrice(s.id, s.name, 49)} style={smallBtnStyle}>Price ₹199 → ₹49</button>
+                  )}
                   <button onClick={() => handleDelete(s.id, s.name)} style={{ ...smallBtnStyle, color: "#B3261E", borderColor: "#F3C6C1" }}>Delete</button>
                 </div>
               </div>

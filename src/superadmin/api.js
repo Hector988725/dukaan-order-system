@@ -72,7 +72,12 @@ export async function fetchAllStoresAdmin() {
     const { data: basic } = await supabase.from("stores").select("*").order("created_at", { ascending: false });
     return basic || [];
   }
-  return data || [];
+  // Price store_details_admin view mein na bhi ho, to stores se (super-admin
+  // select policy se) merge kar lete hain.
+  const rows = data || [];
+  const { data: prices } = await supabase.from("stores").select("id, subscription_base_price");
+  const priceById = Object.fromEntries((prices || []).map((p) => [p.id, p.subscription_base_price]));
+  return rows.map((r) => ({ ...r, subscription_base_price: priceById[r.id] ?? r.subscription_base_price }));
 }
 
 export async function fetchStoreOrders(storeId) {
@@ -85,52 +90,34 @@ export async function fetchStoreOrders(storeId) {
   return data || [];
 }
 
+// Phase 1B: stores par direct write band hai. Sab kuch secure RPC se
+// (super-admin check DB mein hota hai).
 export async function adminActivateStore(storeId) {
-  const expiry = new Date();
-  expiry.setMonth(expiry.getMonth() + 1);
-  const { error } = await supabase
-    .from("stores")
-    .update({ is_active: true, subscription_expires_at: expiry.toISOString() })
-    .eq("id", storeId);
+  const { error } = await supabase.rpc("admin_activate_store", { p_store_id: storeId });
   if (error) throw error;
 }
 
 export async function adminDeactivateStore(storeId) {
-  const { error } = await supabase
-    .from("stores")
-    .update({ is_active: false })
-    .eq("id", storeId);
+  const { error } = await supabase.rpc("admin_deactivate_store", { p_store_id: storeId });
   if (error) throw error;
 }
 
 export async function adminExtendSubscription(storeId, months) {
-  const { data: store } = await supabase
-    .from("stores")
-    .select("subscription_expires_at")
-    .eq("id", storeId)
-    .single();
-
-  const base = store?.subscription_expires_at && new Date(store.subscription_expires_at) > new Date()
-    ? new Date(store.subscription_expires_at)
-    : new Date();
-
-  const newExpiry = new Date(base);
-  newExpiry.setMonth(newExpiry.getMonth() + months);
-
-  const { error } = await supabase
-    .from("stores")
-    .update({ is_active: true, subscription_expires_at: newExpiry.toISOString() })
-    .eq("id", storeId);
+  const { data, error } = await supabase.rpc("admin_extend_subscription", { p_store_id: storeId, p_months: months });
   if (error) throw error;
-  return newExpiry;
+  return data ? new Date(data) : null;
 }
 
-export async function adminDeleteStore(storeId) {
-  const { error } = await supabase
-    .from("stores")
-    .delete()
-    .eq("id", storeId);
+// Special price: sirf 49 ya 199 (har price ka alag Razorpay plan hota hai)
+export async function adminSetStorePrice(storeId, price) {
+  const { error } = await supabase.rpc("admin_set_store_price", { p_store_id: storeId, p_price: price });
   if (error) throw error;
+}
+
+// Store delete abhi jaanbujhkar band hai (safety) — pehle sirf silently
+// fail hota tha. Ise alag, soch-samajh ke secure RPC se banayenge.
+export async function adminDeleteStore() {
+  throw new Error("Store delete abhi disabled hai (safety). Zaroorat ho to developer se karwayein.");
 }
 
 // ============================================================

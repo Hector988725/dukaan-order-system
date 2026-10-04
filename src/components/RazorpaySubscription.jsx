@@ -1,34 +1,26 @@
 import React, { useState } from "react";
 import { CreditCard, Check, AlertCircle, Loader2, Shield, Smartphone, RefreshCw, XCircle, Repeat } from "lucide-react";
-import { loadRazorpayScript, activateSubscription, createRazorpaySubscription, cancelRazorpaySubscription, RAZORPAY_KEY_ID } from "../lib/api";
+import { loadRazorpayScript, createSubscriptionOrder, verifySubscriptionPayment, createRazorpaySubscription, cancelRazorpaySubscription } from "../lib/api";
 
 // ============================================================
 // RAZORPAY SUBSCRIPTION PAYMENT PAGE
-// Dukaandar yahan se subscription activate karta hai — Basic/Premium
-// tier aur billing-cycle (1/3/6/12 mahine) dono choose kar sakta hai.
-// Do payment mode hain: (1) One-Time Payment — Orders API, dukaandar
-// khud har baar renew karta hai. (2) AutoPay — Subscriptions API, UPI
-// e-mandate ek baar approve karke, har mahine automatic charge hota
-// hai (Razorpay Dashboard mein "Webhooks" se hi humein pata chalta hai
-// ki charge hua ya fail hua — RazorpaySubscription.jsx sirf mandate
-// SETUP karta hai, ongoing status webhook se update hota hai).
+// Ek hi plan (saari features) — ₹199/month (super admin ne special price
+// set kiya ho to ₹49). Billing-cycle 1/3/6/12 mahine. Do mode: One-Time
+// (Orders API) aur AutoPay (UPI e-mandate).
+// SECURITY: yahan dikhaya gaya price sirf display ke liye hai. Asli amount
+// server tay karta hai, aur subscription sirf server-verified payment ya
+// Razorpay webhook se activate hoti hai — browser kuch activate nahi karta.
 // ============================================================
 export default function RazorpaySubscription({ store, user, onSuccess }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [selectedPlan, setSelectedPlan] = useState("monthly");
-  const [selectedTier, setSelectedTier] = useState(store.plan_tier || "basic");
   const [paymentMode, setPaymentMode] = useState("onetime"); // "onetime" | "autopay"
   const [autopaySuccess, setAutopaySuccess] = useState(false);
 
-  const isFounding = !!store.founding_member;
-  // Founding Shops (pehli 1000): Basic ₹49, Premium ₹499 — hamesha lock
-  // (jab tak subscription active rahe, grace-period follow ho).
-  // Regular customers: Basic ₹299, Premium ₹999.
-  const basicPrice = isFounding ? 49 : 299;
-  const premiumPrice = isFounding ? 499 : 999;
-  const basePrice = selectedTier === "premium" ? premiumPrice : basicPrice;
+  const basePrice = Number(store.subscription_base_price) === 49 ? 49 : 199;
 
+  // Discount % server ke compute_subscription_amount() jaisa hi hai
   const discountPct = { quarterly: 48 / 597, halfyearly: 195 / 1194, yearly: 589 / 2388 };
   const plans = [
     { id: "monthly", label: "1 Mahina", months: 1, amount: basePrice, popular: false },
@@ -54,7 +46,7 @@ export default function RazorpaySubscription({ store, user, onSuccess }) {
         setLoading(false);
         return;
       }
-      const subData = await createRazorpaySubscription(store.id, selectedTier);
+      const subData = await createRazorpaySubscription(store.id);
 
       const rawNumber = store.whatsapp_number || "";
       const contactNumber = rawNumber.startsWith("91") ? "+" + rawNumber : rawNumber.startsWith("+") ? rawNumber : "+91" + rawNumber;
@@ -63,7 +55,7 @@ export default function RazorpaySubscription({ store, user, onSuccess }) {
         key: subData.key_id,
         subscription_id: subData.subscription_id, // ← order_id ki jagah subscription_id, yehi AutoPay/e-mandate flow trigger karta hai
         name: "Dukaan Order System",
-        description: `AutoPay — ${selectedTier === "premium" ? "Premium" : "Basic"} ₹${basePrice}/month — ${store.name}`,
+        description: `AutoPay — ₹${basePrice}/month — ${store.name}`,
         prefill: { name: store.name, contact: contactNumber },
         theme: { color: "#1B4332" },
         handler: function () {
@@ -118,34 +110,8 @@ export default function RazorpaySubscription({ store, user, onSuccess }) {
         return;
       }
 
-      // Step 1: Edge Function se server-side Razorpay order create karo
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-      const orderRes = await fetch(
-        `${supabaseUrl}/functions/v1/create-razorpay-order`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${supabaseKey}`,
-            "apikey": supabaseKey,
-          },
-          body: JSON.stringify({
-            amount: selected.amount,
-            currency: "INR",
-            store_id: store.id,
-            store_name: store.name,
-            months: selected.months,
-          }),
-        }
-      );
-
-      const orderData = await orderRes.json();
-
-      if (!orderRes.ok || orderData.error) {
-        throw new Error(orderData.error || "Order create nahi ho paaya");
-      }
+      // Step 1: server amount tay karke Razorpay order banata hai (login token ke saath)
+      const orderData = await createSubscriptionOrder(store.id, selected.months);
 
       // Contact number properly format karo
       const rawNumber = store.whatsapp_number || "";
@@ -168,39 +134,30 @@ export default function RazorpaySubscription({ store, user, onSuccess }) {
           name: store.name,
           contact: contactNumber,
         },
-        notes: {
-          store_id: store.id,
-          store_slug: store.slug,
-          plan: selectedPlan,
-          tier: selectedTier,
-          months: String(selected.months),
-        },
         theme: { color: "#1B4332" },
         handler: async function (response) {
-          if (!response.razorpay_payment_id) {
-            setError("Payment ID nahi mili. Support se sampark karein.");
+          if (!response.razorpay_payment_id || !response.razorpay_signature) {
+            setError("Payment details nahi mili. Support se sampark karein. Payment ID: " + (response.razorpay_payment_id || "—"));
             setLoading(false);
             return;
           }
           try {
-            await activateSubscription(
-              store.id,
-              response.razorpay_payment_id,
-              selected.months,
-              selectedTier,
-              basePrice
-            );
-            const expiry = new Date();
-            expiry.setMonth(expiry.getMonth() + selected.months);
+            // Server signature + amount verify karke subscription badhata hai
+            const result = await verifySubscriptionPayment({
+              razorpay_order_id: response.razorpay_order_id || orderData.order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+            });
+            const expiry = result.expires_at ? new Date(result.expires_at) : null;
             const msg = encodeURIComponent(
-              `✅ *Dukaan Order System — Payment Confirmed*\n\nDukaan: ${store.name}\nTier: ${selectedTier === "premium" ? "Premium" : "Basic"}\nPlan: ${selected.label}\nAmount: ₹${selected.amount}\nPayment ID: ${response.razorpay_payment_id}\nValid Till: ${expiry.toLocaleDateString("en-IN")}\n\nAapki dukaan active ho gayi hai! 🎉`
+              `✅ *Dukaan Order System — Payment Confirmed*\n\nDukaan: ${store.name}\nPlan: ${selected.label}\nAmount: ₹${selected.amount}\nPayment ID: ${response.razorpay_payment_id}\n${expiry ? `Valid Till: ${expiry.toLocaleDateString("en-IN")}\n` : ""}\nAapki dukaan active ho gayi hai! 🎉`
             );
             window.open(`https://wa.me/${store.whatsapp_number}?text=${msg}`, "_blank");
             onSuccess?.();
           } catch (err) {
             setError(
-              "Payment hua lekin activation mein problem aayi. " +
-              "Payment ID note kar lein: " + response.razorpay_payment_id
+              "Payment hua lekin activation confirm nahi hui. Thodi der baad page refresh karein; " +
+              "phir bhi na ho to Payment ID ke saath support se sampark karein: " + response.razorpay_payment_id
             );
             setLoading(false);
           }
@@ -237,11 +194,6 @@ export default function RazorpaySubscription({ store, user, onSuccess }) {
         <div style={{ fontSize: "12.5px", color: "#8B8576", marginTop: "4px" }}>
           {store.name} — UPI se pay karein, koi card nahi chahiye
         </div>
-        {isFounding && (
-          <div style={{ display: "inline-flex", alignItems: "center", gap: "5px", marginTop: "10px", background: "#FFF4DB", color: "#8A6A0F", fontSize: "11px", fontWeight: 800, padding: "5px 12px", borderRadius: "999px" }}>
-            ⭐ Founding Shop {store.founding_number ? `#${store.founding_number}` : ""} — ₹{basicPrice}/month Basic hamesha ke liye lock
-          </div>
-        )}
       </div>
 
       {autopaySuccess && (
@@ -271,28 +223,6 @@ export default function RazorpaySubscription({ store, user, onSuccess }) {
             >
               <Repeat size={13} /> AutoPay (UPI)
             </button>
-          </div>
-
-          {/* Basic vs Premium tier selector — dono mode mein zaroori hai */}
-          <div style={{ display: "flex", gap: "8px", marginBottom: "16px" }}>
-            {[
-              { id: "basic", label: "Basic", price: basicPrice, note: "Sab zaroori features" },
-              { id: "premium", label: "Premium", price: premiumPrice, note: "Extra premium features" },
-            ].map((tier) => (
-              <button
-                key={tier.id}
-                onClick={() => setSelectedTier(tier.id)}
-                style={{
-                  flex: 1, padding: "12px", borderRadius: "10px", textAlign: "left", cursor: "pointer",
-                  border: selectedTier === tier.id ? "2px solid #1B4332" : "1px solid #E3DECF",
-                  background: selectedTier === tier.id ? "#E7F0EA" : "white",
-                }}
-              >
-                <div style={{ fontWeight: 700, fontSize: "13px", color: "#1A1A1A" }}>{tier.label}</div>
-                <div style={{ fontWeight: 800, fontSize: "16px", color: "#1B4332", marginTop: "2px" }}>₹{tier.price}<span style={{ fontSize: "10.5px", fontWeight: 600, color: "#8B8576" }}>/month</span></div>
-                <div style={{ fontSize: "10px", color: "#8B8576", marginTop: "2px" }}>{tier.note}</div>
-              </button>
-            ))}
           </div>
 
           {paymentMode === "onetime" ? (
@@ -399,11 +329,9 @@ export default function RazorpaySubscription({ store, user, onSuccess }) {
             <span style={{ fontSize: "11px", color: "#8B8576" }}>Razorpay ke through secure payment — aapki details safe hain</span>
           </div>
 
-          {isFounding && (
-            <div style={{ fontSize: "10.5px", color: "#8B8576", textAlign: "center", marginTop: "10px", lineHeight: 1.5 }}>
-              Payment due date ke baad 7-din grace period milta hai. Uske baad bhi inactive rahi to ₹{basicPrice} lifetime-lock khatam ho jaata hai. Yeh price sirf SaaS subscription ke liye hai — domain, payment-gateway fees, SMS/WhatsApp jaisi third-party costs alag ho sakti hain.
-            </div>
-          )}
+          <div style={{ fontSize: "10.5px", color: "#8B8576", textAlign: "center", marginTop: "10px", lineHeight: 1.5 }}>
+            Saari features ek hi plan mein. Yeh price sirf SaaS subscription ke liye hai — domain, payment-gateway fees, SMS/WhatsApp jaisi third-party costs alag ho sakti hain.
+          </div>
         </>
       )}
     </div>

@@ -95,14 +95,6 @@ export async function fetchStoreBySlug(slug) {
 }
 
 export async function fetchStoreByUserId(userId) {
-  // Founding-member grace-period check — agar payment due-date se 7+
-  // din nikal chuke hain aur abhi bhi founding_member hai, to yahin
-  // permanently regular price par revert ho jaata hai. Best-effort:
-  // fail ho to bhi login block nahi hota, agli baar phir try hoga.
-  try {
-    await supabase.rpc("check_and_apply_founding_expiry", { p_user_id: userId });
-  } catch {}
-
   const { data, error } = await supabase
     .from("stores")
     .select("*")
@@ -126,43 +118,13 @@ export async function updateStoreSlug(storeId, newSlug) {
   if (error) throw error;
 }
 
-const FOUNDING_MEMBER_LIMIT = 1000;
-const FOUNDING_BASIC_PRICE = 49;
-const REGULAR_BASIC_PRICE = 199;
-const FOUNDING_PREMIUM_PRICE = 499;
-const REGULAR_PREMIUM_PRICE = 999;
-// Grace period ki asli enforcement DB RPC (check_and_apply_founding_expiry)
-// mein hai — yeh sirf UI mein message dikhane ke kaam aata hai.
-const GRACE_PERIOD_DAYS = 7;
-
 export async function createStore(userId, { slug, name, business_type, whatsapp_number, upi_id, address }) {
-  // Pehli 1000 dukaano ko founding-shop price (₹49/month Basic, hamesha ke
-  // liye lock) milta hai — yeh signup ke waqt hi decide ho jaata hai
-  // total existing (real) stores count karke, aur permanently store ho
-  // jaata hai. `is_test_store=true` wali dukaane (jaise owner ki apni
-  // testing ke liye banayi hui stores) is count mein shamil NAHI hoti —
-  // isliye asli 20 slots hamesha sirf real customers ke liye reserved
-  // rehte hain, chahe kitni bhi test stores bani ho.
-  const { data: count, error: countError } = await supabase.rpc("count_real_stores");
-  if (countError) throw countError;
-
-  const isFoundingMember = (count || 0) < FOUNDING_MEMBER_LIMIT;
-
+  // Subscription/pricing/founding fields client se NAHI bheje jaate. DB trigger
+  // (guard_store_protected_columns) naye store ko hamesha "inactive, unpaid,
+  // ₹199" shuru karta hai; activation sirf server-verified payment se hoti hai.
   const { data, error } = await supabase
     .from("stores")
-    .insert({
-      user_id: userId, slug, name, business_type, whatsapp_number, upi_id, address,
-      founding_member: isFoundingMember,
-      subscription_base_price: isFoundingMember ? FOUNDING_BASIC_PRICE : REGULAR_BASIC_PRICE,
-      plan_tier: "basic",
-      // Koi free trial nahi — signup hote hi store inactive rehta hai,
-      // dashboard turant payment screen dikhata hai. Pehle yahan koi
-      // is_active/subscription_expires_at nahi diya jaata tha, isliye
-      // table ka default (30-din free trial) apply ho jaata tha —
-      // ab explicitly override kar rahe hain taaki payment mandatory ho.
-      is_active: false,
-      subscription_expires_at: null,
-    })
+    .insert({ user_id: userId, slug, name, business_type, whatsapp_number, upi_id, address })
     .select()
     .single();
   if (error) throw error;
@@ -333,7 +295,7 @@ export async function uploadProductImage(file, storeId) {
   // jaaye, photo already upload ho chuki hai, isliye user ko error
   // nahi dikhate — sirf quota tracking thodi si off ho sakti hai.
   try {
-    await supabase.from("stores").update({ storage_used_bytes: used + file.size }).eq("id", storeId);
+    await supabase.rpc("refresh_storage_usage", { p_store_id: storeId });
   } catch (trackErr) {
     console.warn("Storage usage track nahi ho paayi:", trackErr);
   }
@@ -364,41 +326,6 @@ export async function fetchSubscriptionStatus(storeId) {
   return data;
 }
 
-export async function renewSubscription(storeId, months = 1) {
-  // Subscription renew karna - current date se months add karo
-  const { data: current } = await supabase
-    .from("stores")
-    .select("subscription_expires_at")
-    .eq("id", storeId)
-    .single();
-
-  const currentExpiry = current?.subscription_expires_at
-    ? new Date(current.subscription_expires_at)
-    : new Date();
-
-  // Agar already expire ho gayi toh aaj se calculate karo
-  const baseDate = currentExpiry > new Date() ? currentExpiry : new Date();
-  const newExpiry = new Date(baseDate);
-  newExpiry.setMonth(newExpiry.getMonth() + months);
-
-  const { error } = await supabase
-    .from("stores")
-    .update({
-      is_active: true,
-      subscription_expires_at: newExpiry.toISOString(),
-    })
-    .eq("id", storeId);
-  if (error) throw error;
-  return newExpiry;
-}
-
-export async function deactivateStore(storeId) {
-  const { error } = await supabase
-    .from("stores")
-    .update({ is_active: false })
-    .eq("id", storeId);
-  if (error) throw error;
-}
 
 export async function deleteProduct(productId) {
   const { error } = await supabase.from("products").delete().eq("id", productId);
@@ -942,64 +869,45 @@ export function loadRazorpayScript() {
   });
 }
 
-// Subscription activate karna after payment
-export async function activateSubscription(storeId, razorpaySubscriptionId, months = 1, planTier, newBasePrice) {
-  const newExpiry = new Date();
-  newExpiry.setMonth(newExpiry.getMonth() + months);
-
-  const updatePayload = {
-    is_active: true,
-    subscription_expires_at: newExpiry.toISOString(),
-    razorpay_subscription_id: razorpaySubscriptionId || null,
-  };
-  // Agar dukaandar ne Basic se Premium (ya vice-versa) switch kiya hai,
-  // to naya tier aur uska current per-month price bhi save karte hain —
-  // taaki agli renewal isi naye price/tier se calculate ho.
-  if (planTier) updatePayload.plan_tier = planTier;
-  if (newBasePrice) updatePayload.subscription_base_price = newBasePrice;
-
-  const { error } = await supabase
-    .from("stores")
-    .update(updatePayload)
-    .eq("id", storeId);
-  if (error) throw error;
-  return newExpiry;
-}
-
-// manage-razorpay-subscription Edge Function ko call karta hai —
-// AutoPay (UPI e-mandate) subscriptions banane/cancel karne ke liye.
-// (VS Code Local History se 20 Sept 2026 ko recover kiya gaya — is
-// session ke shuru mein galti se overwrite ho gaya tha)
-async function callSubscriptionFunction(payload) {
+// ------------------------------------------------------------
+// SUBSCRIPTION PAYMENTS — Phase 1B
+// Browser kabhi subscription activate NAHI karta. Amount, plan aur activation
+// sab server (edge functions + DB) tay karta hai. Har call user ke login
+// token (JWT) ke saath jaati hai, anon key ke saath nahi.
+// ------------------------------------------------------------
+async function callAuthedFunction(name, payload) {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.access_token) throw new Error("Login session nahi mili. Dobara login karein.");
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
   const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-  const res = await fetch(`${supabaseUrl}/functions/v1/manage-razorpay-subscription`, {
+  const res = await fetch(`${supabaseUrl}/functions/v1/${name}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${supabaseKey}`, apikey: supabaseKey },
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}`, apikey: supabaseKey },
     body: JSON.stringify(payload),
   });
-  const data = await res.json();
+  let data = {};
+  try { data = await res.json(); } catch { /* non-JSON error */ }
   if (!res.ok || data.error) throw new Error(data.error || "Request fail hui");
   return data;
 }
 
-export async function createRazorpaySubscription(storeId, tier) {
-  return callSubscriptionFunction({ action: "create", store_id: storeId, tier });
+// One-time payment: server amount tay karke Razorpay order banata hai.
+export function createSubscriptionOrder(storeId, months) {
+  return callAuthedFunction("create-razorpay-order", { store_id: storeId, months });
+}
+
+// Checkout ke baad: server signature + amount verify karke subscription badhata hai.
+export function verifySubscriptionPayment({ razorpay_order_id, razorpay_payment_id, razorpay_signature }) {
+  return callAuthedFunction("verify-razorpay-payment", { razorpay_order_id, razorpay_payment_id, razorpay_signature });
+}
+
+// AutoPay (UPI e-mandate): plan server store ke price se chunta hai.
+export async function createRazorpaySubscription(storeId) {
+  return callAuthedFunction("manage-razorpay-subscription", { action: "create", store_id: storeId });
 }
 
 export async function cancelRazorpaySubscription(storeId) {
-  return callSubscriptionFunction({ action: "cancel", store_id: storeId });
-}
-
-// Founding Shop Terms & Pricing Lock — pehli baar payment se pehle
-// dukaandar ko yeh padh ke accept karna zaroori hai (sirf founding
-// members ke liye). Ek baar accept hone ke baad dobara nahi dikhta.
-export async function acceptFoundingTerms(storeId) {
-  const { error } = await supabase
-    .from("stores")
-    .update({ founding_terms_accepted_at: new Date().toISOString() })
-    .eq("id", storeId);
-  if (error) throw error;
+  return callAuthedFunction("manage-razorpay-subscription", { action: "cancel", store_id: storeId });
 }
 
 // Super admin ke liye - sab stores ki list
