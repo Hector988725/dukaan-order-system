@@ -770,8 +770,8 @@ export function subscribeToMyDeliveryNotifications(boyId, onNew) {
 // nahi badli — yeh security-definer RPC sirf tracking-relevant fields
 // deta hai jab exact order_number match ho.
 // ============================================================
-export async function fetchOrderTracking(storeId, orderNumber) {
-  const { data, error } = await supabase.rpc("get_order_tracking", { p_store_id: storeId, p_order_number: orderNumber });
+export async function fetchOrderTracking(storeId, orderNumber, phone) {
+  const { data, error } = await supabase.rpc("get_order_tracking", { p_store_id: storeId, p_order_number: orderNumber, p_phone: phone });
   if (error) throw error;
   const row = Array.isArray(data) ? data[0] : data;
   return row || null;

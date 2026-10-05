@@ -12,6 +12,13 @@ const PENDING_UPI_KEY = "dukaan_pending_upi_checkout";
 // note karna bhool jaaye, to "Track Order" kholte hi apne aap dikh
 // jaaye, poora type karne ki zaroorat na pade. Har store ke liye alag
 // list, max 5 sabse naye order (koi server/account zaroori nahi).
+export function saveTrackPhone(storeId, phone) {
+  try { if (phone) localStorage.setItem(`dukaan_track_phone_${storeId}`, String(phone)); } catch (e) { /* ignore */ }
+}
+export function getTrackPhone(storeId) {
+  try { return localStorage.getItem(`dukaan_track_phone_${storeId}`) || ""; } catch (e) { return ""; }
+}
+
 export function saveRecentOrder(storeId, orderNumber) {
   try {
     const key = `dukaan_recent_orders_${storeId}`;
@@ -458,6 +465,7 @@ const CustomerView = forwardRef(function CustomerView({ store, products, onOrder
       }
       sessionStorage.removeItem(PENDING_UPI_KEY);
       saveRecentOrder(store.id, saved.order_number);
+      saveTrackPhone(store.id, form.phone);
       setOrderPlaced(saved);
       setCart({});
       setComboCart({});
@@ -850,6 +858,7 @@ function BookingModal({ store, product, theme, onClose, onBooked }) {
       };
       const saved = await createOrder(payload);
       saveRecentOrder(store.id, saved.order_number);
+      saveTrackPhone(store.id, phone.trim());
       onBooked({ ...saved, service_name: product.name, service_label: service.label, payment_choice: payment });
     } catch (e) {
       setError(e.message || "Booking nahi ho payi, dobara try karein.");

@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { PackageSearch, X, Loader2, Phone, MessageCircle, Check } from "lucide-react";
 import { fetchOrderTracking } from "../lib/api";
-import { getRecentOrders } from "./CustomerView";
+import { getRecentOrders, getTrackPhone, saveTrackPhone } from "./CustomerView";
 
 // ============================================================
 // ORDER TRACKING — order_number se, koi login nahi. Backend mein abhi
@@ -59,6 +59,7 @@ export function OrderTrackingModal({ store, onClose, initialOrderNumber }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [order, setOrder] = useState(null);
+  const [phone, setPhone] = useState(getTrackPhone(store.id));
   // Is device par pehle place kiye gaye orders (agar koi hon) — customer
   // order-ID bhool jaaye to bhi ek tap mein track kar sake.
   const recentOrders = getRecentOrders(store.id);
@@ -66,14 +67,16 @@ export function OrderTrackingModal({ store, onClose, initialOrderNumber }) {
   const handleCheck = async (numberOverride) => {
     const num = numberOverride || orderNumber;
     if (!num.trim()) { setError("Please enter an order number."); return; }
+    if (phone.replace(/\D/g, "").length < 10) { setError("Please enter the mobile number used while ordering."); return; }
     setError("");
     setLoading(true);
     try {
-      const data = await fetchOrderTracking(store.id, num.trim().toUpperCase());
+      const data = await fetchOrderTracking(store.id, num.trim().toUpperCase(), phone);
       if (!data) {
-        setError("Order number not found. Please check and try again.");
+        setError("Order not found. Check the order number and the mobile number you used while ordering.");
         setOrder(null);
       } else {
+        saveTrackPhone(store.id, phone);
         setOrder(data);
       }
     } catch (e) {
@@ -115,6 +118,13 @@ export function OrderTrackingModal({ store, onClose, initialOrderNumber }) {
               placeholder="e.g. ORD1234"
               style={{ width: "100%", border: "1px solid #E3DECF", borderRadius: "8px", padding: "10px 12px", fontSize: "14px", outline: "none", marginBottom: "8px", fontFamily: "inherit" }}
               autoFocus
+            />
+            <input
+              value={phone}
+              onChange={(e) => setPhone(e.target.value.replace(/[^\d+ ]/g, ""))}
+              placeholder="Mobile number used for the order"
+              inputMode="tel"
+              style={{ width: "100%", border: "1px solid #E3DECF", borderRadius: "8px", padding: "10px 12px", fontSize: "14px", outline: "none", marginBottom: "8px", fontFamily: "inherit" }}
             />
             {error && <div style={{ color: "#B3261E", fontSize: "11.5px", marginBottom: "8px" }}>{error}</div>}
             <button onClick={() => handleCheck()} disabled={loading} className="ddemo-btn" style={{ width: "100%", background: "#1B4332", color: "white", border: "none", borderRadius: "9px", padding: "11px 0", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}>
