@@ -82,11 +82,11 @@ function SubscriptionPanel({ store, onRefresh }) {
   const isExpired = daysLeft !== null && daysLeft < 0;
 
   const handleDeactivate = async () => {
-    if (!confirm("Kya aap dukaan ko abhi band (Closed) karna chahte hain? Customer order nahi de payenge. Dobara kholne ke liye upar 'OPEN' button dabayein.")) return;
+    if (!confirm("Close your shop for now? Customers will not be able to place orders. Your subscription will keep running. To reopen, tap the OPEN button at the top.")) return;
     setDeactivating(true);
     try {
       await toggleStoreOpen(store.id, false);
-      setMsg({ type: "success", text: "Dukaan band (Closed) kar di gayi." });
+      setMsg({ type: "success", text: "Your shop is now closed for orders. Your subscription is not affected." });
       onRefresh();
     } catch (e) {
       setMsg({ type: "error", text: "Error: " + e.message });
@@ -150,12 +150,17 @@ function SubscriptionPanel({ store, onRefresh }) {
 
       {/* Deactivate option */}
       {isActive && !isExpired && (
+        <div style={{ fontSize: "11.5px", color: "#8B8576", textAlign: "center", marginTop: "4px" }}>
+          Closing the shop only stops new orders. Your subscription keeps running.
+        </div>
+      )}
+      {isActive && !isExpired && (
         <button
           onClick={handleDeactivate}
           disabled={deactivating}
           style={{ background: "white", border: "1px solid #B3261E", color: "#B3261E", borderRadius: "9px", padding: "10px 0", fontSize: "12.5px", fontWeight: 700, cursor: "pointer", marginTop: "4px" }}
         >
-          {deactivating ? "Ho raha hai..." : "⏸️ Dukaan Band Karein"}
+          {deactivating ? "Closing..." : "⏸️ Close Shop (Stop Orders)"}
         </button>
       )}
     </div>
