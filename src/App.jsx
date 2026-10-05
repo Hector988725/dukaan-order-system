@@ -375,6 +375,10 @@ function OwnerArea() {
   const [view, setView] = useState("dashboard");
   const [adminTab, setAdminTab] = useState(null);
   const [loadingStore, setLoadingStore] = useState(false);
+  // storeChecked: server se store ka jawab (mila ya "nahi hai") sach mein aa chuka hai.
+  // storeError: load fail hua (network/token) — tab "Dukaan banayein" form NAHI dikhana.
+  const [storeChecked, setStoreChecked] = useState(false);
+  const [storeError, setStoreError] = useState(false);
   const authSettledRef = React.useRef(false);
   const previewCustomerViewRef = useRef(null);
   const ORDERS_PAGE_SIZE = 50;
@@ -427,8 +431,23 @@ function OwnerArea() {
     if (!user) return;
     try {
       if (!silent) setLoadingStore(true);
-      const storeData = await fetchStoreByUserId(user.id);
+      // Network/token ki chhoti dikkat ho to 3 baar try karo, tab hi haar maano
+      let storeData;
+      let lastErr = null;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          storeData = await fetchStoreByUserId(user.id);
+          lastErr = null;
+          break;
+        } catch (e) {
+          lastErr = e;
+          await new Promise((r) => setTimeout(r, 600 * (attempt + 1)));
+        }
+      }
+      if (lastErr) throw lastErr;
       setStore(storeData);
+      setStoreChecked(true);
+      setStoreError(false);
       if (storeData) {
         const [productsData, ordersData, deliveryBoysData] = await Promise.all([
           fetchProducts(storeData.id),
@@ -442,6 +461,8 @@ function OwnerArea() {
       }
     } catch (e) {
       console.error(e);
+      // Store pehle se load hai to purana dikhta rahe; nahi to error screen
+      setStoreError(true);
     } finally {
       if (!silent) setLoadingStore(false);
     }
@@ -466,7 +487,12 @@ function OwnerArea() {
   }, [store, orders]);
 
   useEffect(() => {
-    if (user) loadStoreData();
+    if (user) {
+      loadStoreData();
+    } else {
+      setStoreChecked(false);
+      setStoreError(false);
+    }
   }, [user, loadStoreData]);
 
   useEffect(() => {
@@ -499,7 +525,21 @@ function OwnerArea() {
     );
   }
 
-  if (loadingStore) return <LoadingScreen text="Dukaan load ho rahi hai..." />;
+  if (loadingStore || (!storeChecked && !storeError)) return <LoadingScreen text="Dukaan load ho rahi hai..." />;
+
+  // Load fail hua (internet/session) — dukaan hai, bas abhi aa nahi paayi. Naya form NAHI.
+  if (!store && storeError) {
+    return (
+      <div style={shellStyle}>
+        <GlobalStyles />
+        <div style={{ maxWidth: "340px", margin: "90px auto", padding: "0 18px", textAlign: "center" }}>
+          <div style={{ fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: "17px", marginBottom: "6px" }}>Dukaan load nahi ho paayi</div>
+          <div style={{ fontSize: "12.5px", color: "#8B8576", marginBottom: "16px" }}>Internet ya connection ki dikkat ho sakti hai. Aapki dukaan safe hai.</div>
+          <button onClick={() => { setStoreError(false); loadStoreData(); }} style={{ background: "#1B4332", color: "white", border: "none", borderRadius: "9px", padding: "11px 22px", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}>Dobara Koshish Karein</button>
+        </div>
+      </div>
+    );
+  }
 
   // User logged in hai but uski koi store nahi hai abhi
   if (!store) {
