@@ -536,6 +536,9 @@ function OwnerArea() {
           <div style={{ fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: "17px", marginBottom: "6px" }}>Dukaan load nahi ho paayi</div>
           <div style={{ fontSize: "12.5px", color: "#8B8576", marginBottom: "16px" }}>Internet ya connection ki dikkat ho sakti hai. Aapki dukaan safe hai.</div>
           <button onClick={() => { setStoreError(false); loadStoreData(); }} style={{ background: "#1B4332", color: "white", border: "none", borderRadius: "9px", padding: "11px 22px", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}>Dobara Koshish Karein</button>
+          <div style={{ marginTop: "14px" }}>
+            <button onClick={signOut} style={{ background: "transparent", border: "1px solid #E3DECF", borderRadius: "8px", padding: "8px 16px", fontSize: "12px", fontWeight: 700, color: "#5C5747", cursor: "pointer" }}>Logout</button>
+          </div>
         </div>
       </div>
     );
@@ -555,6 +558,14 @@ function OwnerArea() {
             <div style={{ fontSize: "12.5px", color: "#8B8576", marginTop: "4px" }}>Neeche details bharkar apni dukaan banayein</div>
           </div>
           <StoreDetailsForm user={user} onDone={() => loadStoreData()} />
+          <div style={{ textAlign: "center", marginTop: "16px", fontSize: "12px", color: "#8B8576" }}>
+            Login: {user?.email}
+            <div>
+              <button onClick={signOut} style={{ marginTop: "8px", background: "transparent", border: "1px solid #E3DECF", borderRadius: "8px", padding: "8px 16px", fontSize: "12px", fontWeight: 700, color: "#5C5747", cursor: "pointer" }}>
+                Logout / Dusre account se login karein
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     );
