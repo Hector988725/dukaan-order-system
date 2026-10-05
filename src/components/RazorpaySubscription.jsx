@@ -226,7 +226,7 @@ export default function RazorpaySubscription({ store, user, onSuccess, canPay = 
       )}
 
       {hasAutopayHistory && !autopaySuccess && (
-        <AutopayStatusCard store={store} onCancel={handleCancelAutopay} onRetry={() => { /* neeche naya setup dikhega */ }} loading={loading} />
+        <AutopayStatusCard store={store} onCancel={handleCancelAutopay} onRetry={handleAutopaySetup} loading={loading} />
       )}
 
       {canPay && (!hasAutopayHistory || store.subscription_status === "cancelled" || store.subscription_status === "payment_failed") && !autopaySuccess && (
@@ -365,7 +365,7 @@ export default function RazorpaySubscription({ store, user, onSuccess, canPay = 
 // Subscription hai (kisi bhi status mein), yeh dikhta hai payment
 // options ki jagah. Asli status webhook se update hota hai.
 // ============================================================
-function AutopayStatusCard({ store, onCancel, loading }) {
+function AutopayStatusCard({ store, onCancel, onRetry, loading }) {
   const statusConfig = {
     active: { label: "Active", color: "#1B4332", bg: "#E7F0EA", icon: Check, note: "AutoPay chal raha hai — har mahine automatic charge hoga." },
     payment_pending: { label: "Payment Pending", color: "#8A6A0F", bg: "#FFF4DB", icon: Loader2, note: "Payment process ho raha hai ya retry ho raha hai. Thodi der mein status update hoga." },
@@ -388,7 +388,16 @@ function AutopayStatusCard({ store, onCancel, loading }) {
           Agli billing date: <b>{new Date(store.next_billing_date).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}</b>
         </div>
       )}
-      {store.subscription_status === "active" && (
+      {store.subscription_status === "payment_pending" && (
+        <button
+          onClick={onRetry}
+          disabled={loading}
+          style={{ marginTop: "10px", marginRight: "8px", background: "#1B4332", border: "none", color: "white", borderRadius: "7px", padding: "7px 14px", fontSize: "11.5px", fontWeight: 700, cursor: loading ? "not-allowed" : "pointer" }}
+        >
+          {loading ? "Khul raha hai..." : "AutoPay Approve Karein"}
+        </button>
+      )}
+      {(store.subscription_status === "active" || store.subscription_status === "payment_pending") && (
         <button
           onClick={onCancel}
           disabled={loading}

@@ -44,13 +44,20 @@ Deno.serve(async (req) => {
 
     const { data: store } = await admin
       .from("stores")
-      .select("id, name, user_id, subscription_base_price, razorpay_subscription_id, autopay_enabled, subscription_status")
+      .select("id, name, user_id, subscription_base_price, razorpay_subscription_id, autopay_enabled, subscription_status, is_active, subscription_expires_at")
       .eq("id", store_id)
       .maybeSingle();
     if (!store || store.user_id !== user.id) return json({ error: "Store nahi mili" }, 404);
 
     if (action === "cancel") {
       if (!store.razorpay_subscription_id) return json({ error: "Koi active AutoPay subscription nahi hai" }, 400);
+      // Mandate kabhi approve hi nahi hua ("created") to Razorpay par cancel ki zaroorat nahi — wo apne aap expire hota hai.
+      const pre = await fetch(`https://api.razorpay.com/v1/subscriptions/${encodeURIComponent(store.razorpay_subscription_id)}`, { headers: { Authorization: rzpAuth } });
+      const preData = await pre.json().catch(() => ({}));
+      if (pre.ok && preData.status === "created") {
+        await admin.from("stores").update({ subscription_status: "cancelled", autopay_enabled: false }).eq("id", store.id);
+        return json({ success: true });
+      }
       const r = await fetch(`https://api.razorpay.com/v1/subscriptions/${encodeURIComponent(store.razorpay_subscription_id)}/cancel`, {
         method: "POST",
         headers: { Authorization: rzpAuth, "Content-Type": "application/json" },
@@ -65,8 +72,31 @@ Deno.serve(async (req) => {
 
     if (action !== "create") return json({ error: "Invalid action" }, 400);
 
-    if (store.autopay_enabled && ["active", "payment_pending"].includes(store.subscription_status)) {
-      return json({ error: "AutoPay pehle se chal raha hai" }, 400);
+    // Renewal window: payment sirf tab jab plan khatam hone me <= 7 din bache ho (ya khatam ho chuka ho)
+    {
+      const exp = store.subscription_expires_at ? new Date(store.subscription_expires_at).getTime() : 0;
+      const activeNow = store.is_active !== false && exp > Date.now();
+      if (activeNow && exp - Date.now() > 7 * 24 * 60 * 60 * 1000) {
+        const till = new Date(exp).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+        return json({ error: `Aapka plan ${till} tak chalu hai. Payment renewal ke 7 din pehle se khulti hai.` }, 400);
+      }
+    }
+
+    if (store.autopay_enabled && store.razorpay_subscription_id && ["active", "payment_pending"].includes(store.subscription_status)) {
+      // Pehle Razorpay se asli status poochho. Agar user ne mandate approve kiye bina
+      // checkout band kar diya ("created"), to wahi subscription dobara kholo, naya nahi.
+      const cur = await fetch(`https://api.razorpay.com/v1/subscriptions/${encodeURIComponent(store.razorpay_subscription_id)}`, {
+        headers: { Authorization: rzpAuth },
+      });
+      const curData = await cur.json().catch(() => ({}));
+      if (cur.ok && curData.status === "created") {
+        return json({ subscription_id: store.razorpay_subscription_id, key_id: KEY_ID });
+      }
+      if (cur.ok && ["authenticated", "active", "pending"].includes(curData.status)) {
+        return json({ error: "AutoPay pehle se chal raha hai" }, 400);
+      }
+      // cancelled / completed / expired / halted ya fetch fail -> neeche naya subscription bana do
+      if (!cur.ok) return json({ error: "AutoPay ka status abhi check nahi ho paaya. Thodi der baad try karein." }, 502);
     }
 
     const base = Number(store.subscription_base_price) === 49 ? 49 : 199;
