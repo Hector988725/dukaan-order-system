@@ -825,14 +825,30 @@ export async function addKhataTransaction(storeId, customerId, type, amount, des
   return Array.isArray(data) ? data[0] : data;
 }
 
-// Customer apna khata dekhe — guest, sirf phone-number se (login nahi
-// hai), read-only. Yehi RPC dukaandar wali same table se read karta
-// hai, isliye dono taraf hamesha ek jaisa balance/history dikhta hai.
-export async function fetchMyKhata(storeId, phone) {
-  const { data, error } = await supabase.rpc("get_my_khata", { p_store_id: storeId, p_phone: phone });
+// Customer apna khata dekhe — guest (login nahi), phone + 4-digit PIN se.
+// PIN dukaandar generate karke customer ko deta hai. Return:
+// { status: 'ok' | 'invalid' | 'locked', khata_balance, transactions }
+export async function fetchMyKhata(storeId, phone, pin) {
+  const { data, error } = await supabase.rpc("get_my_khata", { p_store_id: storeId, p_phone: phone, p_pin: pin });
   if (error) throw error;
   const row = Array.isArray(data) ? data[0] : data;
-  return row || { khata_balance: 0, transactions: [] };
+  return row || { status: "invalid", khata_balance: 0, transactions: [] };
+}
+
+// Dukaandar: customer ke liye naya random 4-digit PIN banao. PIN sirf
+// isi ek baar wapas milta hai (database me sirf hash rehta hai); dobara
+// generate karne par purana PIN band ho jata hai.
+export async function generateKhataPin(customerId) {
+  const { data, error } = await supabase.rpc("generate_khata_pin", { p_customer_id: customerId });
+  if (error) throw error;
+  return data;
+}
+
+// Dukaandar: kin customers ka PIN set hai -> Set of customer ids
+export async function fetchKhataPinStatus(storeId) {
+  const { data, error } = await supabase.rpc("get_khata_pin_status", { p_store_id: storeId });
+  if (error) throw error;
+  return new Set((data || []).map((r) => r.customer_id));
 }
 
 // ============================================================

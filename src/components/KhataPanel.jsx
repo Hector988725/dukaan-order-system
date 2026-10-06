@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { BookText, Plus, ArrowUpRight, ArrowDownRight, X, Loader2, TrendingUp, Users, IndianRupee } from "lucide-react";
-import { fetchStoreKhataOverview, fetchCustomerKhataHistory, addKhataTransaction, createKhataCustomer } from "../lib/api";
+import { BookText, Plus, ArrowUpRight, ArrowDownRight, X, Loader2, TrendingUp, Users, IndianRupee, KeyRound, Copy, MessageCircle } from "lucide-react";
+import { fetchStoreKhataOverview, fetchCustomerKhataHistory, addKhataTransaction, createKhataCustomer, generateKhataPin, fetchKhataPinStatus } from "../lib/api";
 
 // ============================================================
 // KHATA / UDHAARI PANEL — Dukaandar side
@@ -17,11 +17,13 @@ export default function KhataPanel({ store }) {
   const [loading, setLoading] = useState(true);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [addingNew, setAddingNew] = useState(false);
+  const [pinSet, setPinSet] = useState(null); // Set of customer ids jinka PIN bana hai (null = pata nahi)
 
   const load = useCallback(async () => {
     try {
       const data = await fetchStoreKhataOverview(store.id);
       setCustomers(data);
+      try { setPinSet(await fetchKhataPinStatus(store.id)); } catch { setPinSet(null); }
     } catch (e) {
       console.error(e);
     } finally {
@@ -75,7 +77,14 @@ export default function KhataPanel({ store }) {
           >
             <div>
               <div style={{ fontWeight: 700, fontSize: "13.5px" }}>{c.customer_name}</div>
-              <div style={{ fontSize: "11px", color: "#8B8576", marginTop: "2px" }}>{c.customer_phone}</div>
+              <div style={{ fontSize: "11px", color: "#8B8576", marginTop: "2px" }}>
+                {c.customer_phone}
+                {pinSet && (
+                  <span style={{ marginLeft: "8px", fontWeight: 700, color: pinSet.has(c.customer_id) ? "#1B4332" : "#B3261E" }}>
+                    {pinSet.has(c.customer_id) ? "🔒 PIN set" : "⚠ PIN nahi"}
+                  </span>
+                )}
+              </div>
             </div>
             <div style={{ textAlign: "right" }}>
               <div style={{ fontWeight: 800, fontSize: "15px", fontFamily: "'Fraunces', serif", color: c.khata_balance > 0 ? "#B3261E" : c.khata_balance < 0 ? "#1B4332" : "#5C5747" }}>
@@ -90,6 +99,8 @@ export default function KhataPanel({ store }) {
       {selectedCustomer && (
         <CustomerKhataDetail
           storeId={store.id}
+          storeName={store.name}
+          hasPin={pinSet ? pinSet.has(selectedCustomer.customer_id) : null}
           customer={selectedCustomer}
           onClose={() => setSelectedCustomer(null)}
           onChanged={() => { load(); }}
@@ -123,10 +134,11 @@ function StatCard({ icon, label, value, highlight }) {
 // ============================================================
 // Ek customer ka poora ledger (dono taraf same data) + naya entry
 // ============================================================
-function CustomerKhataDetail({ storeId, customer, onClose, onChanged }) {
+function CustomerKhataDetail({ storeId, storeName, hasPin, customer, onClose, onChanged }) {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showEntry, setShowEntry] = useState(null); // 'debit' | 'credit' | null
+  const [showPin, setShowPin] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -169,6 +181,14 @@ function CustomerKhataDetail({ storeId, customer, onClose, onChanged }) {
           </button>
         </div>
 
+        {hasPin !== null && (
+          <div style={{ padding: "0 18px 10px" }}>
+            <button onClick={() => setShowPin(true)} className="ddemo-btn" style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", background: hasPin ? "white" : "#FFF4D6", color: hasPin ? "#5C5747" : "#7A5B00", border: `1px solid ${hasPin ? "#E3DECF" : "#E8CF86"}`, borderRadius: "9px", padding: "9px 0", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}>
+              <KeyRound size={13} /> {hasPin ? "Naya PIN Banao (PIN bhool gaye?)" : "Customer ke liye Khata PIN Banao"}
+            </button>
+          </div>
+        )}
+
         <div style={{ overflowY: "auto", padding: "4px 18px 18px", flex: 1 }}>
           {loading ? (
             <div style={{ textAlign: "center", padding: "20px", color: "#8B8576" }}><Loader2 size={18} className="spin" /></div>
@@ -193,6 +213,16 @@ function CustomerKhataDetail({ storeId, customer, onClose, onChanged }) {
         </div>
       </div>
 
+      {showPin && (
+        <KhataPinModal
+          customer={customer}
+          storeName={storeName}
+          hasPin={hasPin}
+          onClose={() => setShowPin(false)}
+          onGenerated={() => onChanged()}
+        />
+      )}
+
       {showEntry && (
         <EntryForm
           storeId={storeId}
@@ -202,6 +232,90 @@ function CustomerKhataDetail({ storeId, customer, onClose, onChanged }) {
           onDone={() => { setShowEntry(null); load(); onChanged(); }}
         />
       )}
+    </div>
+  );
+}
+
+// ============================================================
+// Khata PIN — dukaandar auto-generate karta hai aur customer ko bhejta hai.
+// PIN sirf yahin ek baar dikhta hai; baad me sirf naya generate ho sakta hai.
+// ============================================================
+function KhataPinModal({ customer, storeName, hasPin, onClose, onGenerated }) {
+  const [pin, setPin] = useState(null);
+  const [working, setWorking] = useState(false);
+  const [error, setError] = useState("");
+  const [copied, setCopied] = useState(false);
+
+  const generate = async () => {
+    setError("");
+    setWorking(true);
+    try {
+      const p = await generateKhataPin(customer.customer_id);
+      setPin(p);
+      onGenerated();
+    } catch (e) {
+      setError("PIN nahi ban paaya, dobara koshish karein.");
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  const message = pin
+    ? `Your Khata PIN for ${storeName} is ${pin}. Use it with your mobile number to view your khata balance. Please do not share this PIN.`
+    : "";
+  const phone10 = String(customer.customer_phone || "").replace(/\D/g, "").slice(-10);
+
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(message); setCopied(true); setTimeout(() => setCopied(false), 1800); } catch { /* ignore */ }
+  };
+
+  return (
+    <div style={{ ...overlayStyle, zIndex: 60, alignItems: "center" }}>
+      <div style={{ background: "white", borderRadius: "14px", width: "100%", maxWidth: "340px", padding: "20px", margin: "20px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+          <div style={{ fontWeight: 700, fontSize: "15px", display: "flex", alignItems: "center", gap: "8px" }}><KeyRound size={16} /> Khata PIN</div>
+          <button onClick={onClose} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#5C5747" }}><X size={18} /></button>
+        </div>
+
+        {!pin ? (
+          <>
+            <div style={{ fontSize: "12.5px", color: "#5C5747", marginBottom: "6px" }}><b>{customer.customer_name}</b> ({customer.customer_phone})</div>
+            <div style={{ fontSize: "12px", color: "#8B8576", marginBottom: "14px", lineHeight: 1.5 }}>
+              {hasPin
+                ? "Naya PIN banane par purana PIN turant band ho jayega. Naya PIN customer ko dena hoga."
+                : "Customer apna khata dekhne ke liye mobile number ke saath ye 4-digit PIN dalega. PIN apne aap ban jayega — aap use customer ko bhej dena."}
+            </div>
+            {error && <div style={{ color: "#B3261E", fontSize: "11.5px", marginBottom: "8px" }}>{error}</div>}
+            <div style={{ display: "flex", gap: "8px" }}>
+              <button onClick={onClose} style={{ flex: 1, background: "#F7F5F0", border: "1px solid #E3DECF", borderRadius: "9px", padding: "10px 0", fontSize: "12.5px", fontWeight: 700, color: "#5C5747", cursor: "pointer" }}>Cancel</button>
+              <button disabled={working} onClick={generate} className="ddemo-btn" style={{ flex: 1, background: "#1B4332", color: "white", border: "none", borderRadius: "9px", padding: "10px 0", fontSize: "12.5px", fontWeight: 700, cursor: "pointer" }}>
+                {working ? "Ban raha hai..." : hasPin ? "Naya PIN Banao" : "PIN Banao"}
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div style={{ background: "#F7F5F0", borderRadius: "10px", padding: "16px", textAlign: "center", marginBottom: "10px" }}>
+              <div style={{ fontSize: "11px", color: "#8B8576", fontWeight: 600, marginBottom: "4px" }}>{customer.customer_name} ka Khata PIN</div>
+              <div style={{ fontSize: "34px", fontWeight: 800, letterSpacing: "8px", fontFamily: "'Fraunces', serif", color: "#1B4332" }}>{pin}</div>
+            </div>
+            <div style={{ fontSize: "11.5px", color: "#B3261E", marginBottom: "12px" }}>
+              Ye PIN dobara nahi dikhega. Abhi customer ko bhej dein. Bhool jaye to naya PIN bana sakte hain.
+            </div>
+            <div style={{ display: "flex", gap: "8px" }}>
+              <button onClick={copy} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", background: "#F7F5F0", border: "1px solid #E3DECF", borderRadius: "9px", padding: "10px 0", fontSize: "12.5px", fontWeight: 700, color: "#5C5747", cursor: "pointer" }}>
+                <Copy size={13} /> {copied ? "Copy ho gaya" : "Copy"}
+              </button>
+              {phone10.length === 10 && (
+                <a href={`https://wa.me/91${phone10}?text=${encodeURIComponent(message)}`} target="_blank" rel="noreferrer" style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", background: "#1B4332", color: "white", borderRadius: "9px", padding: "10px 0", fontSize: "12.5px", fontWeight: 700, textDecoration: "none" }}>
+                  <MessageCircle size={13} /> WhatsApp
+                </a>
+              )}
+            </div>
+            <button onClick={onClose} style={{ width: "100%", marginTop: "8px", background: "transparent", border: "none", fontSize: "12px", fontWeight: 700, color: "#5C5747", cursor: "pointer", padding: "8px 0" }}>Done</button>
+          </>
+        )}
+      </div>
     </div>
   );
 }

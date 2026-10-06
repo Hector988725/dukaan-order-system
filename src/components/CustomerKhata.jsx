@@ -28,17 +28,25 @@ export default function CustomerKhataButton({ store }) {
 
 function CustomerKhataModal({ store, onClose }) {
   const [phone, setPhone] = useState("");
+  const [pin, setPin] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState(null);
 
   const handleCheck = async () => {
     if (phone.replace(/\D/g, "").length !== 10) { setError("Please enter a valid 10-digit mobile number."); return; }
+    if (!/^\d{4}$/.test(pin)) { setError("Please enter your 4-digit Khata PIN."); return; }
     setError("");
     setLoading(true);
     try {
-      const data = await fetchMyKhata(store.id, phone.replace(/\D/g, ""));
-      setResult(data);
+      const data = await fetchMyKhata(store.id, phone.replace(/\D/g, ""), pin);
+      if (data.status === "ok") {
+        setResult(data);
+      } else if (data.status === "locked") {
+        setError("Too many wrong attempts. Please try again after 15 minutes.");
+      } else {
+        setError("Mobile number or PIN is incorrect. If you don't have a PIN yet, ask the shop to generate one for you.");
+      }
     } catch (e) {
       setError("Something went wrong, please try again.");
     } finally {
@@ -56,7 +64,7 @@ function CustomerKhataModal({ store, onClose }) {
 
         {!result ? (
           <>
-            <div style={{ fontSize: "12px", color: "#8B8576", marginBottom: "10px" }}>Enter your registered mobile number to check your Khata (credit/payment) balance.</div>
+            <div style={{ fontSize: "12px", color: "#8B8576", marginBottom: "10px" }}>Enter your registered mobile number and the 4-digit Khata PIN given by the shop.</div>
             <input
               value={phone}
               onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
@@ -64,6 +72,15 @@ function CustomerKhataModal({ store, onClose }) {
               type="tel"
               style={{ width: "100%", border: "1px solid #E3DECF", borderRadius: "8px", padding: "10px 12px", fontSize: "14px", outline: "none", marginBottom: "8px" }}
               autoFocus
+            />
+            <input
+              value={pin}
+              onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+              placeholder="4-digit Khata PIN"
+              type="password"
+              inputMode="numeric"
+              autoComplete="off"
+              style={{ width: "100%", border: "1px solid #E3DECF", borderRadius: "8px", padding: "10px 12px", fontSize: "14px", outline: "none", marginBottom: "8px", letterSpacing: "3px" }}
             />
             {error && <div style={{ color: "#B3261E", fontSize: "11.5px", marginBottom: "8px" }}>{error}</div>}
             <button onClick={handleCheck} disabled={loading} className="ddemo-btn" style={{ width: "100%", background: "#1B4332", color: "white", border: "none", borderRadius: "9px", padding: "11px 0", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}>
@@ -102,7 +119,7 @@ function CustomerKhataModal({ store, onClose }) {
                 ))}
               </div>
             )}
-            <button onClick={() => { setResult(null); setPhone(""); }} style={{ width: "100%", background: "transparent", border: "1px solid #E3DECF", borderRadius: "9px", padding: "9px 0", fontSize: "12px", fontWeight: 700, color: "#5C5747", cursor: "pointer", marginTop: "12px" }}>
+            <button onClick={() => { setResult(null); setPhone(""); setPin(""); }} style={{ width: "100%", background: "transparent", border: "1px solid #E3DECF", borderRadius: "9px", padding: "9px 0", fontSize: "12px", fontWeight: 700, color: "#5C5747", cursor: "pointer", marginTop: "12px" }}>
               Check Another Number
             </button>
           </>
