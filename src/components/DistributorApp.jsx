@@ -37,6 +37,7 @@ function DistributorAuthGate({ onAuthed }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [referralCode, setReferralCode] = useState("");
+  const [claimCode, setClaimCode] = useState("");
   const [show, setShow] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -60,12 +61,12 @@ function DistributorAuthGate({ onAuthed }) {
   // bhi ban chuka hota hai, agli baar seedha "Login" se aa sakte hain
   // aur dashboard khud claim-form dikha dega.
   const handleClaim = async () => {
-    if (!referralCode.trim()) { setError("Please enter your Referral Code."); return; }
+    if (!referralCode.trim() || !claimCode.trim()) { setError("Please enter your Referral Code and Claim Code."); return; }
     setError("");
     setLoading(true);
     try {
       const data = await signUp(email, password);
-      await claimDistributorAccount(referralCode.trim());
+      await claimDistributorAccount(referralCode.trim(), claimCode.trim());
       onAuthed(data.user);
     } catch (e) {
       setError(e.message);
@@ -91,12 +92,17 @@ function DistributorAuthGate({ onAuthed }) {
       <div style={{ background: "white", border: "1px solid #E3DECF", borderRadius: "12px", padding: "18px", display: "flex", flexDirection: "column", gap: "10px" }}>
         {mode === "claim" && (
           <div style={{ fontSize: "11.5px", color: "#8B8576", marginBottom: "-2px" }}>
-            Enter the Referral Code you were given (e.g. DIST-RAMESH), then set your email/password.
+            Enter the Referral Code and the private Claim Code you were given, then set your email/password.
           </div>
         )}
         {mode === "claim" && (
           <div style={{ display: "flex", alignItems: "center", gap: "8px", border: "1px solid #E3DECF", borderRadius: "8px", padding: "9px 11px" }}>
             <input value={referralCode} onChange={(e) => setReferralCode(e.target.value.toUpperCase())} placeholder="Referral Code" style={{ border: "none", outline: "none", fontSize: "13px", width: "100%", fontWeight: 700 }} />
+          </div>
+        )}
+        {mode === "claim" && (
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", border: "1px solid #E3DECF", borderRadius: "8px", padding: "9px 11px" }}>
+            <input value={claimCode} onChange={(e) => setClaimCode(e.target.value.toUpperCase())} placeholder="Claim Code (e.g. K7M2-9QXP)" autoComplete="off" style={{ border: "none", outline: "none", fontSize: "13px", width: "100%", fontWeight: 700 }} />
           </div>
         )}
         <div style={{ display: "flex", alignItems: "center", gap: "8px", border: "1px solid #E3DECF", borderRadius: "8px", padding: "9px 11px" }}>
@@ -127,6 +133,7 @@ function DistributorAuthGate({ onAuthed }) {
 function DistributorDashboard({ user }) {
   const [data, setData] = useState(undefined); // undefined = loading, null = needs claim, object = loaded
   const [claimCode, setClaimCode] = useState("");
+  const [claimRef, setClaimRef] = useState("");
   const [claimError, setClaimError] = useState("");
   const [claiming, setClaiming] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -140,11 +147,11 @@ function DistributorDashboard({ user }) {
   useEffect(load, []);
 
   const handleClaim = async () => {
-    if (!claimCode.trim()) { setClaimError("Please enter your Referral Code."); return; }
+    if (!claimRef.trim() || !claimCode.trim()) { setClaimError("Please enter your Referral Code and Claim Code."); return; }
     setClaimError("");
     setClaiming(true);
     try {
-      await claimDistributorAccount(claimCode.trim());
+      await claimDistributorAccount(claimRef.trim(), claimCode.trim());
       load();
     } catch (e) {
       setClaimError(e.message);
@@ -160,9 +167,10 @@ function DistributorDashboard({ user }) {
     return (
       <div style={{ maxWidth: "360px", margin: "80px auto", padding: "0 18px" }}>
         <div style={{ background: "white", border: "1px solid #E3DECF", borderRadius: "12px", padding: "18px", display: "flex", flexDirection: "column", gap: "10px" }}>
-          <div style={{ fontWeight: 700, fontSize: "14px" }}>Enter Your Referral Code</div>
+          <div style={{ fontWeight: 700, fontSize: "14px" }}>Link Your Distributor Account</div>
           <div style={{ fontSize: "11.5px", color: "#8B8576" }}>This account isn't linked to a distributor record yet.</div>
-          <input value={claimCode} onChange={(e) => setClaimCode(e.target.value.toUpperCase())} placeholder="e.g. DIST-RAMESH" style={{ border: "1px solid #E3DECF", borderRadius: "8px", padding: "9px 11px", fontSize: "13px", fontWeight: 700, outline: "none" }} />
+          <input value={claimRef} onChange={(e) => setClaimRef(e.target.value.toUpperCase())} placeholder="Referral Code (e.g. DIST-RAMESH)" style={{ border: "1px solid #E3DECF", borderRadius: "8px", padding: "9px 11px", fontSize: "13px", fontWeight: 700, outline: "none" }} />
+          <input value={claimCode} onChange={(e) => setClaimCode(e.target.value.toUpperCase())} placeholder="Claim Code (e.g. K7M2-9QXP)" autoComplete="off" style={{ border: "1px solid #E3DECF", borderRadius: "8px", padding: "9px 11px", fontSize: "13px", fontWeight: 700, outline: "none" }} />
           {claimError && <div style={{ color: "#B3261E", fontSize: "12px" }}>{claimError}</div>}
           <button onClick={handleClaim} disabled={claiming} style={{ background: "#1B4332", color: "white", border: "none", borderRadius: "9px", padding: "10px 0", fontWeight: 700, fontSize: "13px", cursor: "pointer" }}>
             {claiming ? "..." : "Link Account"}
@@ -222,7 +230,7 @@ function DistributorDashboard({ user }) {
             liye. Live check hai — shops kam ho jaayein to yeh section
             khud gayab ho jaata hai. */}
         {data.nominee_eligible ? (
-          <NomineeSection distributorId={data.distributor_id} theme={theme} />
+          <NomineeSection distributorId={data.distributor_id} />
         ) : (
           <div style={{ fontSize: "10.5px", color: "#8B8576", textAlign: "center", background: "#F7F5F0", borderRadius: "10px", padding: "10px" }}>
             Nominee registration unlocks once you reach 500 active-paid referred shops (currently {data.active_paid}).

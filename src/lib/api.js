@@ -155,10 +155,15 @@ export async function attributeStoreToReferral(storeId, referralCode) {
 // ============================================================
 // Naya distributor apna login khud banata hai (signUp se), phir apne
 // referral_code se is RPC ke through us account ko apne distributor
-// record se jodta hai (ek baar hi karna hota hai).
-export async function claimDistributorAccount(referralCode) {
-  const { error } = await supabase.rpc("claim_distributor_account", { p_referral_code: referralCode });
+// record se jodta hai (ek baar hi karna hota hai). Referral code public hai,
+// isliye saath me Super Admin ka diya private, ek-baar-ka Claim Code lagta hai.
+export async function claimDistributorAccount(referralCode, claimCode) {
+  const { data, error } = await supabase.rpc("claim_distributor_account", { p_referral_code: referralCode, p_claim_code: claimCode });
   if (error) throw error;
+  if (data === "ok") return;
+  if (data === "locked") throw new Error("Too many wrong attempts. Please try again after 15 minutes.");
+  if (data === "already_linked") throw new Error("This account is already linked to a distributor record.");
+  throw new Error("Referral Code or Claim Code is incorrect, expired, or already used. Please ask for a new Claim Code.");
 }
 
 // Distributor apna dashboard dekhta hai isse — apna hi data aata hai

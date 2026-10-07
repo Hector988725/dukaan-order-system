@@ -7,6 +7,7 @@ import {
   fetchAllOrdersAdmin, fetchAllPaymentsAdmin, fetchAnalytics,
   fetchDistributorsOverview, createDistributor, runMonthlyCommission, markCommissionPaid,
   fetchCommissionTiers, updateCommissionTier, setDistributorType, updateReferralCode,
+  adminGenerateClaimCode, fetchDistributorClaimStatus,
 } from "./api";
 import CatalogManager from "./CatalogManager";
 
@@ -359,6 +360,26 @@ function DistributorsTab() {
   const [markingPaid, setMarkingPaid] = useState(null);
   const [editingType, setEditingType] = useState(null); // distributor_id jiska Special-toggle khula hai
   const [editingCode, setEditingCode] = useState(null); // distributor_id jiska code-edit khula hai
+  const [claimStatus, setClaimStatus] = useState({}); // distributor_id -> { claimed, claim_code_active, claim_expires_at }
+  const [claimModal, setClaimModal] = useState(null); // { name, code } — code sirf yahin ek baar dikhta hai
+  const [claimBusy, setClaimBusy] = useState(null);
+
+  const handleClaimCode = async (d, release) => {
+    const msg = release
+      ? `${d.name} ka purana login hata kar naya Claim Code banayein? Unka purana login is distributor se alag ho jayega.`
+      : `${d.name} ke liye naya Claim Code banayein?`;
+    if (!confirm(msg)) return;
+    setClaimBusy(d.distributor_id);
+    try {
+      const code = await adminGenerateClaimCode(d.distributor_id, release);
+      setClaimModal({ name: d.name, referralCode: d.referral_code, code });
+      load();
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      setClaimBusy(null);
+    }
+  };
 
   const handleMarkPaid = async (d) => {
     if (!confirm(`Confirm karein: ${d.name} ko ₹${d.pending_payout} UPI se bhej diya hai?`)) return;
@@ -373,7 +394,11 @@ function DistributorsTab() {
     }
   };
 
-  const load = () => { setLoading(true); fetchDistributorsOverview().then(setDistributors).catch((e) => alert(e.message)).finally(() => setLoading(false)); };
+  const load = () => {
+    setLoading(true);
+    fetchDistributorsOverview().then(setDistributors).catch((e) => alert(e.message)).finally(() => setLoading(false));
+    fetchDistributorClaimStatus().then(setClaimStatus).catch(() => setClaimStatus({}));
+  };
   useEffect(load, []);
 
   const handleRunCommission = async () => {
@@ -420,7 +445,22 @@ function DistributorsTab() {
       </div>
 
       {showTiers && <CommissionTiersPanel />}
-      {showAddForm && <AddDistributorForm onDone={() => { setShowAddForm(false); load(); }} onCancel={() => setShowAddForm(false)} />}
+      {showAddForm && (
+        <AddDistributorForm
+          onDone={async (newId, name, referralCode) => {
+            setShowAddForm(false);
+            try {
+              const code = await adminGenerateClaimCode(newId, false);
+              setClaimModal({ name, referralCode, code });
+            } catch (e) {
+              alert("Distributor ban gaya, par Claim Code nahi bana: " + e.message);
+            }
+            load();
+          }}
+          onCancel={() => setShowAddForm(false)}
+        />
+      )}
+      {claimModal && <ClaimCodeModal info={claimModal} onClose={() => setClaimModal(null)} />}
 
       <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
         {distributors.map((d) => (
@@ -450,6 +490,30 @@ function DistributorsTab() {
                   <button onClick={() => setEditingCode(editingCode === d.distributor_id ? null : d.distributor_id)} style={{ border: "1px solid #E3DECF", background: "white", borderRadius: "6px", padding: "3px 8px", fontSize: "10.5px", fontWeight: 700, cursor: "pointer", color: "#5C5747" }}>
                     Code Edit Karein
                   </button>
+                  {(() => {
+                    const cs = claimStatus[d.distributor_id];
+                    const busy = claimBusy === d.distributor_id;
+                    const badge = !cs ? null : cs.claimed
+                      ? { t: "Login Linked", c: "#1B4332", bg: "#E7F0EA" }
+                      : cs.claim_code_active
+                        ? { t: "Claim Code Pending", c: "#9A6B00", bg: "#FFF4DB" }
+                        : { t: "Claim Code Nahi Hai", c: "#B3261E", bg: "#FDECEA" };
+                    return (
+                      <>
+                        {badge && <span style={{ fontSize: "9.5px", fontWeight: 800, color: badge.c, background: badge.bg, padding: "3px 7px", borderRadius: "5px" }}>{badge.t}</span>}
+                        {cs && !cs.claimed && (
+                          <button disabled={busy} onClick={() => handleClaimCode(d, false)} style={{ border: "1px solid #E3DECF", background: "white", borderRadius: "6px", padding: "3px 8px", fontSize: "10.5px", fontWeight: 700, cursor: "pointer", color: "#5C5747" }}>
+                            {busy ? "..." : "Claim Code Banayein"}
+                          </button>
+                        )}
+                        {cs && cs.claimed && (
+                          <button disabled={busy} onClick={() => handleClaimCode(d, true)} style={{ border: "1px solid #F3C6C1", background: "white", borderRadius: "6px", padding: "3px 8px", fontSize: "10.5px", fontWeight: 700, cursor: "pointer", color: "#B3261E" }}>
+                            {busy ? "..." : "Login Reset + Naya Code"}
+                          </button>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
                 {editingType === d.distributor_id && (
                   <SpecialTypeEditor distributor={d} onDone={() => { setEditingType(null); load(); }} onCancel={() => setEditingType(null)} />
@@ -637,8 +701,8 @@ function AddDistributorForm({ onDone, onCancel }) {
     setError("");
     setSaving(true);
     try {
-      await createDistributor(name.trim(), phone.trim(), code.trim(), Number(rate));
-      onDone();
+      const newId = await createDistributor(name.trim(), phone.trim(), code.trim(), Number(rate));
+      onDone(newId, name.trim(), code.trim());
     } catch (e) {
       setError(e.message);
     } finally {
@@ -660,6 +724,34 @@ function AddDistributorForm({ onDone, onCancel }) {
       <button onClick={handleSave} disabled={saving} style={{ background: "#1B4332", color: "white", border: "none", borderRadius: "9px", padding: "10px 0", fontWeight: 700, fontSize: "13px", cursor: "pointer" }}>
         {saving ? "Save ho raha hai..." : "Distributor Add Karein"}
       </button>
+    </div>
+  );
+}
+
+// Claim Code sirf ek baar yahin dikhta hai — database me sirf hash rehta hai.
+function ClaimCodeModal({ info, onClose }) {
+  const [copied, setCopied] = useState(false);
+  const link = `${window.location.origin}/distributor`;
+  const text = `Your Distributor dashboard is ready.\nLink: ${link}\n1) Tap "First Time"\n2) Referral Code: ${info.referralCode}\n3) Claim Code: ${info.code}\n4) Set your own email + password, tap "Create Account".\nClaim Code is valid for 7 days and works only once. Do not share it.`;
+  const copy = async () => { try { await navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 1800); } catch { /* ignore */ } };
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 70 }}>
+      <div style={{ background: "white", borderRadius: "14px", width: "100%", maxWidth: "400px", padding: "20px", margin: "20px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+          <div style={{ fontWeight: 700, fontSize: "14.5px" }}>Claim Code — {info.name}</div>
+          <button onClick={onClose} style={{ border: "none", background: "none", cursor: "pointer", color: "#8B8576" }}><X size={16} /></button>
+        </div>
+        <div style={{ background: "#F7F5F0", borderRadius: "10px", padding: "16px", textAlign: "center", marginBottom: "10px" }}>
+          <div style={{ fontSize: "11px", color: "#8B8576", fontWeight: 600, marginBottom: "4px" }}>Private Claim Code (7 din valid, sirf ek baar)</div>
+          <div style={{ fontSize: "28px", fontWeight: 800, letterSpacing: "4px", color: "#1B4332" }}>{info.code}</div>
+        </div>
+        <div style={{ fontSize: "11.5px", color: "#B3261E", marginBottom: "10px" }}>Ye code dobara nahi dikhega. Abhi copy karke distributor ko bhej dein.</div>
+        <textarea readOnly value={text} style={{ width: "100%", height: "120px", border: "1px solid #E3DECF", borderRadius: "8px", padding: "9px", fontSize: "11.5px", fontFamily: "inherit", resize: "none" }} />
+        <div style={{ display: "flex", gap: "8px", marginTop: "10px" }}>
+          <button onClick={copy} style={{ flex: 1, background: "#1B4332", color: "white", border: "none", borderRadius: "9px", padding: "10px 0", fontWeight: 700, fontSize: "12.5px", cursor: "pointer" }}>{copied ? "Copy ho gaya" : "Message Copy Karein"}</button>
+          <button onClick={onClose} style={{ flex: 1, background: "#F7F5F0", border: "1px solid #E3DECF", borderRadius: "9px", padding: "10px 0", fontWeight: 700, fontSize: "12.5px", color: "#5C5747", cursor: "pointer" }}>Band Karein</button>
+        </div>
+      </div>
     </div>
   );
 }

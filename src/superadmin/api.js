@@ -251,6 +251,26 @@ export async function createDistributor(name, phone, referralCode, commissionRat
   return data;
 }
 
+// Distributor ke liye private, ek-baar-ka Claim Code banao (7 din valid).
+// releaseLogin=true ho to pehle se juda login bhi hata deta hai. Code sirf
+// isi call me milta hai — database me sirf hash rehta hai.
+export async function adminGenerateClaimCode(distributorId, releaseLogin = false) {
+  const { data, error } = await supabase.rpc("admin_generate_claim_code", {
+    p_distributor_id: distributorId,
+    p_release_login: !!releaseLogin,
+  });
+  if (error) throw error;
+  return data;
+}
+
+export async function fetchDistributorClaimStatus() {
+  const { data, error } = await supabase.rpc("admin_distributor_claim_status");
+  if (error) throw error;
+  const map = {};
+  (data || []).forEach((r) => { map[r.distributor_id] = r; });
+  return map;
+}
+
 // Har mahine ek baar chalana hai — us mahine ke liye har active-paid
 // referred shop ka commission-row bana deta hai. Dobara chalane se
 // duplicate nahi banega (DB-level unique constraint hai).
