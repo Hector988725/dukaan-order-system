@@ -1159,3 +1159,61 @@ export async function updateProductAvailability(productId, available) {
   const { error } = await supabase.from("products").update({ is_available: !!available }).eq("id", productId);
   if (error) throw error;
 }
+
+// ============================================================
+// SHOP STAFF (migration_shop_staff_a.sql) — sab kuch RPC se
+// ============================================================
+export async function addShopStaff(storeId, name, phone) {
+  const { data, error } = await supabase.rpc("add_shop_staff", { p_store_id: storeId, p_name: name, p_phone: phone || null });
+  if (error) throw error;
+  return data;
+}
+export async function fetchShopStaff(storeId) {
+  const { data, error } = await supabase.rpc("get_shop_staff", { p_store_id: storeId });
+  if (error) throw error;
+  return data || [];
+}
+export async function updateShopStaff(staffId, name, permissions, isActive) {
+  const { error } = await supabase.rpc("update_shop_staff", { p_staff_id: staffId, p_name: name, p_permissions: permissions, p_is_active: isActive });
+  if (error) throw error;
+}
+export async function removeShopStaff(staffId) {
+  const { error } = await supabase.rpc("remove_shop_staff", { p_staff_id: staffId });
+  if (error) throw error;
+}
+export async function generateShopStaffInvite(staffId, resetLogin = false) {
+  const { data, error } = await supabase.rpc("generate_shop_staff_invite", { p_staff_id: staffId, p_reset_login: resetLogin });
+  if (error) throw error;
+  return data;
+}
+export async function claimShopStaffInvite(code) {
+  const { data, error } = await supabase.rpc("claim_shop_staff_invite", { p_code: code });
+  if (error) throw error;
+  return data;
+}
+export async function fetchMyStaffContext() {
+  const { data, error } = await supabase.rpc("get_my_staff_context");
+  if (error) throw error;
+  return (data && data[0]) || null;
+}
+export async function staffFetchOrders(storeId, limit = 50) {
+  const { data, error } = await supabase.rpc("staff_get_orders", { p_store_id: storeId, p_limit: limit });
+  if (error) throw error;
+  return data || [];
+}
+export async function setOrderStatusRpc(orderId, status) {
+  const { error } = await supabase.rpc("set_order_status", { p_order_id: orderId, p_status: status });
+  if (error) throw error;
+}
+export async function confirmOrderPaymentRpc(orderId) {
+  const { error } = await supabase.rpc("set_order_payment_confirmed", { p_order_id: orderId });
+  if (error) throw error;
+}
+export async function setVariantPriceRpc(variantId, price) {
+  const { error } = await supabase.rpc("set_variant_price", { p_variant_id: variantId, p_price: price });
+  if (error) throw error;
+}
+export async function setProductAvailabilityRpc(productId, available) {
+  const { error } = await supabase.rpc("set_product_availability", { p_product_id: productId, p_available: !!available });
+  if (error) throw error;
+}

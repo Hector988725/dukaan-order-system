@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Eye, EyeOff, Settings, Package, Plus, Trash2, Edit2, X, Check, ChevronDown, ChevronUp, Save, Upload, Image, CreditCard, AlertCircle, Store, Star, ArrowUp, ArrowDown, Bike, FileSpreadsheet, UserCircle, Gift } from "lucide-react";
+import { Eye, EyeOff, Settings, Package, Plus, Trash2, Edit2, X, Check, ChevronDown, ChevronUp, Save, Upload, Image, CreditCard, AlertCircle, Store, Star, ArrowUp, ArrowDown, Bike, FileSpreadsheet, UserCircle, Gift, Users } from "lucide-react";
 import {
   updateStoreSettings,
   createProduct, updateProduct, deleteProduct, updateProductFeatured, updateProductOrder,
@@ -10,6 +10,7 @@ import {
 } from "../lib/api";
 import { slugify } from "./AuthGate";
 import DeliveryBoyManager from "./DeliveryBoyManager";
+import ShopStaffManager from "./ShopStaffManager";
 import CsvBulkUploadModal from "./CsvBulkUpload";
 import CategoryFields from "./CategoryFields";
 import CatalogPicker from "./CatalogPicker";
@@ -32,6 +33,7 @@ function AdminContent({ store, products, user, onRefresh, initialTab }) {
     { id: "products", label: "Products", icon: <Package size={14} /> },
     { id: "combos", label: "Combos", icon: <Gift size={14} /> },
     ...(isBookingCategory(store.business_type) ? [] : [{ id: "delivery", label: "Delivery Staff", icon: <Bike size={14} /> }]),
+    { id: "staff", label: "Staff", icon: <Users size={14} /> },
     { id: "settings", label: "Store Settings", icon: <Settings size={14} /> },
     { id: "account", label: "Account", icon: <UserCircle size={14} /> },
     { id: "subscription", label: "Subscription", icon: <CreditCard size={14} /> },
@@ -56,6 +58,7 @@ function AdminContent({ store, products, user, onRefresh, initialTab }) {
       {tab === "products" && <ProductManager store={store} products={products} onRefresh={onRefresh} />}
       {tab === "combos" && <ComboManager store={store} products={products} />}
       {tab === "delivery" && <DeliveryBoyManager store={store} />}
+      {tab === "staff" && <ShopStaffManager store={store} />}
       {tab === "settings" && <StoreSettingsForm store={store} onRefresh={onRefresh} />}
       {tab === "account" && <AccountSettings user={user} />}
       {tab === "subscription" && <SubscriptionPanel store={store} onRefresh={onRefresh} />}
@@ -421,7 +424,7 @@ function SlugChangeSection({ store, onRefresh }) {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
 
-  const RESERVED_SLUGS = new Set(["superadmin", "signup", "login", "create-store", "admin", "api", "order"]);
+  const RESERVED_SLUGS = new Set(["superadmin", "signup", "login", "create-store", "admin", "api", "order", "staff", "delivery", "distributor"]);
 
   const handleSlugChange = (v) => {
     setSlug(slugify(v));

@@ -32,6 +32,7 @@ import SuperAdminApp from "./superadmin/SuperAdminApp";
 import DistributorApp from "./components/DistributorApp";
 
 import DeliveryApp from "./components/DeliveryApp";
+import StaffApp from "./components/StaffApp";
 export default function App() {
   // Deployment mein VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY set nahi hain —
   // pehle ye poori app ko blank white page bana ke crash kar deta tha. Ab
@@ -61,6 +62,15 @@ export default function App() {
       <div style={shellStyle}>
         <GlobalStyles />
         <DeliveryApp />
+      </div>
+    );
+  }
+  if (path === "staff") {
+    // Shop Staff ka alag limited app (/staff) — server har action par permission check karta hai
+    return (
+      <div style={shellStyle}>
+        <GlobalStyles />
+        <StaffApp />
       </div>
     );
   }
