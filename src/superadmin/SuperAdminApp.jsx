@@ -2,9 +2,9 @@ import React, { useState, useEffect } from "react";
 import { Loader2, ShieldCheck, LogOut, Mail, Lock, Store, Package, TrendingUp, Users, CreditCard, X, Eye, EyeOff, Plus, Copy, Check } from "lucide-react";
 import { signIn, signOut, onAuthChange } from "../lib/api";
 import {
-  checkIsSuperAdmin, fetchDashboardStats, fetchAllStoresAdmin, fetchStoreOrders,
+  checkIsSuperAdmin, fetchAdminOverview, fetchAdminStoresPage, fetchStoreOrders,
   adminActivateStore, adminDeactivateStore, adminExtendSubscription, adminDeleteStore, adminSetStorePrice,
-  fetchAllOrdersAdmin, fetchAllPaymentsAdmin, fetchAnalytics,
+  fetchAllOrdersAdmin, fetchAllPaymentsAdmin,
   fetchDistributorsOverview, createDistributor, runMonthlyCommission, markCommissionPaid,
   fetchCommissionTiers, updateCommissionTier, setDistributorType, updateReferralCode,
   adminGenerateClaimCode, fetchDistributorClaimStatus,
@@ -153,15 +153,18 @@ function SuperAdminDashboard({ user }) {
 // ---- OVERVIEW ----
 function OverviewTab() {
   const [stats, setStats] = useState(null);
-  const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState("");
 
   useEffect(() => {
-    Promise.all([fetchDashboardStats(), fetchAnalytics()])
-      .then(([s, a]) => { setStats(s); setAnalytics(a); })
+    fetchAdminOverview()
+      .then(setStats)
+      .catch((e) => setErr(e.message || "Load nahi hua"))
       .finally(() => setLoading(false));
   }, []);
+  const analytics = stats;
 
+  if (err) return <div style={{ padding: "30px", color: "#B3261E", fontSize: "13px" }}>Error: {err} — kya migration_superadmin_speed.sql chala di?</div>;
   if (loading) return <div style={{ textAlign: "center", padding: "40px", color: "#8B8576", fontSize: "13px" }}>Load ho raha hai...</div>;
 
   const cards = [
@@ -213,15 +216,32 @@ function StoresTab() {
   const [stores, setStores] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [total, setTotal] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const PAGE = 30;
   const [expandedOrders, setExpandedOrders] = useState(null);
   const [ordersForStore, setOrdersForStore] = useState([]);
 
-  const load = () => { setLoading(true); fetchAllStoresAdmin().then(setStores).finally(() => setLoading(false)); };
-  useEffect(load, []);
+  const load = (q = search) => {
+    setLoading(true);
+    fetchAdminStoresPage({ search: q, limit: PAGE, offset: 0 })
+      .then((r) => { setStores(r.rows); setTotal(r.total); })
+      .catch((e) => alert("Error: " + (e.message || e)))
+      .finally(() => setLoading(false));
+  };
+  // search: 400ms debounce, server-side
+  useEffect(() => { const t = setTimeout(() => load(search), 400); return () => clearTimeout(t); }, [search]);
+  const loadMore = async () => {
+    setLoadingMore(true);
+    try {
+      const r = await fetchAdminStoresPage({ search, limit: PAGE, offset: stores.length });
+      setStores((prev) => [...prev, ...r.rows]); setTotal(r.total);
+    } catch (e) { alert("Error: " + (e.message || e)); }
+    setLoadingMore(false);
+  };
+  const filtered = stores;
 
-  const filtered = stores.filter((s) => !search || s.name?.toLowerCase().includes(search.toLowerCase()) || s.slug?.toLowerCase().includes(search.toLowerCase()));
-
-  const run = async (fn) => { try { await fn(); load(); } catch (e) { alert("Error: " + (e.message || e)); } };
+  const run = async (fn) => { try { await fn(); load(search); } catch (e) { alert("Error: " + (e.message || e)); } };
   const handleActivate = (id) => run(() => adminActivateStore(id));
   const handleDeactivate = (id) => { if (confirm("Is dukaan ko deactivate karein?")) run(() => adminDeactivateStore(id)); };
   const handleExtend = (id, months) => run(() => adminExtendSubscription(id, months));
@@ -233,8 +253,6 @@ function StoresTab() {
     setOrdersForStore(orders);
     setExpandedOrders(id);
   };
-
-  if (loading) return <div style={{ textAlign: "center", padding: "40px", color: "#8B8576", fontSize: "13px" }}>Load ho raha hai...</div>;
 
   return (
     <div>
@@ -284,7 +302,14 @@ function StoresTab() {
             </div>
           );
         })}
-        {filtered.length === 0 && <div style={{ textAlign: "center", padding: "30px", color: "#8B8576", fontSize: "12.5px" }}>Koi dukaan nahi mili.</div>}
+        {loading && <div style={{ textAlign: "center", padding: "20px", color: "#8B8576", fontSize: "13px" }}>Load ho raha hai...</div>}
+        {!loading && filtered.length === 0 && <div style={{ textAlign: "center", padding: "30px", color: "#8B8576", fontSize: "12.5px" }}>Koi dukaan nahi mili.</div>}
+        {!loading && filtered.length > 0 && (
+          <div style={{ textAlign: "center", fontSize: "11.5px", color: "#8B8576" }}>
+            {filtered.length} / {total} dukaan
+            {filtered.length < total && <button onClick={loadMore} disabled={loadingMore} style={{ ...smallBtnStyle, marginLeft: "10px" }}>{loadingMore ? "..." : "Aur dikhao"}</button>}
+          </div>
+        )}
       </div>
     </div>
   );

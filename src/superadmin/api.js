@@ -331,3 +331,24 @@ export async function updateReferralCode(distributorId, code) {
   const { error } = await supabase.rpc("admin_update_referral_code", { p_distributor_id: distributorId, p_new_code: code });
   if (error) throw error;
 }
+
+
+// ============================================================
+// STEP 6 — fast server-side overview + paged/searchable stores
+// (migration_superadmin_speed.sql chalana zaroori hai)
+// ============================================================
+export async function fetchAdminOverview() {
+  const { data, error } = await supabase.rpc("admin_dashboard_overview");
+  if (error) throw error;
+  return data;
+}
+
+export async function fetchAdminStoresPage({ search = "", limit = 30, offset = 0 } = {}) {
+  const { data, error } = await supabase.rpc("admin_list_stores", {
+    p_search: search.trim() || null,
+    p_limit: limit,
+    p_offset: offset,
+  });
+  if (error) throw error;
+  return { total: data?.total ?? 0, rows: data?.rows ?? [] };
+}
