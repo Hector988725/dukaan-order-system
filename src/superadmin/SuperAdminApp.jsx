@@ -359,16 +359,16 @@ function PaymentsTab() {
       {payments.map((p) => (
         <div key={p.id} style={{ background: "white", border: "1px solid #E3DECF", borderRadius: "10px", padding: "11px 14px", display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "6px" }}>
           <div>
-            <div style={{ fontWeight: 700, fontSize: "12.5px" }}>{p.stores?.name || "—"} <span style={{ fontWeight: 400, color: "#8B8576" }}>/{p.stores?.slug}</span></div>
-            <div style={{ fontSize: "11px", color: "#8B8576" }}>{p.months} mahina · {new Date(p.created_at).toLocaleString("en-IN")}</div>
+            <div style={{ fontWeight: 700, fontSize: "12.5px" }}>{p.store_name || "—"} <span style={{ fontWeight: 400, color: "#8B8576" }}>/{p.store_slug}</span></div>
+            <div style={{ fontSize: "11px", color: "#8B8576" }}>{p.source} · {new Date(p.at).toLocaleString("en-IN")}</div>
           </div>
           <div style={{ textAlign: "right" }}>
-            <div style={{ fontWeight: 700, fontSize: "13px" }}>₹{p.amount}</div>
+            <div style={{ fontWeight: 700, fontSize: "13px" }}>₹{Math.round(Number(p.amount))}</div>
             <div style={{ fontSize: "10.5px", fontWeight: 700, color: p.status === "paid" ? "#1B4332" : "#B3261E" }}>{p.status}</div>
           </div>
         </div>
       ))}
-      {payments.length === 0 && <div style={{ textAlign: "center", padding: "30px", color: "#8B8576", fontSize: "12.5px" }}>Koi payment record nahi (payment_logs table shayad khaali hai).</div>}
+      {payments.length === 0 && <div style={{ textAlign: "center", padding: "30px", color: "#8B8576", fontSize: "12.5px" }}>Abhi koi payment record nahi.</div>}
     </div>
   );
 }

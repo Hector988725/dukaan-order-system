@@ -141,11 +141,8 @@ export async function fetchAllOrdersAdmin(storeId = null) {
 // PAYMENTS
 // ============================================================
 export async function fetchAllPaymentsAdmin() {
-  const { data, error } = await supabase
-    .from("payment_logs")
-    .select("*, stores(name, slug)")
-    .order("created_at", { ascending: false })
-    .limit(200);
+  // Asli payments (Razorpay + AutoPay + purani history) — migration_admin_payments.sql
+  const { data, error } = await supabase.rpc("admin_recent_payments", { p_limit: 200 });
   if (error) throw error;
   return data || [];
 }
