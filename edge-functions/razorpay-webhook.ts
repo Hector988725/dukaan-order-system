@@ -22,6 +22,12 @@
 //    activated par nahi. Charged amount plan se match na kare to grant nahi.
 //  - One-time order.paid / payment.captured bhi subscription_payments se
 //    match karke activate hota hai (browser band ho jaaye tab bhi).
+//
+// Step 5A changes:
+//  - Expiry ab DB nikalta hai (apply_subscription_event): purani expiry se +1 mahina,
+//    Razorpay ki current_end se nahi -> bache hue din nahi katte.
+//  - Out-of-order guard (event.created_at) + payment_id idempotency.
+//  - Pehle migration_autopay_hardening.sql chalao, phir yeh deploy karo.
 // ============================================================
 import { createClient } from "npm:@supabase/supabase-js@2";
 
@@ -87,20 +93,25 @@ Deno.serve(async (req) => {
         storeId = store.id;
         let status: string | null = null;
         let nextBilling: string | null = null;
-        let expiresAt: string | null = null;
+        let chargePaymentId: string | null = null;
+        let chargeAmount: number | null = null;
+        // Razorpay event ka apna time (unix seconds) — purane/late events pehchaanne ke liye
+        const eventAt = event.created_at ? new Date(Number(event.created_at) * 1000).toISOString() : new Date().toISOString();
 
         switch (eventType) {
           case "subscription.authenticated": status = "payment_pending"; break; // mandate approve, paisa abhi nahi kata
           case "subscription.activated": status = "active"; break;             // expiry/access yahan nahi
           case "subscription.charged": {
-            const payAmount = Number(event.payload?.payment?.entity?.amount);
+            const pay = event.payload?.payment?.entity;
+            const payAmount = Number(pay?.amount);
             const expectedAmount = (Number(store.subscription_base_price) === 49 ? 49 : 199) * 100;
-            if (!payAmount || payAmount < expectedAmount) {
+            if (!payAmount || payAmount < expectedAmount || !pay?.id) {
               console.error("webhook: charged amount plan se match nahi karta", { sub: sub.id, payAmount, expectedAmount });
             } else {
               status = "active";
+              chargePaymentId = String(pay.id);
+              chargeAmount = payAmount;
               if (sub.charge_at) nextBilling = new Date(sub.charge_at * 1000).toISOString();
-              if (sub.current_end) expiresAt = new Date(sub.current_end * 1000).toISOString();
             }
             break;
           }
@@ -111,13 +122,18 @@ Deno.serve(async (req) => {
         }
 
         if (status) {
-          const { error } = await admin.rpc("apply_subscription_webhook_update", {
+          // Expiry yahan DB khud nikalta hai: (abhi ya purani expiry, jo aage ho) + 1 mahina.
+          // Isse early AutoPay lene par bache hue din nahi katte, aur ek payment do baar expiry nahi badhata.
+          const { data: result, error } = await admin.rpc("apply_subscription_event", {
             p_razorpay_subscription_id: sub.id,
             p_status: status,
+            p_event_at: eventAt,
             p_next_billing_date: nextBilling,
-            p_subscription_expires_at: expiresAt,
+            p_payment_id: chargePaymentId,
+            p_amount_paise: chargeAmount,
           });
-          if (error) throw new Error("apply_subscription_webhook_update: " + error.message);
+          if (error) throw new Error("apply_subscription_event: " + error.message);
+          if (result === "stale") console.log("webhook: purana event, status nahi badla", { sub: sub.id, eventType });
         }
       }
     }
