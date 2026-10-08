@@ -40,16 +40,21 @@ function DistributorAuthGate({ onAuthed }) {
   const [claimCode, setClaimCode] = useState("");
   const [show, setShow] = useState(false);
   const [error, setError] = useState("");
+  const [info, setInfo] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
     setError("");
     setLoading(true);
     try {
-      const data = await signIn(email, password);
+      // Mobile keyboard email ke aage space laga deta hai — trim zaroori hai
+      const data = await signIn(email.trim(), password);
       onAuthed(data.user);
     } catch (e) {
-      setError("Incorrect email or password.");
+      const m = String(e?.message || "").toLowerCase();
+      if (m.includes("not confirmed")) setError("Your email is not confirmed yet. Open the confirmation email we sent and tap the link, then try again.");
+      else if (m.includes("invalid login")) setError("Incorrect email or password. (Check for extra spaces or capital letters.)");
+      else setError(e?.message || "Could not log in. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -63,9 +68,16 @@ function DistributorAuthGate({ onAuthed }) {
   const handleClaim = async () => {
     if (!referralCode.trim() || !claimCode.trim()) { setError("Please enter your Referral Code and Claim Code."); return; }
     setError("");
+    setInfo("");
     setLoading(true);
     try {
-      const data = await signUp(email, password);
+      const data = await signUp(email.trim(), password);
+      if (!data.session) {
+        // Email confirmation ON hai: abhi login nahi hua, isliye claim abhi nahi ho sakta
+        // (bina login ke server permission deny karta hai). Claim Code kharch nahi hota.
+        setInfo(`Account created. We sent a confirmation email to ${email.trim()}. Open it and confirm, then come back here, tap "Login", and enter your Referral Code and Claim Code when asked.`);
+        return;
+      }
       await claimDistributorAccount(referralCode.trim(), claimCode.trim());
       onAuthed(data.user);
     } catch (e) {
@@ -115,6 +127,7 @@ function DistributorAuthGate({ onAuthed }) {
           <button onClick={() => setShow((s) => !s)} style={{ border: "none", background: "none", cursor: "pointer", color: "#8B8576", display: "flex" }}>{show ? <EyeOff size={15} /> : <Eye size={15} />}</button>
         </div>
         {error && <div style={{ color: "#B3261E", fontSize: "12px" }}>{error}</div>}
+        {info && <div style={{ color: "#1B4332", background: "#E7F0EA", borderRadius: "8px", padding: "9px 11px", fontSize: "12px", lineHeight: 1.5 }}>{info}</div>}
         <button
           onClick={mode === "login" ? handleLogin : handleClaim}
           disabled={!email || !password || loading}
