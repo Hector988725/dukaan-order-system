@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { Users, LogOut, Package, ShoppingBag, Phone, MapPin } from "lucide-react";
+import { Users, LogOut, Package, ShoppingBag, Phone, MapPin, Bike } from "lucide-react";
+import { DeliveryHome } from "./DeliveryHome";
 import {
   signIn, signUp, signOut, onAuthChange,
   claimShopStaffInvite, fetchMyStaffContext, staffFetchOrders, setOrderStatusRpc, confirmOrderPaymentRpc,
-  fetchProducts, updateVariantStock, setVariantPriceRpc, setProductAvailabilityRpc,
+  fetchMyDeliveryProfile, fetchProducts, updateVariantStock, setVariantPriceRpc, setProductAvailabilityRpc,
 } from "../lib/api";
 
 // ============================================================
@@ -118,8 +119,13 @@ function Home({ ctx }) {
   const perms = ctx.permissions || {};
   const canOrders = !!perms.orders_status;
   const canProducts = !!(perms.stock_update || perms.price_update);
-  const [tab, setTab] = useState(canOrders ? "orders" : "products");
-  const tabs = [canOrders && ["orders", "Orders", <ShoppingBag size={18} key="o" />], canProducts && ["products", "Products", <Package size={18} key="p" />]].filter(Boolean);
+  const canDelivery = !!perms.delivery;
+  const [tab, setTab] = useState(canOrders ? "orders" : canProducts ? "products" : "delivery");
+  const tabs = [
+    canOrders && ["orders", "Orders", <ShoppingBag size={18} key="o" />],
+    canProducts && ["products", "Products", <Package size={18} key="p" />],
+    canDelivery && ["delivery", "Delivery", <Bike size={18} key="d" />],
+  ].filter(Boolean);
 
   return (
     <div style={{ maxWidth: 480, margin: "0 auto", minHeight: "100vh", background: "#FAF8F2", paddingBottom: 76 }}>
@@ -134,6 +140,7 @@ function Home({ ctx }) {
       <div style={{ padding: "14px 14px 0" }}>
         {tabs.length === 0 && <div style={{ textAlign: "center", padding: 40, color: MUTED, fontSize: 13 }}>Abhi aapko koi kaam allow nahi hai. Dukaandar se baat karein.</div>}
         {tab === "orders" && canOrders && <OrdersTab ctx={ctx} canPay={!!perms.payment_verify} />}
+        {tab === "delivery" && canDelivery && <DeliveryTab />}
         {tab === "products" && canProducts && <ProductsTab ctx={ctx} canStock={!!perms.stock_update} canPrice={!!perms.price_update} />}
       </div>
       {tabs.length > 1 && (
@@ -271,4 +278,17 @@ function VariantRow({ v, canStock, canPrice, onChanged }) {
       <button disabled={!dirty || busy} onClick={save} style={{ border: "none", borderRadius: 8, padding: "9px 12px", fontSize: 12, fontWeight: 700, background: dirty ? G : "#D8D2BF", color: "white", cursor: dirty ? "pointer" : "not-allowed" }}>{busy ? "..." : "Save"}</button>
     </div>
   );
+}
+
+function DeliveryTab() {
+  const [profile, setProfile] = useState(undefined);
+  const [err, setErr] = useState("");
+  useEffect(() => {
+    fetchMyDeliveryProfile().then((p) => setProfile(p || null)).catch((e) => { setErr(e.message || ""); setProfile(null); });
+  }, []);
+  if (profile === undefined) return <div style={{ color: MUTED, fontSize: 13 }}>Load ho raha hai...</div>;
+  if (!profile || !profile.login_enabled || !profile.is_active) {
+    return <div style={{ textAlign: "center", padding: "36px 16px", color: MUTED, fontSize: 13 }}>Delivery abhi chalu nahi hui. {err || "Thodi der baad dobara kholein ya dukaandar se baat karein."}</div>;
+  }
+  return <DeliveryHome profile={profile} />;
 }

@@ -31,7 +31,6 @@ import { getRenewalState } from "./lib/subscription";
 import SuperAdminApp from "./superadmin/SuperAdminApp";
 import DistributorApp from "./components/DistributorApp";
 
-import DeliveryApp from "./components/DeliveryApp";
 import StaffApp from "./components/StaffApp";
 export default function App() {
   // Deployment mein VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY set nahi hain —
@@ -57,11 +56,12 @@ export default function App() {
     );
   }
   if (path === "delivery") {
-    // Delivery boy ka alag mobile app (/delivery) — existing auth, sirf apna data
+    // Purana /delivery link — ab delivery karne wale Staff app me hain
+    window.location.replace("/staff");
     return (
       <div style={shellStyle}>
         <GlobalStyles />
-        <DeliveryApp />
+        <LoadingScreen text="Redirecting..." />
       </div>
     );
   }

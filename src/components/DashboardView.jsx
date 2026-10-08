@@ -445,7 +445,7 @@ function OrderCard({ order, store, deliveryBoys, onAdvance, onPaymentConfirm, on
             ))}
           </select>
           {(deliveryBoys || []).filter((b) => b.is_active).length === 0 && (
-            <div style={{ fontSize: "10.5px", color: "#B3261E", marginTop: "4px" }}>Koi active delivery boy nahi hai — Admin → Delivery Staff mein add karein.</div>
+            <div style={{ fontSize: "10.5px", color: "#B3261E", marginTop: "4px" }}>Koi active delivery boy nahi hai — Admin → Staff mein "Delivery karna" permission ke saath add karein.</div>
           )}
         </div>
       )}

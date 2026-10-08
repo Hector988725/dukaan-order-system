@@ -32,7 +32,7 @@ function AdminContent({ store, products, user, onRefresh, initialTab }) {
   const tabs = [
     { id: "products", label: "Products", icon: <Package size={14} /> },
     { id: "combos", label: "Combos", icon: <Gift size={14} /> },
-    ...(isBookingCategory(store.business_type) ? [] : [{ id: "delivery", label: "Delivery Staff", icon: <Bike size={14} /> }]),
+    ...(isBookingCategory(store.business_type) ? [] : [{ id: "delivery", label: "Delivery", icon: <Bike size={14} /> }]),
     { id: "staff", label: "Staff", icon: <Users size={14} /> },
     { id: "settings", label: "Store Settings", icon: <Settings size={14} /> },
     { id: "account", label: "Account", icon: <UserCircle size={14} /> },

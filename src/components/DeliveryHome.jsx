@@ -1,126 +1,23 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { Bike, Phone, MapPin, LogOut, Bell, Package, CheckCircle2, Clock, History, User, ChevronDown, ChevronUp, Navigation } from "lucide-react";
+import { Bell, Package, CheckCircle2, Clock, MapPin, Phone, ChevronDown, ChevronUp, Navigation } from "lucide-react";
 import {
-  signIn, signUp, signOut, onAuthChange,
-  claimDeliveryInvite, fetchMyDeliveryProfile, fetchMyDeliveries, updateDeliveryStatus,
+  fetchMyDeliveries,
   fetchMyDeliveryNotifications, markDeliveryNotificationsRead, subscribeToMyDeliveryNotifications,
+  updateDeliveryStatus,
 } from "../lib/api";
 import { DELIVERY_STATUS_META, NEXT_DELIVERY_ACTION, mapsUrl } from "../lib/deliveryMethods";
 
 // ============================================================
-// DELIVERY BOY APP (/delivery) — mobile-first. Existing Supabase auth
-// use hota hai (naya auth system nahi). Sab data security-definer RPCs
-// se aata hai jo sirf is boy ki apni assignments dete hain.
+// DELIVERY HOME — Staff app (/staff) ke "Delivery" tab ke andar chalta hai.
+// Alag /delivery app ab nahi hai: delivery karne wale ab "Staff" hain
+// (Admin → Staff → permission "Delivery karna"). Data sab security-definer
+// RPCs se aata hai jo sirf is staff ki apni assignments dete hain.
 // ============================================================
-const G = "#1B4332", GOLD = "#D4A24C", BORDER = "#E3DECF", MUTED = "#8B8576";
-
-export default function DeliveryApp() {
-  const [user, setUser] = useState(undefined);
-  const [profile, setProfile] = useState(undefined);
-  const [error, setError] = useState("");
-
-  useEffect(() => onAuthChange((u) => setUser(u || null)), []);
-
-  const loadProfile = useCallback(async () => {
-    try { setProfile(await fetchMyDeliveryProfile()); setError(""); }
-    catch (e) { setError(e.message); setProfile(null); }
-  }, []);
-
-  useEffect(() => {
-    if (user) { setProfile(undefined); loadProfile(); } else setProfile(undefined);
-  }, [user, loadProfile]);
-
-  if (user === undefined || (user && profile === undefined)) return <Centered><div style={{ color: MUTED }}>Load ho raha hai...</div></Centered>;
-  if (!user) return <LoginCard />;
-  if (!profile) return <ClaimCard error={error} onDone={loadProfile} />;
-  if (!profile.login_enabled || !profile.is_active) {
-    return (
-      <Centered>
-        <Logo />
-        <div style={{ fontWeight: 700, marginTop: 14 }}>Aapka account abhi band hai</div>
-        <div style={{ fontSize: 12.5, color: MUTED, margin: "6px 0 16px" }}>Dukaandar ({profile.store_name}) se baat karein.</div>
-        <button onClick={() => signOut()} style={btn(false)}>Logout</button>
-      </Centered>
-    );
-  }
-  return <Home profile={profile} />;
-}
-
-function Centered({ children }) {
-  return <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, textAlign: "center" }}>{children}</div>;
-}
-function Logo() {
-  return <div style={{ width: 54, height: 54, borderRadius: 14, background: GOLD, display: "flex", alignItems: "center", justifyContent: "center" }}><Bike size={26} color="#123026" /></div>;
-}
+const G = "#1B4332", BORDER = "#E3DECF", MUTED = "#8B8576";
 const btn = (primary, disabled) => ({
   width: "100%", border: primary ? "none" : `1px solid ${BORDER}`, borderRadius: 10, padding: "12px 0", fontSize: 14, fontWeight: 700,
   background: primary ? (disabled ? "#D8D2BF" : G) : "white", color: primary ? "white" : "#5C5747", cursor: disabled ? "not-allowed" : "pointer",
 });
-const input = { width: "100%", border: `1px solid ${BORDER}`, borderRadius: 9, padding: "11px 12px", fontSize: 14, fontFamily: "inherit", outline: "none", boxSizing: "border-box" };
-
-function LoginCard() {
-  const [mode, setMode] = useState("login");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState("");
-  const submit = async () => {
-    setBusy(true); setMsg("");
-    try {
-      if (mode === "login") await signIn(email.trim(), password);
-      else {
-        const r = await signUp(email.trim(), password);
-        if (!r.session) setMsg("Email par confirmation link bheja gaya hai. Confirm karke login karein.");
-      }
-    } catch (e) { setMsg(e.message || "Kuch gadbad hui"); }
-    setBusy(false);
-  };
-  return (
-    <Centered>
-      <div style={{ width: "100%", maxWidth: 340 }}>
-        <Logo />
-        <div style={{ fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: 20, margin: "12px 0 2px" }}>Delivery Partner Login</div>
-        <div style={{ fontSize: 12.5, color: MUTED, marginBottom: 18 }}>{mode === "login" ? "Apne email aur password se login karein" : "Naya account banayein, phir dukaandar ka code daalein"}</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 10, textAlign: "left" }}>
-          <input style={input} type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
-          <input style={input} type="password" placeholder="Password (min 6)" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={mode === "login" ? "current-password" : "new-password"} />
-          {msg && <div style={{ fontSize: 12, color: "#B3261E" }}>{msg}</div>}
-          <button disabled={busy || !email || password.length < 6} onClick={submit} style={btn(true, busy || !email || password.length < 6)}>{busy ? "Ruko..." : mode === "login" ? "Login" : "Account Banayein"}</button>
-          <button onClick={() => { setMode(mode === "login" ? "signup" : "login"); setMsg(""); }} style={{ background: "none", border: "none", color: G, fontWeight: 700, fontSize: 12.5, cursor: "pointer" }}>
-            {mode === "login" ? "Pehli baar? Naya account banayein" : "Account hai? Login karein"}
-          </button>
-        </div>
-      </div>
-    </Centered>
-  );
-}
-
-function ClaimCard({ error, onDone }) {
-  const [code, setCode] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState("");
-  const submit = async () => {
-    setBusy(true); setMsg("");
-    try { await claimDeliveryInvite(code); await onDone(); }
-    catch (e) { setMsg(e.message || "Code sahi nahi hai"); }
-    setBusy(false);
-  };
-  return (
-    <Centered>
-      <div style={{ width: "100%", maxWidth: 340 }}>
-        <Logo />
-        <div style={{ fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: 19, margin: "12px 0 4px" }}>Dukaan Code Daalein</div>
-        <div style={{ fontSize: 12.5, color: MUTED, marginBottom: 16 }}>Dukaandar ne jo 8-akshar ka code diya hai wo yahan daalein</div>
-        <input style={{ ...input, textAlign: "center", letterSpacing: 4, fontSize: 18, textTransform: "uppercase" }} maxLength={8} value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} placeholder="XXXXXXXX" />
-        {(msg || error) && <div style={{ fontSize: 12, color: "#B3261E", marginTop: 8 }}>{msg || error}</div>}
-        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 14 }}>
-          <button disabled={busy || code.length < 8} onClick={submit} style={btn(true, busy || code.length < 8)}>{busy ? "Ruko..." : "Link Karein"}</button>
-          <button onClick={() => signOut()} style={btn(false)}>Logout</button>
-        </div>
-      </div>
-    </Centered>
-  );
-}
 
 const startOfDay = (d = new Date()) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
 function rangeFor(key) {
@@ -132,7 +29,7 @@ function rangeFor(key) {
 }
 const FILTERS = [["today", "Aaj"], ["yesterday", "Kal"], ["week", "Is Hafte"], ["month", "Is Mahine"]];
 
-function Home({ profile }) {
+export function DeliveryHome({ profile }) {
   const [tab, setTab] = useState("today");
   const [active, setActive] = useState([]);
   const [deliveredToday, setDeliveredToday] = useState([]);
@@ -178,18 +75,19 @@ function Home({ profile }) {
   const out = active.filter((d) => d.status === "OUT_FOR_DELIVERY");
 
   return (
-    <div style={{ maxWidth: 480, margin: "0 auto", minHeight: "100vh", background: "#FAF8F2", paddingBottom: 76 }}>
-      <div style={{ background: G, padding: "13px 16px", display: "flex", alignItems: "center", gap: 10, color: "white", position: "sticky", top: 0, zIndex: 5 }}>
-        <div style={{ width: 34, height: 34, borderRadius: 9, background: GOLD, display: "flex", alignItems: "center", justifyContent: "center" }}><Bike size={18} color="#123026" /></div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 700, fontSize: 14 }}>{profile.name}</div>
-          <div style={{ fontSize: 11, opacity: 0.8, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{profile.store_name}</div>
+    <div>
+      {(
+        <div style={{ display: "flex", gap: 6, marginBottom: 12, alignItems: "center" }}>
+          {[["today", "Deliveries"], ["history", "History"]].map(([k, l]) => (
+            <button key={k} onClick={() => setTab(k)} style={{ border: `1px solid ${tab === k ? G : BORDER}`, background: tab === k ? G : "white", color: tab === k ? "white" : "#5C5747", borderRadius: 999, padding: "6px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>{l}</button>
+          ))}
+          <div style={{ flex: 1 }} />
+          <button onClick={openNotifs} aria-label="Notifications" style={{ position: "relative", background: "white", border: `1px solid ${BORDER}`, borderRadius: 8, width: 34, height: 34, color: G, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Bell size={15} />
+            {unread > 0 && <span style={{ position: "absolute", top: -4, right: -4, background: "#E5484D", color: "white", borderRadius: 999, fontSize: 10, fontWeight: 800, minWidth: 16, height: 16, display: "flex", alignItems: "center", justifyContent: "center" }}>{unread}</span>}
+          </button>
         </div>
-        <button onClick={openNotifs} aria-label="Notifications" style={{ position: "relative", background: "rgba(255,255,255,0.12)", border: "none", borderRadius: 8, width: 36, height: 36, color: "white", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <Bell size={16} />
-          {unread > 0 && <span style={{ position: "absolute", top: -4, right: -4, background: "#E5484D", borderRadius: 999, fontSize: 10, fontWeight: 800, minWidth: 16, height: 16, display: "flex", alignItems: "center", justifyContent: "center" }}>{unread}</span>}
-        </button>
-      </div>
+      )}
 
       {toast && <div style={{ background: "#FFF4DB", color: "#7A5400", padding: "10px 16px", fontSize: 12.5, fontWeight: 600 }}>🔔 {toast}</div>}
       {showNotifs && (
@@ -204,7 +102,7 @@ function Home({ profile }) {
       )}
       {err && <div style={{ background: "#FDECEA", color: "#B3261E", padding: "10px 16px", fontSize: 12.5 }}>{err}</div>}
 
-      <div style={{ padding: "14px 14px 0" }}>
+      <div>
         {tab === "today" && (
           <>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginBottom: 14 }}>
@@ -223,16 +121,8 @@ function Home({ profile }) {
           </>
         )}
         {tab === "history" && <HistoryTab />}
-        {tab === "profile" && <ProfileTab profile={profile} />}
-      </div>
+              </div>
 
-      <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "white", borderTop: `1px solid ${BORDER}`, display: "flex", justifyContent: "center", zIndex: 6 }}>
-        <div style={{ display: "flex", width: "100%", maxWidth: 480 }}>
-          {[["today", "Deliveries", <Package size={18} key="p" />], ["history", "History", <History size={18} key="h" />], ["profile", "Profile", <User size={18} key="u" />]].map(([id, label, icon]) => (
-            <button key={id} onClick={() => setTab(id)} style={{ flex: 1, padding: "10px 0 12px", border: "none", background: "none", color: tab === id ? G : MUTED, fontWeight: 700, fontSize: 11, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>{icon}{label}</button>
-          ))}
-        </div>
-      </div>
     </div>
   );
 }
@@ -328,16 +218,3 @@ function HistoryTab() {
   );
 }
 
-function ProfileTab({ profile }) {
-  const row = (l, v) => v ? <div style={{ display: "flex", justifyContent: "space-between", padding: "9px 0", borderBottom: `1px solid ${BORDER}`, fontSize: 13 }}><span style={{ color: MUTED }}>{l}</span><span style={{ fontWeight: 600 }}>{v}</span></div> : null;
-  return (
-    <div style={{ background: "white", border: `1px solid ${BORDER}`, borderRadius: 13, padding: 16 }}>
-      <div style={{ textAlign: "center", marginBottom: 10 }}>
-        {profile.photo_url ? <img src={profile.photo_url} alt="" style={{ width: 70, height: 70, borderRadius: "50%", objectFit: "cover" }} /> : <Logo />}
-        <div style={{ fontWeight: 700, fontSize: 16, marginTop: 8 }}>{profile.name}</div>
-      </div>
-      {row("Dukaan", profile.store_name)}{row("Mobile", profile.phone)}{row("Vehicle", profile.vehicle_type)}{row("Vehicle No.", profile.vehicle_number)}
-      <button onClick={() => signOut()} style={{ ...btn(false), marginTop: 16, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}><LogOut size={14} /> Logout</button>
-    </div>
-  );
-}

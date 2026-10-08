@@ -11,6 +11,7 @@ const PERMS = [
   { key: "orders_status", label: "Orders dekhna + status badalna", hint: "Naya → Accepted → … → Delivered (peeche nahi)" },
   { key: "stock_update", label: "Stock + Available/Unavailable badalna", hint: "Product add/delete nahi kar sakta" },
   { key: "price_update", label: "Price badalna", hint: "Sirf selling price" },
+  { key: "delivery", label: "Delivery karna", hint: "Aapke diye hue orders deliver karega (delivery boy ki tarah, usi login se)" },
   { key: "payment_verify", label: "UPI payment verify karna", hint: "Sirf 'Pending Verification' → 'Confirmed'" },
 ];
 const border = "#E3DECF";
