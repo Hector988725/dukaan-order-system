@@ -90,7 +90,7 @@ function DistributorAuthGate({ onAuthed }) {
   return (
     <div style={{ maxWidth: "360px", margin: "60px auto", padding: "0 18px", fontFamily: "'Inter', sans-serif" }}>
       <div style={{ textAlign: "center", marginBottom: "22px" }}>
-        <div style={{ width: 50, height: 50, borderRadius: "12px", background: "#1B4332", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px" }}>
+        <div style={{ width: 50, height: 50, borderRadius: "12px", background: "#6B2D5C", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px" }}>
           <Users size={24} color="white" />
         </div>
         <div style={{ fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: "18px" }}>Distributor Portal</div>
@@ -195,7 +195,7 @@ function DistributorDashboard({ user }) {
           <input value={claimRef} onChange={(e) => setClaimRef(e.target.value.toUpperCase())} placeholder="Referral Code (e.g. DIST-RAMESH)" style={{ border: "1px solid #E3DECF", borderRadius: "8px", padding: "9px 11px", fontSize: "13px", fontWeight: 700, outline: "none" }} />
           <input value={claimCode} onChange={(e) => setClaimCode(e.target.value.toUpperCase())} placeholder="Claim Code (e.g. K7M2-9QXP)" autoComplete="off" style={{ border: "1px solid #E3DECF", borderRadius: "8px", padding: "9px 11px", fontSize: "13px", fontWeight: 700, outline: "none" }} />
           {claimError && <div style={{ color: "#B3261E", fontSize: "12px" }}>{claimError}</div>}
-          <button onClick={handleClaim} disabled={claiming} style={{ background: "#1B4332", color: "white", border: "none", borderRadius: "9px", padding: "10px 0", fontWeight: 700, fontSize: "13px", cursor: "pointer" }}>
+          <button onClick={handleClaim} disabled={claiming} style={{ background: "#6B2D5C", color: "white", border: "none", borderRadius: "9px", padding: "10px 0", fontWeight: 700, fontSize: "13px", cursor: "pointer" }}>
             {claiming ? "..." : "Link Account"}
           </button>
           <button onClick={() => signOut()} style={{ background: "transparent", border: "none", color: "#8B8576", fontSize: "11.5px", cursor: "pointer" }}>Logout</button>
@@ -212,7 +212,7 @@ function DistributorDashboard({ user }) {
 
   return (
     <div style={{ minHeight: "100vh", background: "#F7F5F0" }}>
-      <div style={{ background: "#1B4332", padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      <div style={{ background: "#6B2D5C", padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           <Users size={20} color="#D4A24C" />
           <div style={{ color: "white", fontWeight: 700, fontSize: "14.5px", fontFamily: "'Fraunces', serif" }}>{data.name}</div>
@@ -233,7 +233,7 @@ function DistributorDashboard({ user }) {
           </div>
           <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
             <code style={{ flex: 1, minWidth: "180px", background: "#F7F5F0", padding: "9px 12px", borderRadius: "8px", fontSize: "12px", wordBreak: "break-all" }}>{referralLink}</code>
-            <button onClick={handleCopy} style={{ display: "flex", alignItems: "center", gap: "5px", background: "#1B4332", color: "white", border: "none", borderRadius: "8px", padding: "9px 14px", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}>
+            <button onClick={handleCopy} style={{ display: "flex", alignItems: "center", gap: "5px", background: "#6B2D5C", color: "white", border: "none", borderRadius: "8px", padding: "9px 14px", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}>
               {copied ? <><Check size={13} /> Copied</> : <><Copy size={13} /> Copy</>}
             </button>
           </div>
@@ -253,7 +253,7 @@ function DistributorDashboard({ user }) {
               </div>
             )}
           </div>
-          <button onClick={handleCopyCode} style={{ display: "flex", alignItems: "center", gap: "5px", background: "#1B4332", color: "white", border: "none", borderRadius: "8px", padding: "9px 14px", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}>
+          <button onClick={handleCopyCode} style={{ display: "flex", alignItems: "center", gap: "5px", background: "#6B2D5C", color: "white", border: "none", borderRadius: "8px", padding: "9px 14px", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}>
             {copiedCode ? <><Check size={13} /> Copied</> : <><Copy size={13} /> Copy Code</>}
           </button>
         </div>

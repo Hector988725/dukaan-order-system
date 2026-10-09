@@ -11,13 +11,13 @@ import {
 // SHOP STAFF APP (/staff) — mobile-first, limited. Sab kuch RPC se; server
 // har action par permission check karta hai. Yahan ke buttons sirf UI hain.
 // ============================================================
-const G = "#1B4332", GOLD = "#D4A24C", BORDER = "#E3DECF", MUTED = "#8B8576";
+const G = "#1F4E8C", GOLD = "#D4A24C", BORDER = "#E3DECF", MUTED = "#8B8576";
 const input = { width: "100%", border: `1px solid ${BORDER}`, borderRadius: 9, padding: "11px 12px", fontSize: 14, fontFamily: "inherit", outline: "none", boxSizing: "border-box" };
 const btn = (primary, disabled) => ({ width: "100%", border: primary ? "none" : `1px solid ${BORDER}`, borderRadius: 10, padding: "12px 0", fontSize: 14, fontWeight: 700, background: primary ? (disabled ? "#D8D2BF" : G) : "white", color: primary ? "white" : "#5C5747", cursor: disabled ? "not-allowed" : "pointer" });
 
 const STAGES = ["New", "Accepted", "Preparing", "Ready", "Out for Delivery", "Delivered"];
 const LABEL = { New: "Naya Order", Accepted: "Accepted", Preparing: "Packing", Ready: "Ready", "Out for Delivery": "Out for Delivery", Delivered: "Delivered" };
-const COLOR = { New: ["#B3261E", "#FDECEA"], Accepted: ["#9A6B00", "#FFF4DB"], Preparing: ["#9A6B00", "#FFF4DB"], Ready: [G, "#E7F0EA"], "Out for Delivery": [G, "#E7F0EA"], Delivered: [G, "#E7F0EA"] };
+const COLOR = { New: ["#B3261E", "#FDECEA"], Accepted: ["#9A6B00", "#FFF4DB"], Preparing: ["#9A6B00", "#FFF4DB"], Ready: [G, "#E4EEF9"], "Out for Delivery": [G, "#E4EEF9"], Delivered: [G, "#E4EEF9"] };
 const noDelivery = (o) => o.order_type === "Pickup" || o.order_type === "Appointment" || o.order_type === "Dine In";
 function nextStatus(o) {
   const map = { New: "Accepted", Accepted: "Preparing", Preparing: "Ready", Ready: noDelivery(o) ? "Delivered" : "Out for Delivery", "Out for Delivery": "Delivered" };
@@ -264,7 +264,7 @@ function ProductRow({ p, canStock, canPrice, onChanged }) {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 6 }}>
         <div style={{ fontWeight: 700, fontSize: 14 }}>{p.name}</div>
         {canStock && (
-          <button disabled={busy} onClick={() => run(() => setProductAvailabilityRpc(p.id, !p.is_available))} style={{ fontSize: 10.5, fontWeight: 700, padding: "5px 11px", borderRadius: 999, border: "none", cursor: "pointer", background: p.is_available ? "#E7F0EA" : "#F0EEE6", color: p.is_available ? G : MUTED }}>
+          <button disabled={busy} onClick={() => run(() => setProductAvailabilityRpc(p.id, !p.is_available))} style={{ fontSize: 10.5, fontWeight: 700, padding: "5px 11px", borderRadius: 999, border: "none", cursor: "pointer", background: p.is_available ? "#E4EEF9" : "#F0EEE6", color: p.is_available ? G : MUTED }}>
             {p.is_available ? "Available" : "Unavailable"}
           </button>
         )}
