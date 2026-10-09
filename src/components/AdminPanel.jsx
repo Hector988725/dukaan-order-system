@@ -413,11 +413,11 @@ function CloseShopSection({ store, onRefresh }) {
       <div style={{ fontWeight: 700, fontSize: "13px", marginBottom: "4px" }}>Shop ko Band Karein (Orders Rokein)</div>
       <div style={{ fontSize: "11.5px", color: "#8B8576", lineHeight: 1.55, marginBottom: "10px" }}>
         Sirf naye orders band hote hain. Aapka subscription chalta rehta hai. Dobara kholne ke liye upar ka OPEN button dabayein.
-        {isAuto ? " (Auto timings chalu hain — Auto timings band karke hi manual close kaam karega.)" : ""}
+        {isAuto ? " Abhi Auto timings chalu hain, isliye shop apne timing ke hisaab se khulti-band hoti hai. Manual close ke liye upar Settings me \"Auto timings\" band karke Save karein." : ""}
       </div>
       {msg && <div style={{ padding: "8px 12px", borderRadius: "8px", fontSize: "12px", fontWeight: 600, marginBottom: "10px", background: msg.type === "success" ? "#E7F0EA" : "#FDECEA", color: msg.type === "success" ? "#1B4332" : "#B3261E" }}>{msg.text}</div>}
       <button onClick={close} disabled={busy || isClosed || isAuto} style={{ width: "100%", background: "white", border: "1px solid #B3261E", color: "#B3261E", borderRadius: "9px", padding: "10px 0", fontSize: "12.5px", fontWeight: 700, cursor: busy || isClosed || isAuto ? "not-allowed" : "pointer", opacity: isClosed || isAuto ? 0.5 : 1 }}>
-        {busy ? "Band ho raha hai..." : isClosed ? "Shop abhi band hai" : "⏸️ Close Shop (Stop Orders)"}
+        {busy ? "Band ho raha hai..." : isAuto ? "Auto timings chalu hain — abhi manual close nahi ho sakta" : isClosed ? "Shop abhi band hai" : "⏸️ Close Shop (Stop Orders)"}
       </button>
     </div>
   );
