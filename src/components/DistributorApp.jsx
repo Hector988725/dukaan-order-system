@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Users, Mail, Lock, Eye, EyeOff, LogOut, Copy, Check, TrendingUp, Loader2 } from "lucide-react";
-import { signUp, signIn, signOut, onAuthChange, claimDistributorAccount, fetchDistributorDashboard, registerDistributorNominee } from "../lib/api";
+import { signUp, signIn, signOut, onAuthChange, claimDistributorAccount, fetchDistributorDashboard, registerDistributorNominee, fetchDistributorProfile, fetchDistributorReferredShops, fetchDistributorCommissionHistory } from "../lib/api";
 
 // ============================================================
 // ROOT — /distributor route. Login/signup gate, phir apna dashboard.
@@ -150,11 +150,21 @@ function DistributorDashboard({ user }) {
   const [claimError, setClaimError] = useState("");
   const [claiming, setClaiming] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [copiedCode, setCopiedCode] = useState(false);
+  const [profile, setProfile] = useState(null);
+  const [shops, setShops] = useState(null);
+  const [history, setHistory] = useState(null);
 
   const load = () => {
     setData(undefined);
     fetchDistributorDashboard()
-      .then(setData)
+      .then((d) => {
+        setData(d);
+        // extras — fail hone par bhi dashboard chalta rahe
+        fetchDistributorProfile().then(setProfile).catch(() => {});
+        fetchDistributorReferredShops(100, 0).then(setShops).catch(() => setShops([]));
+        fetchDistributorCommissionHistory(12).then(setHistory).catch(() => setHistory([]));
+      })
       .catch(() => setData(null)); // "Not a registered distributor" — claim form dikhao
   };
   useEffect(load, []);
@@ -196,6 +206,9 @@ function DistributorDashboard({ user }) {
 
   const referralLink = `${window.location.origin}/dop-partner/${data.referral_code}`;
   const handleCopy = () => { navigator.clipboard.writeText(referralLink); setCopied(true); setTimeout(() => setCopied(false), 1500); };
+  const handleCopyCode = () => { navigator.clipboard.writeText(data.referral_code); setCopiedCode(true); setTimeout(() => setCopiedCode(false), 1500); };
+  const money = (n) => `₹${Math.round(Number(n) || 0)}`;
+  const monthLabel = (d) => new Date(d + "T00:00:00").toLocaleDateString("en-IN", { month: "short", year: "numeric" });
 
   return (
     <div style={{ minHeight: "100vh", background: "#F7F5F0" }}>
@@ -229,14 +242,79 @@ function DistributorDashboard({ user }) {
           </div>
         </div>
 
+        {/* Distributor Code */}
+        <div style={{ background: "white", border: "1px solid #E3DECF", borderRadius: "12px", padding: "14px 16px", marginBottom: "14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", flexWrap: "wrap" }}>
+          <div>
+            <div style={{ fontSize: "11px", fontWeight: 700, color: "#5C5747" }}>DISTRIBUTOR CODE</div>
+            <div style={{ fontSize: "17px", fontWeight: 800, fontFamily: "'Fraunces', serif", letterSpacing: "0.5px", marginTop: "2px" }}>{data.referral_code}</div>
+            {profile && (
+              <div style={{ fontSize: "10.5px", color: "#8B8576", marginTop: "4px" }}>
+                {profile.phone ? `Phone: ${profile.phone}` : ""}{profile.phone && profile.login_email ? " · " : ""}{profile.login_email ? `Login: ${profile.login_email}` : ""}
+              </div>
+            )}
+          </div>
+          <button onClick={handleCopyCode} style={{ display: "flex", alignItems: "center", gap: "5px", background: "#1B4332", color: "white", border: "none", borderRadius: "8px", padding: "9px 14px", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}>
+            {copiedCode ? <><Check size={13} /> Copied</> : <><Copy size={13} /> Copy Code</>}
+          </button>
+        </div>
+
         {/* Stats grid */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "14px" }}>
           <StatCard label="Total Referred" value={data.total_referred} />
           <StatCard label="Active & Paid" value={data.active_paid} color="#1B4332" />
           <StatCard label="Inactive" value={data.inactive} color="#B3261E" />
           <StatCard label="This Month's Commission" value={`₹${data.this_month_commission}`} />
-          <StatCard label="Lifetime Commission" value={`₹${data.lifetime_commission}`} />
+          <StatCard label="Total Paid" value={`₹${data.lifetime_commission}`} color="#1B4332" />
           <StatCard label="Pending Payout" value={`₹${data.pending_payout}`} color="#B3261E" />
+        </div>
+
+        {/* Monthly commission history */}
+        <div style={{ background: "white", border: "1px solid #E3DECF", borderRadius: "12px", padding: "14px", marginBottom: "14px" }}>
+          <div style={{ fontSize: "12px", fontWeight: 700, marginBottom: "8px" }}>Monthly Commission History</div>
+          {history === null ? (
+            <div style={{ fontSize: "11.5px", color: "#8B8576" }}>Loading...</div>
+          ) : history.length === 0 ? (
+            <div style={{ fontSize: "11.5px", color: "#8B8576" }}>No commission calculated yet. It appears here after the monthly run.</div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1.1fr 0.6fr 0.9fr 0.9fr", gap: "6px", fontSize: "10px", fontWeight: 700, color: "#8B8576" }}>
+                <span>Month</span><span>Shops</span><span>Paid</span><span>Pending</span>
+              </div>
+              {history.map((h) => (
+                <div key={h.billing_month} style={{ display: "grid", gridTemplateColumns: "1.1fr 0.6fr 0.9fr 0.9fr", gap: "6px", fontSize: "12px", padding: "6px 0", borderTop: "1px solid #F0ECE0" }}>
+                  <b>{monthLabel(h.billing_month)}</b>
+                  <span>{h.shops}</span>
+                  <span style={{ color: "#1B4332", fontWeight: 700 }}>{money(h.paid_amount)}</span>
+                  <span style={{ color: Number(h.pending_amount) > 0 ? "#B3261E" : "#8B8576", fontWeight: 700 }}>{money(h.pending_amount)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Referred shops */}
+        <div style={{ background: "white", border: "1px solid #E3DECF", borderRadius: "12px", padding: "14px", marginBottom: "14px" }}>
+          <div style={{ fontSize: "12px", fontWeight: 700, marginBottom: "8px" }}>Your Referred Shops ({data.total_referred})</div>
+          {shops === null ? (
+            <div style={{ fontSize: "11.5px", color: "#8B8576" }}>Loading...</div>
+          ) : shops.length === 0 ? (
+            <div style={{ fontSize: "11.5px", color: "#8B8576" }}>No shops yet. Share your referral link to get started.</div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              {shops.map((sh, i) => (
+                <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px", padding: "7px 0", borderTop: i ? "1px solid #F0ECE0" : "none", fontSize: "12px" }}>
+                  <div>
+                    <b>{sh.shop_name}</b>
+                    <div style={{ fontSize: "10.5px", color: "#8B8576" }}>Joined {new Date(sh.signed_up_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</div>
+                  </div>
+                  <span style={{ fontSize: "10.5px", fontWeight: 800, padding: "2px 9px", borderRadius: "999px", background: sh.is_active ? "#E7F0EA" : "#FBE9E7", color: sh.is_active ? "#1B4332" : "#B3261E" }}>
+                    {sh.is_active ? "Active" : "Inactive"}
+                  </span>
+                </div>
+              ))}
+              {data.total_referred > shops.length && <div style={{ fontSize: "10.5px", color: "#8B8576", marginTop: "6px" }}>Showing latest {shops.length} shops.</div>}
+            </div>
+          )}
         </div>
 
         {/* Nominee — sirf 500+ active-paid shops wale distributors ke

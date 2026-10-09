@@ -174,6 +174,23 @@ export async function fetchDistributorDashboard() {
   return data?.[0] || null;
 }
 
+// Step 4B — distributor portal extras (migration_distributor_portal_b.sql)
+export async function fetchDistributorProfile() {
+  const { data, error } = await supabase.rpc("get_distributor_profile");
+  if (error) throw error;
+  return data?.[0] || null;
+}
+export async function fetchDistributorReferredShops(limit = 100, offset = 0) {
+  const { data, error } = await supabase.rpc("get_distributor_referred_shops", { p_limit: limit, p_offset: offset });
+  if (error) throw error;
+  return data || [];
+}
+export async function fetchDistributorCommissionHistory(months = 12) {
+  const { data, error } = await supabase.rpc("get_distributor_commission_history", { p_months: months });
+  if (error) throw error;
+  return data || [];
+}
+
 // Sirf 500+ active-paid shops wale distributors register kar sakte hain
 // (RPC khud yeh check karta hai, live count se — permanent milestone
 // nahi, agar shops kam ho jaayein to eligibility bhi chali jaati hai).
