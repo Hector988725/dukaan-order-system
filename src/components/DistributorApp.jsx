@@ -71,7 +71,7 @@ function DistributorAuthGate({ onAuthed }) {
     setInfo("");
     setLoading(true);
     try {
-      const data = await signUp(email.trim(), password);
+      const data = await signUp(email.trim(), password, "/distributor");
       if (!data.session) {
         // Email confirmation ON hai: abhi login nahi hua, isliye claim abhi nahi ho sakta
         // (bina login ke server permission deny karta hai). Claim Code kharch nahi hota.

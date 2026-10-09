@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Users, Plus, X, KeyRound, Trash2, Copy } from "lucide-react";
-import { addShopStaff, fetchShopStaff, updateShopStaff, removeShopStaff, generateShopStaffInvite } from "../lib/api";
+import { addShopStaff, fetchShopStaff, updateShopStaff, removeShopStaff, generateShopStaffInvite, createStaffMobileLogin, resetStaffMobilePassword } from "../lib/api";
 
 // ============================================================
 // SHOP STAFF (Admin → Staff) — dukaandar apne staff ko limited access deta hai.
@@ -20,6 +20,7 @@ export default function ShopStaffManager({ store }) {
   const [rows, setRows] = useState(null);
   const [adding, setAdding] = useState(false);
   const [codeInfo, setCodeInfo] = useState(null);
+  const [loginFor, setLoginFor] = useState(null); // { staff, mode: "create" | "reset" }
   const [err, setErr] = useState("");
 
   const load = useCallback(async () => {
@@ -59,10 +60,11 @@ export default function ShopStaffManager({ store }) {
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {(rows || []).map((s) => <StaffCard key={s.id} s={s} onChanged={load} onCode={makeCode} />)}
+            {(rows || []).map((s) => <StaffCard key={s.id} s={s} onChanged={load} onCode={makeCode} onMobileLogin={(mode) => setLoginFor({ staff: s, mode })} />)}
           </div>
         )}
       {codeInfo && <InviteModal info={codeInfo} onClose={() => setCodeInfo(null)} />}
+      {loginFor && <MobileLoginModal staff={loginFor.staff} mode={loginFor.mode} onClose={() => { setLoginFor(null); load(); }} />}
     </div>
   );
 }
@@ -91,7 +93,7 @@ function AddForm({ store, onCancel, onAdded }) {
   );
 }
 
-function StaffCard({ s, onChanged, onCode }) {
+function StaffCard({ s, onChanged, onCode, onMobileLogin }) {
   const [open, setOpen] = useState(false);
   const [perms, setPerms] = useState(s.permissions || {});
   const [busy, setBusy] = useState(false);
@@ -120,7 +122,9 @@ function StaffCard({ s, onChanged, onCode }) {
       </div>
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
         <button style={small} onClick={() => setOpen((o) => !o)}>{open ? "Permissions chhupayein" : "Permissions"}</button>
-        {!s.linked && <button disabled={busy} style={small} onClick={() => onCode(s, false)}><KeyRound size={10} /> Login Code Banayein</button>}
+        {!s.linked && <button disabled={busy} style={{ ...small, background: "#1B4332", color: "white", borderColor: "#1B4332" }} onClick={() => onMobileLogin("create")}><KeyRound size={10} /> Mobile Login Banayein</button>}
+        {!s.linked && <button disabled={busy} style={{ ...small, color: "#8B8576" }} onClick={() => onCode(s, false)}>Email wale ke liye Code</button>}
+        {s.linked && <button disabled={busy} style={small} onClick={() => onMobileLogin("reset")}>Naya Password</button>}
         {s.linked && <button disabled={busy} style={{ ...small, color: "#B3261E" }} onClick={() => confirm("Purana login hata kar naya code banayein? Staff ko dobara code se judna padega.") && onCode(s, true)}>Login Reset</button>}
       </div>
       {open && (
@@ -133,6 +137,69 @@ function StaffCard({ s, onChanged, onCode }) {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// Mobile + password login: dukaandar ek click me staff ka login banata hai.
+// Password sirf ek baar dikhta hai (server me sirf hash rehta hai).
+function MobileLoginModal({ staff, mode, onClose }) {
+  const [phone, setPhone] = useState(staff.phone || "");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const [res, setRes] = useState(null); // { phone, password }
+  const [copied, setCopied] = useState(false);
+  const needPhone = mode === "create" && String(staff.phone || "").replace(/\D/g, "").length !== 10;
+
+  const go = async () => {
+    setBusy(true); setErr("");
+    try { setRes(mode === "create" ? await createStaffMobileLogin(staff.id, phone) : await resetStaffMobilePassword(staff.id)); }
+    catch (e) { setErr(e.message || "Nahi ho paaya"); }
+    setBusy(false);
+  };
+  const pw = res ? `${res.password.slice(0, 4)}-${res.password.slice(4)}` : "";
+  const link = `${window.location.origin}/staff`;
+  const text = res ? `Staff app: ${link}\nMobile: ${res.phone}\nPassword: ${pw}\nLogin karne ke baad apna kaam dikhega. Password kisi ko share na karein.` : "";
+  const copy = async () => { try { await navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 1800); } catch { /* ignore */ } };
+  const wa = () => window.open(`https://wa.me/${res.phone.length === 10 ? "91" + res.phone : res.phone}?text=${encodeURIComponent(text)}`, "_blank");
+  const inp = { width: "100%", border: `1px solid ${border}`, borderRadius: 8, padding: "10px 12px", fontSize: 14, outline: "none", boxSizing: "border-box" };
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 70 }}>
+      <div style={{ background: "white", borderRadius: 14, width: "100%", maxWidth: 400, padding: 20, margin: 20 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+          <div style={{ fontWeight: 700, fontSize: 14.5 }}>{mode === "create" ? "Mobile Login" : "Naya Password"} — {staff.name}</div>
+          <button onClick={onClose} style={{ border: "none", background: "none", cursor: "pointer", color: "#8B8576" }}><X size={16} /></button>
+        </div>
+        {!res ? (
+          <>
+            <div style={{ fontSize: 12, color: "#5C5747", lineHeight: 1.55, marginBottom: 12 }}>
+              {mode === "create"
+                ? "Staff ko email ya Gmail ki zaroorat nahi. Uska mobile number + ek password banega, wo seedha login kar lega."
+                : "Purana password band ho jayega. Naya password staff ko bhejna padega."}
+            </div>
+            {needPhone && <input style={{ ...inp, marginBottom: 10 }} type="tel" inputMode="numeric" placeholder="Staff ka mobile number (10 digit)" value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))} />}
+            {!needPhone && mode === "create" && <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>Mobile: {staff.phone}</div>}
+            {err && <div style={{ color: "#B3261E", fontSize: 12, marginBottom: 10 }}>{err}</div>}
+            <button disabled={busy || (needPhone && phone.length !== 10)} onClick={go} style={{ width: "100%", background: "#1B4332", color: "white", border: "none", borderRadius: 9, padding: "11px 0", fontWeight: 700, fontSize: 13, cursor: "pointer", opacity: busy || (needPhone && phone.length !== 10) ? 0.6 : 1 }}>
+              {busy ? "Ruko..." : mode === "create" ? "Login Banayein" : "Naya Password Banayein"}
+            </button>
+          </>
+        ) : (
+          <>
+            <div style={{ background: "#F7F5F0", borderRadius: 10, padding: 14, textAlign: "center", marginBottom: 10 }}>
+              <div style={{ fontSize: 11, color: "#8B8576", fontWeight: 600 }}>Mobile: <b style={{ color: "#1A1A1A" }}>{res.phone}</b></div>
+              <div style={{ fontSize: 11, color: "#8B8576", fontWeight: 600, margin: "8px 0 2px" }}>Password</div>
+              <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: 4, color: "#1B4332" }}>{pw}</div>
+            </div>
+            <div style={{ fontSize: 11.5, color: "#B3261E", marginBottom: 10 }}>Ye password dobara nahi dikhega. Abhi copy karke staff ko bhej dein. Bhool gaye to "Naya Password" se naya ban jayega.</div>
+            <textarea readOnly value={text} style={{ width: "100%", height: 100, border: `1px solid ${border}`, borderRadius: 8, padding: 9, fontSize: 11.5, fontFamily: "inherit", resize: "none", boxSizing: "border-box" }} />
+            <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+              <button onClick={copy} style={{ flex: 1, background: "#1B4332", color: "white", border: "none", borderRadius: 9, padding: "10px 0", fontWeight: 700, fontSize: 12.5, cursor: "pointer" }}><Copy size={12} style={{ verticalAlign: "-2px" }} /> {copied ? "Copy ho gaya" : "Copy"}</button>
+              <button onClick={wa} style={{ flex: 1, background: "#25D366", color: "white", border: "none", borderRadius: 9, padding: "10px 0", fontWeight: 700, fontSize: 12.5, cursor: "pointer" }}>WhatsApp</button>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }

@@ -3,8 +3,10 @@ import { supabase } from "./supabase";
 // ============================================================
 // AUTH
 // ============================================================
-export async function signUp(email, password) {
-  const { data, error } = await supabase.auth.signUp({ email, password });
+export async function signUp(email, password, redirectPath) {
+  // redirectPath (jaise "/staff"): email confirm karne ke baad user usi page par wapas aaye
+  const options = redirectPath ? { emailRedirectTo: `${window.location.origin}${redirectPath}` } : undefined;
+  const { data, error } = await supabase.auth.signUp({ email, password, options });
   if (error) throw error;
   return data;
 }
@@ -1202,6 +1204,17 @@ export async function generateShopStaffInvite(staffId, resetLogin = false) {
   const { data, error } = await supabase.rpc("generate_shop_staff_invite", { p_staff_id: staffId, p_reset_login: resetLogin });
   if (error) throw error;
   return data;
+}
+// Mobile + password staff login (edge function "staff-login") — email ki zaroorat nahi.
+export function createStaffMobileLogin(staffId, phone) {
+  return callAuthedFunction("staff-login", { action: "create", staff_id: staffId, phone: phone || undefined });
+}
+export function resetStaffMobilePassword(staffId) {
+  return callAuthedFunction("staff-login", { action: "reset", staff_id: staffId });
+}
+// Staff app: 10 digit mobile -> andar ka (fake, kabhi mail nahi hota) email
+export function staffEmailFromPhone(phone) {
+  return `s${String(phone).replace(/\D/g, "").slice(-10)}@staff.dukaan.local`;
 }
 export async function claimShopStaffInvite(code) {
   const { data, error } = await supabase.rpc("claim_shop_staff_invite", { p_code: code });

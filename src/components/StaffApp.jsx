@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Users, LogOut, Package, ShoppingBag, Phone, MapPin, Bike } from "lucide-react";
 import { DeliveryHome } from "./DeliveryHome";
 import {
-  signIn, signUp, signOut, onAuthChange,
+  signIn, signUp, signOut, onAuthChange, staffEmailFromPhone,
   claimShopStaffInvite, fetchMyStaffContext, staffFetchOrders, setOrderStatusRpc, confirmOrderPaymentRpc,
   fetchMyDeliveryProfile, fetchProducts, updateVariantStock, setVariantPriceRpc, setProductAvailabilityRpc,
 } from "../lib/api";
@@ -53,33 +53,59 @@ function Blocked({ title, text }) {
 }
 
 function LoginCard() {
-  const [mode, setMode] = useState("login");
+  // Default: mobile + password (dukaandar ne diya). Email wala tareeka neeche se.
+  const [method, setMethod] = useState("mobile"); // mobile | email
+  const [mode, setMode] = useState("login");      // email method me: login | signup
+  const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
+  const isMobile = method === "mobile";
   const submit = async () => {
     setBusy(true); setMsg("");
     try {
-      if (mode === "login") await signIn(email.trim(), password);
-      else { const r = await signUp(email.trim(), password); if (!r.session) setMsg("Email par confirmation link bheja gaya hai. Confirm karke login karein."); }
-    } catch (e) { setMsg(e.message || "Kuch gadbad hui"); }
+      if (isMobile) {
+        // dukaandar ka diya password hamesha bade akshar + bina dash ke hota hai
+        await signIn(staffEmailFromPhone(phone), password.replace(/[\s-]/g, "").toUpperCase());
+      } else if (mode === "login") await signIn(email.trim(), password);
+      else { const r = await signUp(email.trim(), password, "/staff"); if (!r.session) setMsg("Email par confirmation link bheja gaya hai. Confirm karke login karein."); }
+    } catch (e) {
+      const m = String(e.message || "");
+      setMsg(isMobile && /invalid login/i.test(m) ? "Mobile number ya password galat hai. Dukaandar se poochein." : m || "Kuch gadbad hui");
+    }
     setBusy(false);
   };
-  const off = busy || !email || password.length < 6;
+  const off = busy || (isMobile ? phone.length !== 10 || password.replace(/[\s-]/g, "").length < 6 : !email || password.length < 6);
   return (
     <Centered>
       <div style={{ width: "100%", maxWidth: 340 }}>
         <Logo />
         <div style={{ fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: 20, margin: "12px 0 2px" }}>Staff Login</div>
-        <div style={{ fontSize: 12.5, color: MUTED, marginBottom: 18 }}>{mode === "login" ? "Apne email aur password se login karein" : "Naya account banayein, phir dukaandar ka code daalein"}</div>
+        <div style={{ fontSize: 12.5, color: MUTED, marginBottom: 18 }}>
+          {isMobile ? "Dukaandar ne jo mobile number aur password diya hai wo daalein" : mode === "login" ? "Apne email aur password se login karein" : "Naya account banayein, phir dukaandar ka code daalein"}
+        </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 10, textAlign: "left" }}>
-          <input style={input} type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
-          <input style={input} type="password" placeholder="Password (min 6)" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={mode === "login" ? "current-password" : "new-password"} />
+          {isMobile ? (
+            <>
+              <input style={input} type="tel" inputMode="numeric" placeholder="Mobile number (10 digit)" value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))} autoComplete="username" />
+              <input style={{ ...input, textTransform: "uppercase", letterSpacing: 1 }} type="text" autoCapitalize="characters" autoCorrect="off" spellCheck={false} placeholder="Password (jaise K7M2-9QXP)" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
+            </>
+          ) : (
+            <>
+              <input style={input} type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
+              <input style={input} type="password" placeholder="Password (min 6)" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={mode === "login" ? "current-password" : "new-password"} />
+            </>
+          )}
           {msg && <div style={{ fontSize: 12, color: "#B3261E" }}>{msg}</div>}
-          <button disabled={off} onClick={submit} style={btn(true, off)}>{busy ? "Ruko..." : mode === "login" ? "Login" : "Account Banayein"}</button>
-          <button onClick={() => { setMode(mode === "login" ? "signup" : "login"); setMsg(""); }} style={{ background: "none", border: "none", color: G, fontWeight: 700, fontSize: 12.5, cursor: "pointer" }}>
-            {mode === "login" ? "Pehli baar? Naya account banayein" : "Account hai? Login karein"}
+          <button disabled={off} onClick={submit} style={btn(true, off)}>{busy ? "Ruko..." : !isMobile && mode === "signup" ? "Account Banayein" : "Login"}</button>
+          {!isMobile && (
+            <button onClick={() => { setMode(mode === "login" ? "signup" : "login"); setMsg(""); }} style={{ background: "none", border: "none", color: G, fontWeight: 700, fontSize: 12.5, cursor: "pointer" }}>
+              {mode === "login" ? "Pehli baar? Naya account banayein" : "Account hai? Login karein"}
+            </button>
+          )}
+          <button onClick={() => { setMethod(isMobile ? "email" : "mobile"); setMsg(""); setPassword(""); setMode("login"); }} style={{ background: "none", border: "none", color: MUTED, fontSize: 12, cursor: "pointer" }}>
+            {isMobile ? "Email se login karna hai?" : "Mobile + password se login karein"}
           </button>
         </div>
       </div>
