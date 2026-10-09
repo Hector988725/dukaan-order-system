@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { Plus, Trash2, Edit2, X, ChevronDown, ChevronUp, Upload, Eye, EyeOff } from "lucide-react";
 import { fetchAllCombosForAdmin, createCombo, updateCombo, toggleComboActive, deleteCombo, uploadProductImage } from "../lib/api";
 
+import { friendlyError } from "../lib/errors";
 // ============================================================
 // COMBO OFFER — Admin CRUD
 // ============================================================
@@ -101,7 +102,7 @@ function ComboRow({ combo, allVariants, expanded, onToggle, onRefresh, storeId }
       await deleteCombo(combo.id);
       onRefresh();
     } catch (err) {
-      alert("Delete nahi ho paaya: " + err.message);
+      alert("Delete nahi ho paaya: " + friendlyError(err));
     }
   };
 
@@ -112,7 +113,7 @@ function ComboRow({ combo, allVariants, expanded, onToggle, onRefresh, storeId }
       await toggleComboActive(combo.id, !combo.active);
       onRefresh();
     } catch (err) {
-      alert("Toggle nahi ho paaya: " + err.message);
+      alert("Toggle nahi ho paaya: " + friendlyError(err));
     } finally {
       setToggling(false);
     }
@@ -216,12 +217,12 @@ function ComboForm({ storeId, allVariants, combo, onCancel, onSave }) {
   const handleUploadImage = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) { alert("Photo 2MB se chhoti honi chahiye."); return; }
+    if (file.size > 12 * 1024 * 1024) { alert("Photo 12MB se chhoti honi chahiye."); return; }
     setUploading(true);
     try {
       setImageUrl(await uploadProductImage(file, storeId));
     } catch (err) {
-      alert(err.message || "Upload nahi ho paaya.");
+      alert(friendlyError(err) || "Upload nahi ho paaya.");
     } finally {
       setUploading(false);
     }
@@ -232,7 +233,7 @@ function ComboForm({ storeId, allVariants, combo, onCancel, onSave }) {
     try {
       await onSave({ name, combo_price: Number(comboPrice), image_url: imageUrl }, items);
     } catch (e) {
-      alert("Save nahi ho paaya: " + e.message);
+      alert("Save nahi ho paaya: " + friendlyError(e));
     } finally {
       setSaving(false);
     }
@@ -259,7 +260,7 @@ function ComboForm({ storeId, allVariants, combo, onCancel, onSave }) {
             style={{ width: "100%", padding: "16px 0", border: "2px dashed #D4A24C", borderRadius: "9px", background: "#F7F5F0", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: "6px" }}
           >
             <Upload size={18} color="#D4A24C" />
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "#5C5747" }}>{uploading ? "Upload ho raha hai..." : "Photo chunein (optional, Max 2MB)"}</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "#5C5747" }}>{uploading ? "Upload ho raha hai..." : "Photo chunein (optional, Max 12MB — apne aap chhoti ho jayegi)"}</span>
           </button>
         )}
       </div>

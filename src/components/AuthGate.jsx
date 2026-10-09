@@ -3,6 +3,7 @@ import { Store, Mail, Lock, ArrowRight, Loader2, Eye, EyeOff } from "lucide-reac
 import { signUp, signIn, createStore, checkSlugAvailable, resetPasswordForEmail, updatePassword, attributeStoreToReferral, fetchBusinessTypeSettings } from "../lib/api";
 import { BUSINESS_TYPE_LIST } from "../lib/theme";
 
+import { friendlyError } from "../lib/errors";
 const BUSINESS_TYPES = BUSINESS_TYPE_LIST;
 
 export function slugify(text) {
@@ -72,7 +73,7 @@ function LoginForm({ onAuthed, onForgotPassword }) {
       // taaki agar listener slow ho toh bhi UI turant switch ho jaaye.
       onAuthed(data.user);
     } catch (e) {
-      setError(e.message === "Invalid login credentials" ? "Email ya password galat hai." : e.message);
+      setError(e.message === "Invalid login credentials" ? "Email ya password galat hai." : friendlyError(e));
     } finally {
       setLoading(false);
     }
@@ -112,7 +113,7 @@ function ForgotPasswordForm({ onBack }) {
       await resetPasswordForEmail(email);
       setSent(true);
     } catch (e) {
-      setError(e.message);
+      setError(friendlyError(e));
     } finally {
       setLoading(false);
     }
@@ -170,7 +171,7 @@ export function ResetPasswordScreen({ onDone }) {
       await updatePassword(password);
       setDone(true);
     } catch (e) {
-      setError(e.message);
+      setError(friendlyError(e));
     } finally {
       setLoading(false);
     }
@@ -237,7 +238,7 @@ function SignupForm({ onAuthed }) {
       setUser(data.user);
       setStep(2);
     } catch (e) {
-      setError(e.message);
+      setError(friendlyError(e));
     } finally {
       setLoading(false);
     }
@@ -358,7 +359,7 @@ export function StoreDetailsForm({ user, onDone }) {
       }
       onDone(user, store);
     } catch (e) {
-      setError(e.message);
+      setError(friendlyError(e));
     } finally {
       setLoading(false);
     }

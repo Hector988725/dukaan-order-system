@@ -7,13 +7,14 @@ import {
 } from "../lib/api";
 import { DELIVERY_STATUS_META, NEXT_DELIVERY_ACTION, mapsUrl } from "../lib/deliveryMethods";
 
+import { friendlyError } from "../lib/errors";
 // ============================================================
 // DELIVERY HOME — Staff app (/staff) ke "Delivery" tab ke andar chalta hai.
 // Alag /delivery app ab nahi hai: delivery karne wale ab "Staff" hain
 // (Admin → Staff → permission "Delivery karna"). Data sab security-definer
 // RPCs se aata hai jo sirf is staff ki apni assignments dete hain.
 // ============================================================
-const G = "#1B4332", BORDER = "#E3DECF", MUTED = "#8B8576";
+const G = "#1F4E8C", BORDER = "#E3DECF", MUTED = "#8B8576";
 const btn = (primary, disabled) => ({
   width: "100%", border: primary ? "none" : `1px solid ${BORDER}`, borderRadius: 10, padding: "12px 0", fontSize: 14, fontWeight: 700,
   background: primary ? (disabled ? "#D8D2BF" : G) : "white", color: primary ? "white" : "#5C5747", cursor: disabled ? "not-allowed" : "pointer",
@@ -48,7 +49,7 @@ export function DeliveryHome({ profile }) {
         fetchMyDeliveryNotifications(),
       ]);
       setActive(a); setDeliveredToday(d); setNotifs(n); setErr("");
-    } catch (e) { setErr(e.message); }
+    } catch (e) { setErr(friendlyError(e)); }
     setLoading(false);
   }, []);
 
@@ -107,7 +108,7 @@ export function DeliveryHome({ profile }) {
           <>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginBottom: 14 }}>
               <Stat label="New / Assigned" value={fresh.length} color="#9A6B00" bg="#FFF4DB" />
-              <Stat label="Out for Delivery" value={out.length} color={G} bg="#E7F0EA" />
+              <Stat label="Out for Delivery" value={out.length} color={G} bg="#E4EEF9" />
               <Stat label="Delivered Aaj" value={deliveredToday.length} color="#1F5FA8" bg="#E4EEF9" />
             </div>
             <div style={{ fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: 15, marginBottom: 8 }}>Aaj ki Deliveries</div>
@@ -149,7 +150,7 @@ function DeliveryCard({ d, onChanged }) {
     if (d.status === "OUT_FOR_DELIVERY" && cod && !confirm(`Kya aapne ₹${d.amount_to_collect} customer se le liye? Delivered mark karein?`)) return;
     setBusy(true);
     try { await updateDeliveryStatus(d.assignment_id, next.to); await onChanged(); }
-    catch (e) { alert(e.message); }
+    catch (e) { alert(friendlyError(e)); }
     setBusy(false);
   };
   return (
@@ -162,7 +163,7 @@ function DeliveryCard({ d, onChanged }) {
         <span style={{ alignSelf: "flex-start", background: meta.bg, color: meta.color, fontSize: 10.5, fontWeight: 700, padding: "4px 9px", borderRadius: 999, whiteSpace: "nowrap" }}>{meta.label}</span>
       </div>
       <div style={{ fontSize: 12, color: "#5C5747", margin: "8px 0", display: "flex", gap: 5 }}><MapPin size={13} style={{ flexShrink: 0, marginTop: 2 }} />{d.address}{d.landmark ? ` (${d.landmark})` : ""} – {d.pincode}</div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: cod ? "#FFF4DB" : "#E7F0EA", borderRadius: 9, padding: "8px 11px", marginBottom: 10 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: cod ? "#FFF4DB" : "#E4EEF9", borderRadius: 9, padding: "8px 11px", marginBottom: 10 }}>
         <div style={{ fontSize: 11.5, fontWeight: 700, color: cod ? "#7A5400" : G }}>{cod ? "Amount to Collect (COD)" : "PAID ONLINE"}</div>
         <div style={{ fontFamily: "'Fraunces', serif", fontWeight: 800, fontSize: 16, color: cod ? "#7A5400" : G }}>₹{cod ? d.amount_to_collect : 0}</div>
       </div>

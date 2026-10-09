@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { BookText, Plus, ArrowUpRight, ArrowDownRight, X, Loader2, TrendingUp, Users, IndianRupee, KeyRound, Copy, MessageCircle } from "lucide-react";
 import { fetchStoreKhataOverview, fetchCustomerKhataHistory, addKhataTransaction, createKhataCustomer, generateKhataPin, fetchKhataPinStatus } from "../lib/api";
 
+import { friendlyError } from "../lib/errors";
 // ============================================================
 // KHATA / UDHAARI PANEL — Dukaandar side
 // ============================================================
@@ -336,7 +337,7 @@ function EntryForm({ storeId, customerId, type, onClose, onDone }) {
       await addKhataTransaction(storeId, customerId, type, amt, description || null);
       onDone();
     } catch (e) {
-      setError(e.message || "Save nahi ho paaya.");
+      setError(friendlyError(e) || "Save nahi ho paaya.");
     } finally {
       setSaving(false);
     }
@@ -393,7 +394,7 @@ function NewKhataEntryModal({ storeId, onClose, onDone }) {
       await addKhataTransaction(storeId, customerId, type, Number(amount), description || null);
       onDone();
     } catch (e) {
-      setError(e.message || "Save nahi ho paaya.");
+      setError(friendlyError(e) || "Save nahi ho paaya.");
     } finally {
       setSaving(false);
     }

@@ -71,11 +71,11 @@ import { getRenewalState, RENEWAL_WINDOW_DAYS } from "../lib/subscription";
 import { getShoppingMode, getDiscountInfo, getUnitPresets, isBookingCategory } from "../lib/theme";
 import { INDIAN_STATES } from "../lib/gst";
 
+import { friendlyError } from "../lib/errors";
 // ============================================================
 // SUBSCRIPTION PANEL — Razorpay se real payment
 // ============================================================
 function SubscriptionPanel({ store, onRefresh }) {
-  const [deactivating, setDeactivating] = useState(false);
   const [msg, setMsg] = useState(null);
 
   const renewal = getRenewalState(store);
@@ -83,20 +83,6 @@ function SubscriptionPanel({ store, onRefresh }) {
   const expiry = store.subscription_expires_at ? new Date(store.subscription_expires_at) : null;
   const daysLeft = expiry ? Math.ceil((expiry - new Date()) / (1000 * 60 * 60 * 24)) : null;
   const isExpired = daysLeft !== null && daysLeft < 0;
-
-  const handleDeactivate = async () => {
-    if (!confirm("Close your shop for now? Customers will not be able to place orders. Your subscription will keep running. To reopen, tap the OPEN button at the top.")) return;
-    setDeactivating(true);
-    try {
-      await toggleStoreOpen(store.id, false);
-      setMsg({ type: "success", text: "Your shop is now closed for orders. Your subscription is not affected." });
-      onRefresh();
-    } catch (e) {
-      setMsg({ type: "error", text: "Error: " + e.message });
-    } finally {
-      setDeactivating(false);
-    }
-  };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
@@ -150,22 +136,6 @@ function SubscriptionPanel({ store, onRefresh }) {
           onRefresh();
         }}
       />
-
-      {/* Deactivate option */}
-      {isActive && !isExpired && (
-        <div style={{ fontSize: "11.5px", color: "#8B8576", textAlign: "center", marginTop: "4px" }}>
-          Closing the shop only stops new orders. Your subscription keeps running.
-        </div>
-      )}
-      {isActive && !isExpired && (
-        <button
-          onClick={handleDeactivate}
-          disabled={deactivating}
-          style={{ background: "white", border: "1px solid #B3261E", color: "#B3261E", borderRadius: "9px", padding: "10px 0", fontSize: "12.5px", fontWeight: 700, cursor: "pointer", marginTop: "4px" }}
-        >
-          {deactivating ? "Closing..." : "⏸️ Close Shop (Stop Orders)"}
-        </button>
-      )}
     </div>
   );
 }
@@ -215,7 +185,7 @@ function StoreSettingsForm({ store, onRefresh }) {
       const count = await applyGstRateToAllProducts(store.id, Number(bulkGstRate));
       setBulkMsg(`✓ ${count} product(s) update ho gaye.`);
     } catch (e) {
-      setBulkMsg("Error: " + e.message);
+      setBulkMsg("Error: " + friendlyError(e));
     } finally {
       setBulkApplying(false);
     }
@@ -256,7 +226,7 @@ function StoreSettingsForm({ store, onRefresh }) {
       onRefresh();
       setTimeout(() => setSaved(false), 2500);
     } catch (e) {
-      alert("Save nahi ho paaya: " + e.message);
+      alert("Save nahi ho paaya: " + friendlyError(e));
     } finally {
       setSaving(false);
     }
@@ -407,7 +377,48 @@ function StoreSettingsForm({ store, onRefresh }) {
       <button onClick={handleSave} disabled={saving} className="ddemo-btn" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", background: saved ? "#1B4332" : "#D4A24C", color: saved ? "white" : "#123026", fontWeight: 800, fontSize: "13.5px", border: "none", borderRadius: "10px", padding: "12px 0", cursor: "pointer", marginTop: "6px" }}>
         {saved ? <><Check size={15} /> Save Ho Gaya</> : <><Save size={15} /> {saving ? "Save ho raha hai..." : "Changes Save Karein"}</>}
       </button>
+      <CloseShopSection store={store} onRefresh={onRefresh} />
       </div>
+    </div>
+  );
+}
+
+// ============================================================
+// CLOSE SHOP — Store Settings ke andar. Sirf naye orders rokta hai
+// (subscription chalta rehta hai). Dobara kholne ke liye upar ka OPEN button.
+// ============================================================
+function CloseShopSection({ store, onRefresh }) {
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState(null);
+  const isActive = store.is_active !== false;
+  const expired = store.subscription_expires_at && new Date(store.subscription_expires_at) < new Date();
+  const isAuto = !!store.auto_hours_enabled;
+  const isClosed = store.is_open === false;
+  if (!isActive || expired) return null;
+
+  const close = async () => {
+    if (!confirm("Close your shop for now? Customers will not be able to place orders. Your subscription will keep running. To reopen, tap the OPEN button at the top.")) return;
+    setBusy(true); setMsg(null);
+    try {
+      await toggleStoreOpen(store.id, false);
+      setMsg({ type: "success", text: "Your shop is now closed for orders. Your subscription is not affected." });
+      onRefresh();
+    } catch (e) {
+      setMsg({ type: "error", text: friendlyError(e) });
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <div style={{ background: "white", border: "1px solid #F3C6C1", borderRadius: "12px", padding: "14px 16px", marginTop: "14px" }}>
+      <div style={{ fontWeight: 700, fontSize: "13px", marginBottom: "4px" }}>Shop ko Band Karein (Orders Rokein)</div>
+      <div style={{ fontSize: "11.5px", color: "#8B8576", lineHeight: 1.55, marginBottom: "10px" }}>
+        Sirf naye orders band hote hain. Aapka subscription chalta rehta hai. Dobara kholne ke liye upar ka OPEN button dabayein.
+        {isAuto ? " (Auto timings chalu hain — Auto timings band karke hi manual close kaam karega.)" : ""}
+      </div>
+      {msg && <div style={{ padding: "8px 12px", borderRadius: "8px", fontSize: "12px", fontWeight: 600, marginBottom: "10px", background: msg.type === "success" ? "#E7F0EA" : "#FDECEA", color: msg.type === "success" ? "#1B4332" : "#B3261E" }}>{msg.text}</div>}
+      <button onClick={close} disabled={busy || isClosed || isAuto} style={{ width: "100%", background: "white", border: "1px solid #B3261E", color: "#B3261E", borderRadius: "9px", padding: "10px 0", fontSize: "12.5px", fontWeight: 700, cursor: busy || isClosed || isAuto ? "not-allowed" : "pointer", opacity: isClosed || isAuto ? 0.5 : 1 }}>
+        {busy ? "Band ho raha hai..." : isClosed ? "Shop abhi band hai" : "⏸️ Close Shop (Stop Orders)"}
+      </button>
     </div>
   );
 }
@@ -460,7 +471,7 @@ function SlugChangeSection({ store, onRefresh }) {
       onRefresh();
       setTimeout(() => setSuccess(false), 3000);
     } catch (e) {
-      setError(e.message || "Link badalte waqt error aaya.");
+      setError(friendlyError(e) || "Link badalte waqt error aaya.");
     } finally {
       setSaving(false);
     }
@@ -540,13 +551,13 @@ function StoreLogoPicker({ currentLogo, storeId, onChange }) {
   const handleUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) { alert("Logo 2MB se chhota hona chahiye."); return; }
+    if (file.size > 12 * 1024 * 1024) { alert("Logo 12MB se chhota hona chahiye."); return; }
     setUploading(true);
     try {
       const url = await uploadProductImage(file, storeId);
       onChange(url);
     } catch (err) {
-      alert("Upload nahi ho paaya: " + err.message);
+      alert("Upload nahi ho paaya: " + friendlyError(err));
     } finally {
       setUploading(false);
     }
@@ -617,7 +628,7 @@ function ProductManager({ store, products, onRefresh }) {
       ]);
       onRefresh();
     } catch (e) {
-      alert("Order badalte waqt error aaya: " + e.message);
+      alert("Order badalte waqt error aaya: " + friendlyError(e));
     } finally {
       setReordering(false);
     }
@@ -702,13 +713,13 @@ function ImagePicker({ currentImage, storeId, onChange }) {
   const handleUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) { alert("Photo 2MB se chhoti honi chahiye."); return; }
+    if (file.size > 12 * 1024 * 1024) { alert("Photo 12MB se chhoti honi chahiye."); return; }
     setUploading(true);
     try {
       const url = await uploadProductImage(file, storeId);
       onChange(url);
     } catch (err) {
-      alert(err.message || "Upload nahi ho paaya.");
+      alert(friendlyError(err) || "Upload nahi ho paaya.");
     } finally {
       setUploading(false);
     }
@@ -731,7 +742,7 @@ function ImagePicker({ currentImage, storeId, onChange }) {
           style={{ width: "100%", padding: "20px 0", border: "2px dashed #D4A24C", borderRadius: "9px", background: "white", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: "6px" }}
         >
           <Upload size={20} color="#D4A24C" />
-          <span style={{ fontSize: "12px", fontWeight: 600, color: "#5C5747" }}>{uploading ? "Upload ho raha hai..." : "Photo chunein (Max 2MB)"}</span>
+          <span style={{ fontSize: "12px", fontWeight: 600, color: "#5C5747" }}>{uploading ? "Upload ho raha hai..." : "Photo chunein (Max 12MB — apne aap chhoti ho jayegi)"}</span>
           <span style={{ fontSize: "10.5px", color: "#8B8576" }}>JPG, PNG, WebP</span>
         </button>
       )}
@@ -815,13 +826,13 @@ function MultiImagePicker({ images, storeId, onChange }) {
     const file = e.target.files?.[0];
     if (!file) return;
     if (images.length >= MAX_PHOTOS) { alert(`Zyada se zyada ${MAX_PHOTOS} photos daal sakte hain.`); return; }
-    if (file.size > 2 * 1024 * 1024) { alert("Photo 2MB se chhoti honi chahiye."); return; }
+    if (file.size > 12 * 1024 * 1024) { alert("Photo 12MB se chhoti honi chahiye."); return; }
     setUploading(true);
     try {
       const url = await uploadProductImage(file, storeId);
       onChange([...images, url]);
     } catch (err) {
-      alert(err.message || "Upload nahi ho paaya.");
+      alert(friendlyError(err) || "Upload nahi ho paaya.");
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = "";
@@ -869,14 +880,14 @@ function ProductRow({ product, storeId, businessType, gstEnabled, expanded, onTo
   const handleDeleteProduct = async () => {
     if (!confirm(`"${product.name}" ko delete karein?`)) return;
     try { await deleteProduct(product.id); onRefresh(); }
-    catch (e) { alert("Delete nahi ho paaya: " + e.message); }
+    catch (e) { alert("Delete nahi ho paaya: " + friendlyError(e)); }
   };
 
   const handleToggleFeatured = async (e) => {
     e.stopPropagation();
     setTogglingFeatured(true);
     try { await updateProductFeatured(product.id, !product.featured); onRefresh(); }
-    catch (err) { alert("Featured toggle nahi ho paaya: " + err.message); }
+    catch (err) { alert("Featured toggle nahi ho paaya: " + friendlyError(err)); }
     finally { setTogglingFeatured(false); }
   };
 
@@ -884,7 +895,7 @@ function ProductRow({ product, storeId, businessType, gstEnabled, expanded, onTo
     e.stopPropagation();
     setTogglingAvail(true);
     try { await updateProductAvailability(product.id, !isAvailable); onRefresh(); }
-    catch (err) { alert("Availability badal nahi payi: " + err.message); }
+    catch (err) { alert("Availability badal nahi payi: " + friendlyError(err)); }
     finally { setTogglingAvail(false); }
   };
 
@@ -1016,7 +1027,7 @@ function VariantRow({ variant, businessType, gstEnabled, onRefresh }) {
   const handleDelete = async () => {
     if (!confirm(`"${variant.label}" variant delete karein?`)) return;
     try { await deleteVariant(variant.id); onRefresh(); }
-    catch (e) { alert("Delete nahi ho paaya: " + e.message); }
+    catch (e) { alert("Delete nahi ho paaya: " + friendlyError(e)); }
   };
 
   if (editing) {

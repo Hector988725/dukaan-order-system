@@ -292,7 +292,44 @@ export async function updateProductOrder(productId, sortOrder) {
 // upload nahi hone diya jaata, taaki platform ka storage-cost
 // unpredictable na badhe. Upload se pehle available space check
 // karta hai, aur success ke baad `storage_used_bytes` badhata hai.
-export async function uploadProductImage(file, storeId) {
+// Phone ki badi photo (3-8MB) ko upload se pehle chhota kar dete hain:
+// lambi side max 1280px, WebP/JPEG ~80% quality => aam taur par 150-400KB.
+// Koi bhi dikkat aaye to original file hi upload hoti hai (kabhi fail nahi karta).
+async function compressImage(file, maxDim = 1280, quality = 0.8) {
+  try {
+    if (!file || !/^image\/(jpeg|png|webp)$/i.test(file.type)) return file;
+    let bmp;
+    if (typeof createImageBitmap === "function") {
+      try { bmp = await createImageBitmap(file, { imageOrientation: "from-image" }); } catch { bmp = await createImageBitmap(file); }
+    } else return file;
+    const scale = Math.min(1, maxDim / Math.max(bmp.width, bmp.height));
+    const w = Math.max(1, Math.round(bmp.width * scale));
+    const h = Math.max(1, Math.round(bmp.height * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = w; canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    const hasAlpha = /png|webp/i.test(file.type);
+    if (!hasAlpha) { ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, w, h); }
+    ctx.drawImage(bmp, 0, 0, w, h);
+    if (bmp.close) bmp.close();
+    const toBlob = (type) => new Promise((res) => canvas.toBlob(res, type, quality));
+    let blob = await toBlob("image/webp");
+    if (!blob || blob.type !== "image/webp") {
+      if (hasAlpha) { ctx.globalCompositeOperation = "destination-over"; ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, w, h); }
+      blob = await toBlob("image/jpeg");
+    }
+    if (!blob || (scale === 1 && blob.size >= file.size)) return file; // chhota nahi hua to original
+    const ext = blob.type === "image/webp" ? "webp" : "jpg";
+    const base = (file.name || "photo").replace(/\.[^.]+$/, "");
+    return new File([blob], `${base}.${ext}`, { type: blob.type });
+  } catch (e) {
+    console.warn("Image compress nahi ho paayi, original use ho rahi hai:", e);
+    return file;
+  }
+}
+
+export async function uploadProductImage(originalFile, storeId) {
+  const file = await compressImage(originalFile);
   const { data: store, error: storeErr } = await supabase
     .from("stores")
     .select("storage_used_bytes, storage_limit_bytes")

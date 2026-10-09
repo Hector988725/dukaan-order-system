@@ -3,6 +3,7 @@ import Papa from "papaparse";
 import { Upload, X, FileSpreadsheet, FileText, Download, Trash2, Plus, Camera, PenLine, Loader2 } from "lucide-react";
 import { bulkImportProducts, uploadProductImage } from "../lib/api";
 
+import { friendlyError } from "../lib/errors";
 // ============================================================
 // BULK UPLOAD — 3 tareeke se products add karne ka "chart":
 //   1. CSV file (jaisa pehle tha — structured, columns fixed)
@@ -121,7 +122,7 @@ export default function CsvBulkUploadModal({ store, onClose, onDone }) {
         setRows(results.data.map((r) => ({ ...makeBlankRow(), ...r })));
         setStage("edit");
       },
-      error: (err) => setFileError("File padhi nahi ja saki: " + err.message),
+      error: (err) => setFileError("File padhi nahi ja saki: " + friendlyError(err)),
     });
   };
 
@@ -140,7 +141,7 @@ export default function CsvBulkUploadModal({ store, onClose, onDone }) {
       }
       setStage("edit");
     } catch (err) {
-      setFileError("PDF padhi nahi ja saki: " + err.message);
+      setFileError("PDF padhi nahi ja saki: " + friendlyError(err));
       setStage("upload");
     }
   };
@@ -165,13 +166,13 @@ export default function CsvBulkUploadModal({ store, onClose, onDone }) {
     const idx = photoTargetIdx.current;
     e.target.value = ""; // taaki same file dobara select karne par bhi onChange chale
     if (!file || idx == null) return;
-    if (file.size > 2 * 1024 * 1024) { alert("Photo 2MB se chhoti honi chahiye."); return; }
+    if (file.size > 12 * 1024 * 1024) { alert("Photo 12MB se chhoti honi chahiye."); return; }
     setUploadingPhotoIdx(idx);
     try {
       const url = await uploadProductImage(file, store.id);
       updateRow(idx, "image_url", url);
     } catch (err) {
-      alert(err.message || "Photo upload nahi ho paayi.");
+      alert(friendlyError(err) || "Photo upload nahi ho paayi.");
     } finally {
       setUploadingPhotoIdx(null);
     }
@@ -185,7 +186,7 @@ export default function CsvBulkUploadModal({ store, onClose, onDone }) {
       setImportResults(results);
       setStage("done");
     } catch (e) {
-      setFileError("Import mein error aaya: " + e.message);
+      setFileError("Import mein error aaya: " + friendlyError(e));
       setStage("edit");
     }
   };

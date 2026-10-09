@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { Users, Plus, X, KeyRound, Trash2, Copy } from "lucide-react";
 import { addShopStaff, fetchShopStaff, updateShopStaff, removeShopStaff, generateShopStaffInvite, createStaffMobileLogin, resetStaffMobilePassword } from "../lib/api";
 
+import { friendlyError } from "../lib/errors";
 // ============================================================
 // SHOP STAFF (Admin → Staff) — dukaandar apne staff ko limited access deta hai.
 // Permissions ek list se aate hain: naya option jodna ho to sirf PERMS me ek
@@ -25,7 +26,7 @@ export default function ShopStaffManager({ store }) {
 
   const load = useCallback(async () => {
     try { setRows(await fetchShopStaff(store.id)); setErr(""); }
-    catch (e) { setErr(e.message || "Load nahi ho paaya"); setRows([]); }
+    catch (e) { setErr(friendlyError(e) || "Load nahi ho paaya"); setRows([]); }
   }, [store.id]);
   useEffect(() => { load(); }, [load]);
 
@@ -34,7 +35,7 @@ export default function ShopStaffManager({ store }) {
       const code = await generateShopStaffInvite(s.id, reset);
       setCodeInfo({ name: s.name, code });
       load();
-    } catch (e) { alert(e.message); }
+    } catch (e) { alert(friendlyError(e)); }
   };
 
   return (
@@ -76,7 +77,7 @@ function AddForm({ store, onCancel, onAdded }) {
   const save = async () => {
     setBusy(true);
     try { await addShopStaff(store.id, name.trim(), phone.trim()); onAdded(); }
-    catch (e) { alert(e.message); setBusy(false); }
+    catch (e) { alert(friendlyError(e)); setBusy(false); }
   };
   const inp = { width: "100%", border: `1px solid ${border}`, borderRadius: 7, padding: "8px 10px", fontSize: 12.5, fontFamily: "inherit", outline: "none", boxSizing: "border-box" };
   return (
@@ -100,7 +101,7 @@ function StaffCard({ s, onChanged, onCode, onMobileLogin }) {
   useEffect(() => { setPerms(s.permissions || {}); }, [s.permissions]);
   const small = { fontSize: 10.5, fontWeight: 700, border: `1px solid ${border}`, background: "white", borderRadius: 6, padding: "4px 9px", cursor: "pointer", color: "#1B4332" };
 
-  const run = async (fn) => { setBusy(true); try { await fn(); await onChanged(); } catch (e) { alert(e.message); } setBusy(false); };
+  const run = async (fn) => { setBusy(true); try { await fn(); await onChanged(); } catch (e) { alert(friendlyError(e)); } setBusy(false); };
   const savePerms = (next) => run(() => updateShopStaff(s.id, s.name, next, s.is_active));
   const toggle = (k) => { const next = { ...perms, [k]: !perms[k] }; setPerms(next); savePerms(next); };
 
@@ -154,7 +155,7 @@ function MobileLoginModal({ staff, mode, onClose }) {
   const go = async () => {
     setBusy(true); setErr("");
     try { setRes(mode === "create" ? await createStaffMobileLogin(staff.id, phone) : await resetStaffMobilePassword(staff.id)); }
-    catch (e) { setErr(e.message || "Nahi ho paaya"); }
+    catch (e) { setErr(friendlyError(e) || "Nahi ho paaya"); }
     setBusy(false);
   };
   const pw = res ? `${res.password.slice(0, 4)}-${res.password.slice(4)}` : "";

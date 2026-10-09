@@ -32,6 +32,7 @@ import SuperAdminApp from "./superadmin/SuperAdminApp";
 import DistributorApp from "./components/DistributorApp";
 
 import StaffApp from "./components/StaffApp";
+import { friendlyError } from "./lib/errors";
 export default function App() {
   // Deployment mein VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY set nahi hain —
   // pehle ye poori app ko blank white page bana ke crash kar deta tha. Ab
@@ -667,7 +668,7 @@ function OwnerArea() {
       await toggleStoreOpen(store.id, newValue);
     } catch (e) {
       setStore((s) => ({ ...s, is_open: !newValue })); // fail hua to wapas purani state
-      alert("Status badalte waqt error aaya: " + e.message);
+      alert("Status badalte waqt error aaya: " + friendlyError(e));
     }
   };
 

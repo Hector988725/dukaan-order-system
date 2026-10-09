@@ -3,6 +3,7 @@ import { Plus, Edit2, Trash2, Check, X, Loader2, Upload, Eye, EyeOff } from "luc
 import Papa from "papaparse";
 import { BUSINESS_THEMES, BUSINESS_TYPE_LIST, getUnitPresets } from "../lib/theme";
 import { AGE_GROUPS } from "../components/CategoryFields";
+import { friendlyError } from "../lib/errors";
 import {
   listTypeSettings, saveTypeSettings, listCategories, addCategory, renameCategory, deleteCategory,
   listBrands, addBrand, renameBrand, deleteBrand,
@@ -30,7 +31,7 @@ function useAsync(fn, deps) {
   const [data, setData] = useState(null);
   const [err, setErr] = useState("");
   const reload = useCallback(async () => {
-    try { setData(await fn()); setErr(""); } catch (e) { setErr(e.message || "Load nahi hua"); }
+    try { setData(await fn()); setErr(""); } catch (e) { setErr(friendlyError(e) || "Load nahi hua"); }
     // eslint-disable-next-line
   }, deps);
   useEffect(() => { reload(); }, [reload]);
@@ -75,7 +76,7 @@ function TypeSettings({ type }) {
   const enabled = row ? row.is_enabled : true;
   const save = async (patch = {}) => {
     setMsg("");
-    try { await saveTypeSettings(type, { is_enabled: enabled, label, description: desc, ...patch }); setMsg("Save ho gaya ✅"); reload(); } catch (e) { setMsg(e.message); }
+    try { await saveTypeSettings(type, { is_enabled: enabled, label, description: desc, ...patch }); setMsg("Save ho gaya ✅"); reload(); } catch (e) { setMsg(friendlyError(e)); }
   };
   if (!rows) return <Loader2 size={18} style={{ animation: "spin 1s linear infinite" }} />;
   return (
@@ -106,7 +107,7 @@ function Categories({ type }) {
   const [newMain, setNewMain] = useState("");
   const [newSub, setNewSub] = useState({});
   const [msg, setMsg] = useState("");
-  const run = async (fn) => { setMsg(""); try { await fn(); await reload(); } catch (e) { setMsg(e.message?.includes("duplicate") ? "Yeh naam pehle se hai" : e.message); } };
+  const run = async (fn) => { setMsg(""); try { await fn(); await reload(); } catch (e) { setMsg(e.message?.includes("duplicate") ? "Yeh naam pehle se hai" : friendlyError(e)); } };
   if (!rows) return <Loader2 size={18} style={{ animation: "spin 1s linear infinite" }} />;
   const mains = rows.filter((r) => !r.parent_id);
   // Sirf Cosmetics / Gift-Toys jaise types ke category presets hain. Baaki types mein dukaandar ke liye category
@@ -162,7 +163,7 @@ function Brands({ type }) {
   const [rows, err, reload] = useAsync(() => listBrands(type), [type]);
   const [name, setName] = useState("");
   const [msg, setMsg] = useState("");
-  const run = async (fn) => { setMsg(""); try { await fn(); await reload(); } catch (e) { setMsg(e.message?.includes("duplicate") ? "Yeh brand pehle se hai" : e.message); } };
+  const run = async (fn) => { setMsg(""); try { await fn(); await reload(); } catch (e) { setMsg(e.message?.includes("duplicate") ? "Yeh brand pehle se hai" : friendlyError(e)); } };
   if (!rows) return <Loader2 size={18} style={{ animation: "spin 1s linear infinite" }} />;
   return (
     <div>
@@ -197,7 +198,7 @@ function CatalogProducts({ type }) {
   const [q, setQ] = useState("");
   const [catFilter, setCatFilter] = useState("All");
   const [msg, setMsg] = useState("");
-  const run = async (fn) => { setMsg(""); try { await fn(); await reload(); } catch (e) { setMsg(e.message); } };
+  const run = async (fn) => { setMsg(""); try { await fn(); await reload(); } catch (e) { setMsg(friendlyError(e)); } };
   if (!rows) return <Loader2 size={18} style={{ animation: "spin 1s linear infinite" }} />;
   const catList = Array.from(new Set(rows.map((r) => r.category))).sort();
   const shown = rows.filter((r) => (catFilter === "All" || r.category === catFilter) && `${r.name} ${r.brand || ""} ${r.category}`.toLowerCase().includes(q.toLowerCase()));

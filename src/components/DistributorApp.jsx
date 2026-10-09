@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Users, Mail, Lock, Eye, EyeOff, LogOut, Copy, Check, TrendingUp, Loader2 } from "lucide-react";
 import { signUp, signIn, signOut, onAuthChange, claimDistributorAccount, fetchDistributorDashboard, registerDistributorNominee, fetchDistributorProfile, fetchDistributorReferredShops, fetchDistributorCommissionHistory } from "../lib/api";
 
+import { friendlyError } from "../lib/errors";
 // ============================================================
 // ROOT — /distributor route. Login/signup gate, phir apna dashboard.
 // Store-owner ke AuthGate se bilkul alag flow hai (alag role, alag
@@ -81,7 +82,7 @@ function DistributorAuthGate({ onAuthed }) {
       await claimDistributorAccount(referralCode.trim(), claimCode.trim());
       onAuthed(data.user);
     } catch (e) {
-      setError(e.message);
+      setError(friendlyError(e, "en"));
     } finally {
       setLoading(false);
     }
@@ -177,7 +178,7 @@ function DistributorDashboard({ user }) {
       await claimDistributorAccount(claimRef.trim(), claimCode.trim());
       load();
     } catch (e) {
-      setClaimError(e.message);
+      setClaimError(friendlyError(e, "en"));
     } finally {
       setClaiming(false);
     }
@@ -369,7 +370,7 @@ function NomineeSection({ distributorId, theme }) {
       setDone(true);
       setShowForm(false);
     } catch (e) {
-      setError(e.message);
+      setError(friendlyError(e, "en"));
     } finally {
       setSaving(false);
     }

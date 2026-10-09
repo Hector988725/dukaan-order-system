@@ -3,6 +3,7 @@ import { X, Search, Plus, Loader2, Check, ArrowLeft } from "lucide-react";
 import { fetchCatalogProducts, fetchCatalogBrands, addCatalogProductToShop } from "../lib/api";
 import { isBookingCategory } from "../lib/theme";
 
+import { friendlyError } from "../lib/errors";
 // ============================================================
 // CENTRAL CATALOG PICKER (Dukaandar side)
 // Catalog product chuno -> apna Selling Price + apna Stock -> "Add to My Shop".
@@ -37,7 +38,7 @@ export default function CatalogPicker({ store, products, onClose, onAdded, onCus
   const [err, setErr] = useState("");
 
   useEffect(() => {
-    fetchCatalogProducts(store.business_type).then(setItems).catch((e) => { setItems([]); setErr(e.message); });
+    fetchCatalogProducts(store.business_type).then(setItems).catch((e) => { setItems([]); setErr(friendlyError(e)); });
     fetchCatalogBrands(store.business_type).then(setBrands).catch(() => {});
   }, [store.business_type]);
 
@@ -66,7 +67,7 @@ export default function CatalogPicker({ store, products, onClose, onAdded, onCus
     try {
       await addCatalogProductToShop(store.id, picked.id, rows, brand, available);
       onAdded();
-    } catch (e) { setErr(e.message); setBusy(false); }
+    } catch (e) { setErr(friendlyError(e)); setBusy(false); }
   };
 
   return (

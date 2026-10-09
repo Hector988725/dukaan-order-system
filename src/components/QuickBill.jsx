@@ -3,6 +3,7 @@ import { Search, Plus, Minus, MessageCircle, RotateCcw } from "lucide-react";
 import { createOrder, fetchCustomerByPhone, createKhataCustomer, addKhataTransaction } from "../lib/api";
 import { getVariantPricing, getQuantityDealPrice } from "../lib/theme";
 
+import { friendlyError } from "../lib/errors";
 // ============================================================
 // QUICK BILL (POS / Walk-in Billing)
 // ============================================================
@@ -131,7 +132,7 @@ export default function QuickBill({ store, products, onOrderPlaced }) {
       setStage("receipt");
       onOrderPlaced?.();
     } catch (e) {
-      setError(e.message || "Bill complete nahi ho paaya.");
+      setError(friendlyError(e) || "Bill complete nahi ho paaya.");
     } finally {
       setSubmitting(false);
     }

@@ -5,6 +5,7 @@ import { calculateOrderGST, INDIAN_STATES } from "../lib/gst";
 import { getTheme, getShoppingMode, isBookingCategory, getDiscountInfo, getVariantPricing, getQuantityDealPrice, getBestQuantityDealBadge, formatOfferExpiry, getCountdownParts } from "../lib/theme";
 import { OrderTrackingModal } from "./OrderTracking";
 
+import { friendlyError } from "../lib/errors";
 const PENDING_UPI_KEY = "dukaan_pending_upi_checkout";
 
 // Order place hone ke baad uska number is device par (customer ke apne
@@ -473,7 +474,7 @@ const CustomerView = forwardRef(function CustomerView({ store, products, onOrder
       setCartOpen(false);
       onOrderPlaced?.();
     } catch (e) {
-      alert("Order could not be saved: " + e.message);
+      alert("Order could not be saved: " + friendlyError(e, "en"));
     } finally {
       setSubmitting(false);
     }
@@ -861,7 +862,7 @@ function BookingModal({ store, product, theme, onClose, onBooked }) {
       saveTrackPhone(store.id, phone.trim());
       onBooked({ ...saved, service_name: product.name, service_label: service.label, payment_choice: payment });
     } catch (e) {
-      setError(e.message || "Booking nahi ho payi, dobara try karein.");
+      setError(friendlyError(e) || "Booking nahi ho payi, dobara try karein.");
     } finally {
       setSubmitting(false);
     }

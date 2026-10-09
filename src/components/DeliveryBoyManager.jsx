@@ -5,6 +5,7 @@ import {
 } from "../lib/api";
 import { DELIVERY_METHODS, DELIVERY_STATUS_META } from "../lib/deliveryMethods";
 
+import { friendlyError } from "../lib/errors";
 // ------------------------------------------------------------
 // Delivery Dashboard + History + Methods
 // ------------------------------------------------------------
@@ -41,7 +42,7 @@ function DeliveryDashboard({ store }) {
       <div style={{ fontWeight: 700, fontSize: "13px", marginBottom: "6px" }}>Delivery Method</div>
       {available.map((m) => (
         <label key={m.method} style={{ display: "flex", alignItems: "center", gap: "10px", background: "white", border: "1px solid #E3DECF", borderRadius: "10px", padding: "10px 12px", fontSize: "12.5px" }}>
-          <input type="checkbox" checked={m.enabled} onChange={async (e) => { try { await setStoreDeliveryMethod(store.id, m.method, e.target.checked); load(); } catch (err) { alert(err.message); } }} />
+          <input type="checkbox" checked={m.enabled} onChange={async (e) => { try { await setStoreDeliveryMethod(store.id, m.method, e.target.checked); load(); } catch (err) { alert(friendlyError(err)); } }} />
           <span><b>{DELIVERY_METHODS[m.method].label}</b><br /><span style={{ color: "#8B8576", fontSize: "11px" }}>{DELIVERY_METHODS[m.method].description}</span></span>
         </label>
       ))}

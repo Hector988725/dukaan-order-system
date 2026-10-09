@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Users, LogOut, Package, ShoppingBag, Phone, MapPin, Bike } from "lucide-react";
 import { DeliveryHome } from "./DeliveryHome";
+import { friendlyError } from "../lib/errors";
 import {
   signIn, signUp, signOut, onAuthChange, staffEmailFromPhone,
   claimShopStaffInvite, fetchMyStaffContext, staffFetchOrders, setOrderStatusRpc, confirmOrderPaymentRpc,
@@ -72,7 +73,7 @@ function LoginCard() {
       else { const r = await signUp(email.trim(), password, "/staff"); if (!r.session) setMsg("Email par confirmation link bheja gaya hai. Confirm karke login karein."); }
     } catch (e) {
       const m = String(e.message || "");
-      setMsg(isMobile && /invalid login/i.test(m) ? "Mobile number ya password galat hai. Dukaandar se poochein." : m || "Kuch gadbad hui");
+      setMsg(isMobile && /invalid login/i.test(m) ? "Mobile number ya password galat hai. Dukaandar se poochein." : friendlyError(e));
     }
     setBusy(false);
   };
@@ -121,7 +122,7 @@ function ClaimCard({ onDone }) {
   const submit = async () => {
     setBusy(true); setMsg("");
     try { await claimShopStaffInvite(clean); await onDone(); }
-    catch (e) { setMsg(e.message || "Code sahi nahi hai"); }
+    catch (e) { setMsg(friendlyError(e) || "Code sahi nahi hai"); }
     setBusy(false);
   };
   return (
@@ -188,7 +189,7 @@ function OrdersTab({ ctx, canPay }) {
   const [err, setErr] = useState("");
   const load = useCallback(async () => {
     try { setOrders(await staffFetchOrders(ctx.store_id, 60)); setErr(""); }
-    catch (e) { setErr(e.message || "Orders load nahi hue"); setOrders((o) => o || []); }
+    catch (e) { setErr(friendlyError(e) || "Orders load nahi hue"); setOrders((o) => o || []); }
   }, [ctx.store_id]);
   const ref = useRef(load); ref.current = load;
   useEffect(() => { load(); const t = setInterval(() => ref.current(), 15000); return () => clearInterval(t); }, [load]);
@@ -214,7 +215,7 @@ function OrderCard({ o, canPay, onChanged }) {
   const [c, bg] = COLOR[o.status] || COLOR.New;
   const next = nextStatus(o);
   const needsPay = canPay && o.payment_method === "UPI" && o.payment_status === "Pending Verification";
-  const run = async (fn) => { setBusy(true); try { await fn(); await onChanged(); } catch (e) { alert(e.message); } setBusy(false); };
+  const run = async (fn) => { setBusy(true); try { await fn(); await onChanged(); } catch (e) { alert(friendlyError(e)); } setBusy(false); };
   const items = Array.isArray(o.items) ? o.items : [];
   return (
     <div style={{ background: "white", border: `1px solid ${BORDER}`, borderLeft: `5px solid ${c}`, borderRadius: 13, padding: "13px 14px" }}>
@@ -258,7 +259,7 @@ function ProductsTab({ ctx, canStock, canPrice }) {
 
 function ProductRow({ p, canStock, canPrice, onChanged }) {
   const [busy, setBusy] = useState(false);
-  const run = async (fn) => { setBusy(true); try { await fn(); await onChanged(); } catch (e) { alert(e.message); } setBusy(false); };
+  const run = async (fn) => { setBusy(true); try { await fn(); await onChanged(); } catch (e) { alert(friendlyError(e)); } setBusy(false); };
   return (
     <div style={{ background: "white", border: `1px solid ${BORDER}`, borderRadius: 13, padding: "12px 13px", opacity: p.is_available ? 1 : 0.7 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 6 }}>
@@ -285,7 +286,7 @@ function VariantRow({ v, canStock, canPrice, onChanged }) {
       if (canStock && Number(stock) !== Number(v.stock)) await updateVariantStock(v.id, Number(stock));
       if (canPrice && Number(price) !== Number(v.price)) await setVariantPriceRpc(v.id, Number(price));
       await onChanged();
-    } catch (e) { alert(e.message); }
+    } catch (e) { alert(friendlyError(e)); }
     setBusy(false);
   };
   const dirty = (canStock && Number(stock) !== Number(v.stock)) || (canPrice && Number(price) !== Number(v.price));
@@ -310,7 +311,7 @@ function DeliveryTab() {
   const [profile, setProfile] = useState(undefined);
   const [err, setErr] = useState("");
   useEffect(() => {
-    fetchMyDeliveryProfile().then((p) => setProfile(p || null)).catch((e) => { setErr(e.message || ""); setProfile(null); });
+    fetchMyDeliveryProfile().then((p) => setProfile(p || null)).catch((e) => { setErr(friendlyError(e) || ""); setProfile(null); });
   }, []);
   if (profile === undefined) return <div style={{ color: MUTED, fontSize: 13 }}>Load ho raha hai...</div>;
   if (!profile || !profile.login_enabled || !profile.is_active) {

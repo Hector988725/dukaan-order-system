@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { CreditCard, Check, AlertCircle, Loader2, Shield, Smartphone, RefreshCw, XCircle, Repeat } from "lucide-react";
 import { loadRazorpayScript, createSubscriptionOrder, verifySubscriptionPayment, createRazorpaySubscription, cancelRazorpaySubscription } from "../lib/api";
 
+import { friendlyError } from "../lib/errors";
 // ============================================================
 // RAZORPAY SUBSCRIPTION PAYMENT PAGE
 // Ek hi plan (saari features) — ₹199/month (super admin ne special price
@@ -81,7 +82,7 @@ export default function RazorpaySubscription({ store, user, onSuccess, canPay = 
       });
       rzp.open();
     } catch (err) {
-      setError("Kuch gadbad ho gayi: " + err.message);
+      setError("Kuch gadbad ho gayi: " + friendlyError(err));
       setLoading(false);
     }
   };
@@ -94,7 +95,7 @@ export default function RazorpaySubscription({ store, user, onSuccess, canPay = 
       await cancelRazorpaySubscription(store.id);
       onSuccess?.();
     } catch (err) {
-      setError("Cancel nahi ho paaya: " + err.message);
+      setError("Cancel nahi ho paaya: " + friendlyError(err));
       setLoading(false);
     }
   };
@@ -181,7 +182,7 @@ export default function RazorpaySubscription({ store, user, onSuccess, canPay = 
       });
       rzp.open();
     } catch (err) {
-      setError("Kuch gadbad ho gayi: " + err.message);
+      setError("Kuch gadbad ho gayi: " + friendlyError(err));
       setLoading(false);
     }
   };

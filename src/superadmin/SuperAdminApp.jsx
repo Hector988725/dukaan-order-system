@@ -11,6 +11,7 @@ import {
 } from "./api";
 import CatalogManager from "./CatalogManager";
 
+import { friendlyError } from "../lib/errors";
 // ============================================================
 // ROOT — login gate, phir authorization check, phir dashboard
 // ============================================================
@@ -159,7 +160,7 @@ function OverviewTab() {
   useEffect(() => {
     fetchAdminOverview()
       .then(setStats)
-      .catch((e) => setErr(e.message || "Load nahi hua"))
+      .catch((e) => setErr(friendlyError(e) || "Load nahi hua"))
       .finally(() => setLoading(false));
   }, []);
   const analytics = stats;
@@ -226,7 +227,7 @@ function StoresTab() {
     setLoading(true);
     fetchAdminStoresPage({ search: q, limit: PAGE, offset: 0 })
       .then((r) => { setStores(r.rows); setTotal(r.total); })
-      .catch((e) => alert("Error: " + (e.message || e)))
+      .catch((e) => alert("Error: " + (friendlyError(e) || e)))
       .finally(() => setLoading(false));
   };
   // search: 400ms debounce, server-side
@@ -236,12 +237,12 @@ function StoresTab() {
     try {
       const r = await fetchAdminStoresPage({ search, limit: PAGE, offset: stores.length });
       setStores((prev) => [...prev, ...r.rows]); setTotal(r.total);
-    } catch (e) { alert("Error: " + (e.message || e)); }
+    } catch (e) { alert("Error: " + (friendlyError(e) || e)); }
     setLoadingMore(false);
   };
   const filtered = stores;
 
-  const run = async (fn) => { try { await fn(); load(search); } catch (e) { alert("Error: " + (e.message || e)); } };
+  const run = async (fn) => { try { await fn(); load(search); } catch (e) { alert("Error: " + (friendlyError(e) || e)); } };
   const handleActivate = (id) => run(() => adminActivateStore(id));
   const handleDeactivate = (id) => { if (confirm("Is dukaan ko deactivate karein?")) run(() => adminDeactivateStore(id)); };
   const handleExtend = (id, months) => run(() => adminExtendSubscription(id, months));
@@ -400,7 +401,7 @@ function DistributorsTab() {
       setClaimModal({ name: d.name, referralCode: d.referral_code, code });
       load();
     } catch (e) {
-      alert(e.message);
+      alert(friendlyError(e));
     } finally {
       setClaimBusy(null);
     }
@@ -413,7 +414,7 @@ function DistributorsTab() {
       await markCommissionPaid(d.distributor_id);
       load();
     } catch (e) {
-      alert(e.message);
+      alert(friendlyError(e));
     } finally {
       setMarkingPaid(null);
     }
@@ -421,7 +422,7 @@ function DistributorsTab() {
 
   const load = () => {
     setLoading(true);
-    fetchDistributorsOverview().then(setDistributors).catch((e) => alert(e.message)).finally(() => setLoading(false));
+    fetchDistributorsOverview().then(setDistributors).catch((e) => alert(friendlyError(e))).finally(() => setLoading(false));
     fetchDistributorClaimStatus().then(setClaimStatus).catch(() => setClaimStatus({}));
   };
   useEffect(load, []);
@@ -435,7 +436,7 @@ function DistributorsTab() {
       setRunMsg(`✓ ${count} shop(s) ke liye commission calculate ho gaya.`);
       load();
     } catch (e) {
-      setRunMsg("Error: " + e.message);
+      setRunMsg("Error: " + friendlyError(e));
     } finally {
       setRunning(false);
     }
@@ -478,7 +479,7 @@ function DistributorsTab() {
               const code = await adminGenerateClaimCode(newId, false);
               setClaimModal({ name, referralCode, code });
             } catch (e) {
-              alert("Distributor ban gaya, par Claim Code nahi bana: " + e.message);
+              alert("Distributor ban gaya, par Claim Code nahi bana: " + friendlyError(e));
             }
             load();
           }}
@@ -582,7 +583,7 @@ function SpecialTypeEditor({ distributor, onDone, onCancel }) {
       await setDistributorType(distributor.distributor_id, type, type === "special" ? Number(rate) : null);
       onDone();
     } catch (e) {
-      setError(e.message);
+      setError(friendlyError(e));
     } finally {
       setSaving(false);
     }
@@ -620,7 +621,7 @@ function CodeEditor({ distributor, onDone, onCancel }) {
       await updateReferralCode(distributor.distributor_id, code.trim());
       onDone();
     } catch (e) {
-      setError(e.message.includes("duplicate") ? "Yeh code pehle se kisi aur distributor ke paas hai." : e.message);
+      setError(e.message.includes("duplicate") ? "Yeh code pehle se kisi aur distributor ke paas hai." : friendlyError(e));
     } finally {
       setSaving(false);
     }
@@ -650,7 +651,7 @@ function CommissionTiersPanel() {
   const [editRate, setEditRate] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const load = () => { setLoading(true); fetchCommissionTiers().then(setTiers).catch((e) => alert(e.message)).finally(() => setLoading(false)); };
+  const load = () => { setLoading(true); fetchCommissionTiers().then(setTiers).catch((e) => alert(friendlyError(e))).finally(() => setLoading(false)); };
   useEffect(load, []);
 
   const handleSave = async (id) => {
@@ -660,7 +661,7 @@ function CommissionTiersPanel() {
       setEditingId(null);
       load();
     } catch (e) {
-      alert(e.message);
+      alert(friendlyError(e));
     } finally {
       setSaving(false);
     }
@@ -729,7 +730,7 @@ function AddDistributorForm({ onDone, onCancel }) {
       const newId = await createDistributor(name.trim(), phone.trim(), code.trim(), Number(rate));
       onDone(newId, name.trim(), code.trim());
     } catch (e) {
-      setError(e.message);
+      setError(friendlyError(e));
     } finally {
       setSaving(false);
     }

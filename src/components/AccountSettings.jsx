@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Mail, Lock, Eye, EyeOff, Check, AlertCircle, Loader2 } from "lucide-react";
 import { verifyCurrentPassword, changeEmail, changePassword } from "../lib/api";
 
+import { friendlyError } from "../lib/errors";
 // ============================================================
 // ACCOUNT SETTINGS — dukaandar ka login email/password badalna.
 // Existing Supabase auth system (signIn/signUp/updatePassword) ko
@@ -49,7 +50,7 @@ function ChangeEmailCard({ user }) {
       setError(
         e.message === "Invalid login credentials"
           ? "Current password galat hai."
-          : e.message || "Email badalte waqt error aaya."
+          : friendlyError(e) || "Email badalte waqt error aaya."
       );
     } finally {
       setLoading(false);
@@ -113,7 +114,7 @@ function ChangePasswordCard({ user }) {
       setError(
         e.message === "Invalid login credentials"
           ? "Current password galat hai."
-          : e.message || "Password badalte waqt error aaya."
+          : friendlyError(e) || "Password badalte waqt error aaya."
       );
     } finally {
       setLoading(false);

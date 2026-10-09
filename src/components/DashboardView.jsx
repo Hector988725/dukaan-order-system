@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { TrendingUp, Bell, Package, Receipt, MessageCircle, AlertCircle, Minus, Plus, BookText, X, Trash2 } from "lucide-react";
 import { updateOrderStatus, updatePaymentStatus, adjustVariantStock, assignDeliveryBoy, fetchTodaysKhataCollection, deleteOrder } from "../lib/api";
 
+import { friendlyError } from "../lib/errors";
 // Order Status flow (extend hui hai — existing column/values nahi badle,
 // bas ek naya intermediate "Ready" status add kiya hai):
 // New → Accepted → Preparing (UI mein "Packing" dikhta hai) → Ready →
@@ -102,7 +103,7 @@ export default function DashboardView({ store, products, orders, deliveryBoys, h
       await updateOrderStatus(order.id, next);
       onRefresh();
     } catch (e) {
-      alert("Status update nahi ho paaya: " + e.message);
+      alert("Status update nahi ho paaya: " + friendlyError(e));
     }
   };
 
@@ -111,7 +112,7 @@ export default function DashboardView({ store, products, orders, deliveryBoys, h
       await assignDeliveryBoy(order.id, deliveryBoyId || null);
       onRefresh();
     } catch (e) {
-      alert("Delivery boy assign nahi ho paaya: " + e.message);
+      alert("Delivery boy assign nahi ho paaya: " + friendlyError(e));
     }
   };
 
@@ -120,7 +121,7 @@ export default function DashboardView({ store, products, orders, deliveryBoys, h
       await deleteOrder(order.id);
       onRefresh();
     } catch (e) {
-      alert("Order delete nahi ho paaya: " + e.message);
+      alert("Order delete nahi ho paaya: " + friendlyError(e));
     }
   };
 
@@ -131,7 +132,7 @@ export default function DashboardView({ store, products, orders, deliveryBoys, h
       await updatePaymentStatus(order.id, "Payment Confirmed");
       onRefresh();
     } catch (e) {
-      alert("Payment confirm nahi ho paaya: " + e.message);
+      alert("Payment confirm nahi ho paaya: " + friendlyError(e));
     }
   };
 
@@ -140,7 +141,7 @@ export default function DashboardView({ store, products, orders, deliveryBoys, h
       await adjustVariantStock(variant.id, delta);
       onRefresh();
     } catch (e) {
-      alert("Stock update nahi ho paaya: " + e.message);
+      alert("Stock update nahi ho paaya: " + friendlyError(e));
     }
   };
 

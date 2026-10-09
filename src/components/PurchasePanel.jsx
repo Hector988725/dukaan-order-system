@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Plus, Minus, Search, X, ArrowLeft, Phone, Loader2, Edit2, Check, Truck } from "lucide-react";
+import { friendlyError } from "../lib/errors";
 import {
   fetchSuppliers, saveSupplier, recordSupplierPayment, fetchSupplierTransactions,
   fetchPurchases, fetchLastPurchasePrices, savePurchase, markPurchaseOrdered, receivePurchase, cancelPurchase,
@@ -104,7 +105,7 @@ export default function PurchasePanel({ store, products, onRefresh }) {
       const [s, p, pr] = await Promise.all([fetchSuppliers(store.id), fetchPurchases(store.id), fetchLastPurchasePrices(store.id)]);
       setSuppliers(s); setPurchases(p); setPrices(pr); setLoadError("");
     } catch (e) {
-      setLoadError(e.message || "Load nahi ho paaya. Kya migration_purchase_supplier.sql run ho chuka hai?");
+      setLoadError(friendlyError(e) || "Load nahi ho paaya. Kya migration_purchase_supplier.sql run ho chuka hai?");
     } finally {
       setLoading(false);
     }
@@ -284,7 +285,7 @@ function SupplierForm({ initial, onSave, onCancel, compact }) {
   const submit = async () => {
     if (!f.name.trim()) { setErr("Supplier ka naam daalein"); return; }
     setBusy(true); setErr("");
-    try { await onSave({ ...f, id: initial?.id }); } catch (e) { setErr(e.message); setBusy(false); }
+    try { await onSave({ ...f, id: initial?.id }); } catch (e) { setErr(friendlyError(e)); setBusy(false); }
   };
   return (
     <div>
@@ -440,7 +441,7 @@ function PurchaseForm({ store, products, suppliers, prices, existing, presetSupp
       });
       await onDone(pur);
     } catch (e) {
-      setErr(e.message); setBusy(false); window.scrollTo({ top: 0, behavior: "smooth" });
+      setErr(friendlyError(e)); setBusy(false); window.scrollTo({ top: 0, behavior: "smooth" });
     }
   };
 
@@ -588,7 +589,7 @@ function PurchaseDetail({ store, purchase, onBack, onEdit, onChanged }) {
 
   const run = async (fn) => {
     setBusy(true); setErr("");
-    try { await fn(); await onChanged(); setReceiving(false); } catch (e) { setErr(e.message); }
+    try { await fn(); await onChanged(); setReceiving(false); } catch (e) { setErr(friendlyError(e)); }
     setBusy(false);
   };
 
@@ -705,7 +706,7 @@ function SupplierDetail({ store, supplier, purchases, onBack, onOpenPurchase, on
       await recordSupplierPayment(store.id, supplier.id, amount, method, note);
       setPaying(false); setAmount(""); setNote("");
       await onChanged(); await loadLedger();
-    } catch (e) { setErr(e.message); }
+    } catch (e) { setErr(friendlyError(e)); }
     setBusy(false);
   };
 

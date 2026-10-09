@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Star, Check, Loader2, AlertCircle, Languages } from "lucide-react";
 import { acceptFoundingTerms } from "../lib/api";
 
+import { friendlyError } from "../lib/errors";
 // ============================================================
 // FOUNDING SHOP TERMS & PRICING LOCK — Bilingual (English default,
 // Hindi toggle). Sirf founding members ko payment se pehle ek baar
@@ -101,7 +102,7 @@ export default function FoundingTermsPage({ store, onAccept, onSignOut }) {
       await acceptFoundingTerms(store.id);
       onAccept();
     } catch (e) {
-      setError((lang === "hi" ? "कुछ गड़बड़ हो गई: " : "Something went wrong: ") + e.message);
+      setError((lang === "hi" ? "कुछ गड़बड़ हो गई: " : "Something went wrong: ") + friendlyError(e));
       setSubmitting(false);
     }
   };
