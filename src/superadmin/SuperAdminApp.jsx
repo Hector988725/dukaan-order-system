@@ -169,9 +169,10 @@ function OverviewTab() {
   if (loading) return <div style={{ textAlign: "center", padding: "40px", color: "#8B8576", fontSize: "13px" }}>Load ho raha hai...</div>;
 
   const cards = [
-    { label: "Total Stores", value: stats.totalStores, color: "#1B4332" },
-    { label: "Active Stores", value: stats.activeStores, color: "#1B4332" },
-    { label: "Expired/Unpaid", value: stats.expiredStores, color: "#B3261E" },
+    { label: "Real Stores", value: stats.realStores ?? stats.totalStores, color: "#1B4332" },
+    { label: "Active (Real)", value: stats.realActiveStores ?? stats.activeStores, color: "#1B4332" },
+    { label: "Expired/Unpaid (Real)", value: stats.realExpiredStores ?? stats.expiredStores, color: "#B3261E" },
+    { label: "Demo Stores", value: stats.demoStores ?? 0, color: "#6B2D5C" },
     { label: "Naye Aaj", value: stats.newStoresToday, color: "#8A6A0F" },
     { label: "Total Orders", value: stats.totalOrders, color: "#22314F" },
     { label: "Total Revenue", value: `₹${stats.totalRevenue}`, color: "#1B4332" },
@@ -265,7 +266,7 @@ function StoresTab() {
             <div key={s.id} style={{ background: "white", border: "1px solid #E3DECF", borderRadius: "12px", padding: "13px 15px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "10px", flexWrap: "wrap" }}>
                 <div>
-                  <div style={{ fontWeight: 700, fontSize: "13.5px" }}>{s.name} <span style={{ fontWeight: 400, fontSize: "11px", color: "#8B8576" }}>/{s.slug}</span></div>
+                  <div style={{ fontWeight: 700, fontSize: "13.5px" }}>{s.name} <span style={{ fontWeight: 400, fontSize: "11px", color: "#8B8576" }}>/{s.slug}</span>{s.is_demo && <span style={{ marginLeft: "6px", fontSize: "9.5px", fontWeight: 800, color: "#6B2D5C", background: "#F3E6F0", padding: "2px 6px", borderRadius: "6px", letterSpacing: "0.04em" }}>DEMO</span>}</div>
                   <div style={{ fontSize: "11px", color: "#8B8576", marginTop: "2px" }}>
                     {s.owner_email || "—"} · {s.business_type} · {s.total_orders ?? "?"} orders · ₹{s.total_revenue ?? "?"} revenue
                   </div>
