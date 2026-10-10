@@ -423,7 +423,7 @@ function OrderCard({ order, store, deliveryBoys, onAdvance, onPaymentConfirm, on
 
       {!isPickup && !isAppointment && !isDineIn && (
         <div style={{ fontSize: "11.5px", color: "#8B8576", marginBottom: "10px" }}>
-          📍 {order.address}{order.landmark ? ` (${order.landmark})` : ""} – {order.pincode}
+          📍 {order.address}{order.landmark && String(order.landmark).trim().toLowerCase() !== String(order.address || "").trim().toLowerCase() ? ` (${order.landmark})` : ""} – {order.pincode}
         </div>
       )}
 

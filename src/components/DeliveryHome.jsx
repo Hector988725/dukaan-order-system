@@ -162,7 +162,7 @@ function DeliveryCard({ d, onChanged }) {
         </div>
         <span style={{ alignSelf: "flex-start", background: meta.bg, color: meta.color, fontSize: 10.5, fontWeight: 700, padding: "4px 9px", borderRadius: 999, whiteSpace: "nowrap" }}>{meta.label}</span>
       </div>
-      <div style={{ fontSize: 12, color: "#5C5747", margin: "8px 0", display: "flex", gap: 5 }}><MapPin size={13} style={{ flexShrink: 0, marginTop: 2 }} />{d.address}{d.landmark ? ` (${d.landmark})` : ""} – {d.pincode}</div>
+      <div style={{ fontSize: 12, color: "#5C5747", margin: "8px 0", display: "flex", gap: 5 }}><MapPin size={13} style={{ flexShrink: 0, marginTop: 2 }} />{d.address}{d.landmark && String(d.landmark).trim().toLowerCase() !== String(d.address || "").trim().toLowerCase() ? ` (${d.landmark})` : ""} – {d.pincode}</div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: cod ? "#FFF4DB" : "#E4EEF9", borderRadius: 9, padding: "8px 11px", marginBottom: 10 }}>
         <div style={{ fontSize: 11.5, fontWeight: 700, color: cod ? "#7A5400" : G }}>{cod ? "Amount to Collect (COD)" : "PAID ONLINE"}</div>
         <div style={{ fontFamily: "'Fraunces', serif", fontWeight: 800, fontSize: 16, color: cod ? "#7A5400" : G }}>₹{cod ? d.amount_to_collect : 0}</div>

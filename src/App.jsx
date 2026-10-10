@@ -682,7 +682,7 @@ function OwnerArea() {
       }}>
         <StoreHeaderBrand store={store} editable onToggleOpen={handleToggleOpen} showTagline={false} />
 
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+        <div className="ddemo-nav-wrap" style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           <div className="ddemo-toggle-track" style={{ overflowX: "auto", WebkitOverflowScrolling: "touch", flexShrink: 1 }}>
             <div className="ddemo-toggle-bg" style={{ left: `calc(${visibleNavTabs.indexOf(view)} * ${100 / visibleNavTabs.length}% + 3px)`, width: `calc(${100 / visibleNavTabs.length}% - 6px)` }} />
             <button className={`ddemo-toggle-btn ${view === "dashboard" ? "active" : ""}`} onClick={() => setView("dashboard")}>
@@ -1088,7 +1088,12 @@ function GlobalStyles() {
          text hata do — row bahut chhoti ho jaati hai, sab kuch (logout
          samet) viewport ke andar aa jaata hai. */
       @media (max-width: 520px) {
-        .ddemo-toggle-btn { padding: 8px 9px; gap: 0; font-size: 0; }
+        /* Phone par nav apni alag row mein: dukaan ka poora naam upar dikhe,
+           aur har tab ke neeche chhota label (sirf icons se pata nahi chalta
+           tha kaun sa tab kya hai). Har button kam se kam 44px ka (angootha). */
+        .ddemo-nav-wrap { width: 100%; }
+        .ddemo-nav-wrap .ddemo-toggle-track { flex: 1; min-width: 0; }
+        .ddemo-toggle-btn { flex: 1; min-width: 44px; min-height: 44px; flex-direction: column; justify-content: center; padding: 4px 6px; gap: 2px; font-size: 9.5px; }
         .ddemo-toggle-btn span { font-size: 10px; }
       }
       /* Note: "Order Track Karein" / "Mera Khata" ab header ke tight row
