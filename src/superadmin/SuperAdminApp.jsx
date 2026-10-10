@@ -219,31 +219,32 @@ function StoresTab() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [total, setTotal] = useState(0);
+  const [kind, setKind] = useState("all"); // all | real | demo
   const [loadingMore, setLoadingMore] = useState(false);
   const PAGE = 30;
   const [expandedOrders, setExpandedOrders] = useState(null);
   const [ordersForStore, setOrdersForStore] = useState([]);
 
-  const load = (q = search) => {
+  const load = (q = search, k = kind) => {
     setLoading(true);
-    fetchAdminStoresPage({ search: q, limit: PAGE, offset: 0 })
+    fetchAdminStoresPage({ search: q, limit: PAGE, offset: 0, kind: k })
       .then((r) => { setStores(r.rows); setTotal(r.total); })
       .catch((e) => alert("Error: " + (friendlyError(e) || e)))
       .finally(() => setLoading(false));
   };
   // search: 400ms debounce, server-side
-  useEffect(() => { const t = setTimeout(() => load(search), 400); return () => clearTimeout(t); }, [search]);
+  useEffect(() => { const t = setTimeout(() => load(search, kind), 400); return () => clearTimeout(t); }, [search, kind]);
   const loadMore = async () => {
     setLoadingMore(true);
     try {
-      const r = await fetchAdminStoresPage({ search, limit: PAGE, offset: stores.length });
+      const r = await fetchAdminStoresPage({ search, limit: PAGE, offset: stores.length, kind });
       setStores((prev) => [...prev, ...r.rows]); setTotal(r.total);
     } catch (e) { alert("Error: " + (friendlyError(e) || e)); }
     setLoadingMore(false);
   };
   const filtered = stores;
 
-  const run = async (fn) => { try { await fn(); load(search); } catch (e) { alert("Error: " + (friendlyError(e) || e)); } };
+  const run = async (fn) => { try { await fn(); load(search, kind); } catch (e) { alert("Error: " + (friendlyError(e) || e)); } };
   const handleActivate = (id) => run(() => adminActivateStore(id));
   const handleDeactivate = (id) => { if (confirm("Is dukaan ko deactivate karein?")) run(() => adminDeactivateStore(id)); };
   const handleExtend = (id, months) => run(() => adminExtendSubscription(id, months));
@@ -258,7 +259,16 @@ function StoresTab() {
 
   return (
     <div>
-      <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Naam ya link se dhoondein..." style={{ width: "100%", padding: "9px 12px", borderRadius: "9px", border: "1px solid #E3DECF", fontSize: "13px", marginBottom: "14px" }} />
+      <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Naam ya link se dhoondein..." style={{ width: "100%", padding: "9px 12px", borderRadius: "9px", border: "1px solid #E3DECF", fontSize: "13px", marginBottom: "10px" }} />
+      <div style={{ display: "flex", gap: "6px", marginBottom: "14px" }}>
+        {[["all", "Sab"], ["real", "Sirf Real"], ["demo", "Sirf Demo"]].map(([k, label]) => (
+          <button key={k} onClick={() => setKind(k)} style={{
+            padding: "6px 14px", borderRadius: "999px", fontSize: "12px", fontWeight: 700, cursor: "pointer",
+            border: "1px solid " + (kind === k ? "#1B4332" : "#E3DECF"),
+            background: kind === k ? "#1B4332" : "white", color: kind === k ? "white" : "#5C5747",
+          }}>{label}</button>
+        ))}
+      </div>
       <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
         {filtered.map((s) => {
           const isActive = s.is_active && s.subscription_expires_at && new Date(s.subscription_expires_at) > new Date();

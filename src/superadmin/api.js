@@ -340,11 +340,12 @@ export async function fetchAdminOverview() {
   return data;
 }
 
-export async function fetchAdminStoresPage({ search = "", limit = 30, offset = 0 } = {}) {
+export async function fetchAdminStoresPage({ search = "", limit = 30, offset = 0, kind = "all" } = {}) {
   const { data, error } = await supabase.rpc("admin_list_stores", {
     p_search: search.trim() || null,
     p_limit: limit,
     p_offset: offset,
+    p_kind: kind,
   });
   if (error) throw error;
   return { total: data?.total ?? 0, rows: data?.rows ?? [] };
