@@ -506,6 +506,8 @@ export async function createOrder(orderPayload) {
     const msg = error.message || "";
     if (msg.includes("STOCK_UNAVAILABLE:")) throw new Error(msg.split("STOCK_UNAVAILABLE:")[1].trim());
     if (msg.includes("VARIANT_MISSING:")) throw new Error(msg.split("VARIANT_MISSING:")[1].trim());
+    if (msg.includes("PRICE_CHANGED:")) throw new Error(msg.split("PRICE_CHANGED:")[1].trim());
+    if (msg.includes("ORDER_INVALID:")) throw new Error(msg.split("ORDER_INVALID:")[1].trim());
     throw error;
   }
   return Array.isArray(data) ? data[0] : data;
