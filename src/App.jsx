@@ -973,13 +973,6 @@ function StoreHeaderBrand({ store, editable, onToggleOpen, showTagline = true })
           {showTagline && (
             <div style={{ color: "rgba(255,255,255,0.6)", fontSize: "10.5px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>{store.tagline || store.address}</div>
           )}
-          {/* Founding Shop # — dukaandar ko roz dashboard khulte hi apna
-              lifetime-lock number yaad rahe (urgency/pride, dono). */}
-          {editable && store.founding_member && store.founding_number && (
-            <span style={{ flexShrink: 0, background: "rgba(212,162,76,0.28)", color: "#FFE2A8", fontSize: "9.5px", fontWeight: 800, padding: "2px 7px", borderRadius: "999px" }}>
-              ⭐ #{store.founding_number}
-            </span>
-          )}
           {/* Open/Closed status — customer ko turant pata chale abhi order
               lene ke liye khuli hai ya nahi. Dukaandar ke liye yehi pill
               tap karne se turant toggle bhi ho jaata hai (settings mein
