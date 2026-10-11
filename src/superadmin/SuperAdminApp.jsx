@@ -248,7 +248,11 @@ function StoresTab() {
   const handleActivate = (id) => run(() => adminActivateStore(id));
   const handleDeactivate = (id) => { if (confirm("Is dukaan ko deactivate karein?")) run(() => adminDeactivateStore(id)); };
   const handleExtend = (id, months) => run(() => adminExtendSubscription(id, months));
-  const handleDelete = (id, name) => { if (confirm(`"${name}" ko HAMESHA ke liye delete karein? Yeh wapas nahi hoga.`)) run(() => adminDeleteStore(id)); };
+  const handleDelete = (id, name) => {
+    const typed = window.prompt(`"${name}" HAMESHA ke liye delete hogi (orders, products, customers sab). Backup archive me save hota hai.\n\nConfirm karne ke liye dukaan ka poora naam likhein:\n${name}`);
+    if (typed === null) return;
+    run(async () => { await adminDeleteStore(id, typed); alert(`"${name}" delete ho gayi. Backup archive me save hai.`); });
+  };
   const handleSetPrice = (id, name, price) => { if (confirm(`"${name}" ka price ₹${price}/month karein? (Naya Razorpay plan isi price ka use hoga.)`)) run(() => adminSetStorePrice(id, price)); };
   const toggleOrders = async (id) => {
     if (expandedOrders === id) { setExpandedOrders(null); return; }

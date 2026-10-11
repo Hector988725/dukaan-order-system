@@ -114,10 +114,12 @@ export async function adminSetStorePrice(storeId, price) {
   if (error) throw error;
 }
 
-// Store delete abhi jaanbujhkar band hai (safety) — pehle sirf silently
-// fail hota tha. Ise alag, soch-samajh ke secure RPC se banayenge.
-export async function adminDeleteStore() {
-  throw new Error("Store delete abhi disabled hai (safety). Zaroorat ho to developer se karwayein.");
+// Secure delete: server (admin_delete_store) Super Admin check, naam-confirmation,
+// paid/commission block aur pehle se backup (deleted_stores_archive) sambhalta hai.
+export async function adminDeleteStore(storeId, confirmName) {
+  const { data, error } = await supabase.rpc("admin_delete_store", { p_store_id: storeId, p_confirm_name: confirmName });
+  if (error) throw error;
+  return data;
 }
 
 // ============================================================
