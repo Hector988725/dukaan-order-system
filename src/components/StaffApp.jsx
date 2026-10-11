@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Users, LogOut, Package, ShoppingBag, Phone, MapPin, Bike } from "lucide-react";
 import { DeliveryHome } from "./DeliveryHome";
 import { friendlyError } from "../lib/errors";
+import InstallAppButton from "./InstallAppButton";
 import {
   signIn, signUp, signOut, onAuthChange, staffEmailFromPhone,
   claimShopStaffInvite, fetchMyStaffContext, staffFetchOrders, setOrderStatusRpc, confirmOrderPaymentRpc,
@@ -108,6 +109,10 @@ function LoginCard() {
           <button onClick={() => { setMethod(isMobile ? "email" : "mobile"); setMsg(""); setPassword(""); setMode("login"); }} style={{ background: "none", border: "none", color: MUTED, fontSize: 12, cursor: "pointer" }}>
             {isMobile ? "Email se login karna hai?" : "Mobile + password se login karein"}
           </button>
+          <div style={{ borderTop: `1px solid ${BORDER}`, marginTop: 6, paddingTop: 14 }}>
+            <div style={{ fontSize: 11.5, color: MUTED, textAlign: "center", marginBottom: 8, lineHeight: 1.5 }}>Roz aasani se kholne ke liye app phone par install kar lein</div>
+            <InstallAppButton label="Staff App install karein" color={G} outline helpTitle="Staff App kaise install karein" />
+          </div>
         </div>
       </div>
     </Centered>

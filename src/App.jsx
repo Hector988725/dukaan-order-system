@@ -33,6 +33,8 @@ import DistributorApp from "./components/DistributorApp";
 
 import StaffApp from "./components/StaffApp";
 import { friendlyError } from "./lib/errors";
+import InstallAppButton from "./components/InstallAppButton";
+import { isStandalone } from "./lib/installApp";
 export default function App() {
   // Deployment mein VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY set nahi hain —
   // pehle ye poori app ko blank white page bana ke crash kar deta tha. Ab
@@ -737,6 +739,8 @@ function OwnerArea() {
         <StoreLinkShareButton store={store} />
       </div>
 
+      {view === "dashboard" && <OwnerAppTips onGoStaff={() => { setAdminTab("staff"); setView("admin"); }} />}
+
       {view === "dashboard" && <DashboardView store={store} products={products} orders={orders} deliveryBoys={deliveryBoys} hasMoreOrders={hasMoreOrders} loadingMoreOrders={loadingMoreOrders} onLoadMoreOrders={loadMoreOrders} onRefresh={silentRefresh} />}
       {view === "khata" && <div style={{ padding: "16px 0 40px" }}><KhataPanel store={store} /></div>}
       {view === "quickbill" && <div style={{ maxWidth: "600px", margin: "0 auto", padding: "16px 18px 40px" }}><QuickBill store={store} products={products} onOrderPlaced={silentRefresh} /></div>}
@@ -790,6 +794,39 @@ function StoreLinkShareButton({ store }) {
     >
       {copied ? <>✓ Link Copy Ho Gayi</> : <>🔗 Aapki dukaan ka link: <b>/{store.slug}</b> — Share/Copy Karein</>}
     </button>
+  );
+}
+
+// ============================================================
+// Dukaandar ke dashboard par: apna app install karein + staff ko app dein.
+// X dabane par 14 din ke liye chhup jata hai (storage na chale to bas is visit
+// me chhupta hai). Jab app pehle se install ho to install wala hissa nahi dikhta.
+// ============================================================
+const TIPS_KEY = "dos_owner_tips_hidden_until";
+function OwnerAppTips({ onGoStaff }) {
+  const [hidden, setHidden] = useState(() => {
+    try { return Number(localStorage.getItem(TIPS_KEY) || 0) > Date.now(); } catch { return false; }
+  });
+  if (hidden) return null;
+  const hide = () => {
+    setHidden(true);
+    try { localStorage.setItem(TIPS_KEY, String(Date.now() + 14 * 24 * 60 * 60 * 1000)); } catch { /* ignore */ }
+  };
+  const installed = isStandalone();
+  return (
+    <div style={{ maxWidth: "900px", margin: "0 auto", padding: "10px 18px 0" }}>
+      <div style={{ position: "relative", background: "#F1F6F3", border: "1px solid #CFE0D5", borderRadius: "12px", padding: "12px 38px 12px 14px" }}>
+        <button onClick={hide} aria-label="Band karein" style={{ position: "absolute", top: 6, right: 8, background: "none", border: "none", fontSize: 18, lineHeight: 1, color: "#6F7F76", cursor: "pointer" }}>×</button>
+        <div style={{ fontWeight: 800, fontSize: "13px", color: "#1B4332", marginBottom: "4px" }}>📱 Apna app phone par rakhein</div>
+        <div style={{ fontSize: "12px", color: "#3F4A44", lineHeight: 1.55, marginBottom: "10px" }}>
+          Dukaan ka app install karke home screen se seedha khol sakte hain. Aapke <b>staff</b> ka bhi apna alag app hai — unki ID banayein, unhe link bhejein, wo khud app install karke apne mobile + password se login karenge.
+        </div>
+        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+          {!installed && <div style={{ flex: "1 1 170px" }}><InstallAppButton label="Mera app install karein" color="#1B4332" helpTitle="Dukaan app kaise install karein" /></div>}
+          <button onClick={onGoStaff} style={{ flex: "1 1 170px", border: "1.5px solid #1F4E8C", background: "white", color: "#1F4E8C", borderRadius: 10, padding: "11px 14px", fontSize: 13, fontWeight: 800, cursor: "pointer" }}>👥 Staff ki ID banayein</button>
+        </div>
+      </div>
+    </div>
   );
 }
 

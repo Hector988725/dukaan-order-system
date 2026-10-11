@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { Users, Plus, X, KeyRound, Trash2, Copy } from "lucide-react";
+import { Users, Plus, X, KeyRound, Trash2, Copy, Smartphone } from "lucide-react";
 import { addShopStaff, fetchShopStaff, updateShopStaff, removeShopStaff, generateShopStaffInvite, createStaffMobileLogin, resetStaffMobilePassword } from "../lib/api";
 
 import { friendlyError } from "../lib/errors";
@@ -40,6 +40,7 @@ export default function ShopStaffManager({ store }) {
 
   return (
     <div>
+      <StaffAppCard />
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
         <div style={{ fontSize: 12, color: "#8B8576" }}>{rows ? rows.length : 0} staff (max 10)</div>
         <button onClick={() => setAdding(true)} style={{ display: "flex", alignItems: "center", gap: 6, background: "#1B4332", color: "white", border: "none", borderRadius: 8, padding: "8px 14px", fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>
@@ -228,6 +229,40 @@ function InviteModal({ info, onClose }) {
           <button onClick={copy} style={{ flex: 1, background: "#1B4332", color: "white", border: "none", borderRadius: 9, padding: "10px 0", fontWeight: 700, fontSize: 12.5, cursor: "pointer" }}><Copy size={12} style={{ verticalAlign: "-2px" }} /> {copied ? "Copy ho gaya" : "Copy"}</button>
           <button onClick={wa} style={{ flex: 1, background: "#25D366", color: "white", border: "none", borderRadius: 9, padding: "10px 0", fontWeight: 700, fontSize: 12.5, cursor: "pointer" }}>WhatsApp</button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+
+// ============================================================
+// Staff ka apna app — dukaandar ko saaf dikhta hai ki staff ID bana kar unhe
+// kya karna hai (link bhejo → wo app install karein → mobile + password se login).
+// ============================================================
+function StaffAppCard() {
+  const link = (typeof window !== "undefined" ? window.location.origin : "") + "/staff";
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(link); setCopied(true); setTimeout(() => setCopied(false), 2000); }
+    catch { alert("Link copy nahi ho paayi. Manually copy karein: " + link); }
+  };
+  const wa = "https://wa.me/?text=" + encodeURIComponent(`Staff app: ${link}\nLink kholkar "Staff App install karein" dabayein, phir apna mobile number aur password daalkar login karein.`);
+  const step = { display: "flex", gap: 8, alignItems: "flex-start", fontSize: 12.5, lineHeight: 1.5, color: "#2B2A24" };
+  const num = { flex: "none", width: 20, height: 20, borderRadius: "50%", background: "#1F4E8C", color: "white", fontSize: 11, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", marginTop: 1 };
+  return (
+    <div style={{ background: "#EEF3FA", border: "1px solid #C9D8EE", borderRadius: 12, padding: "13px 14px", marginBottom: 14 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 7, fontWeight: 800, fontSize: 13.5, color: "#1F4E8C", marginBottom: 9 }}>
+        <Smartphone size={16} /> Staff ka apna app
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+        <div style={step}><span style={num}>1</span><span>Neeche <b>"Naya Staff"</b> se staff jodein, phir unke card par <b>"Mobile Login"</b> dabakar mobile + password banayein.</span></div>
+        <div style={step}><span style={num}>2</span><span>Ye link staff ko bhejein (WhatsApp par seedha bhej sakte hain).</span></div>
+        <div style={step}><span style={num}>3</span><span>Staff link kholkar <b>"Staff App install karein"</b> dabayein, phir mobile + password se login karein. Unhe sirf wahi dikhega jo aapne allow kiya.</span></div>
+      </div>
+      <div style={{ background: "white", border: "1px solid #C9D8EE", borderRadius: 8, padding: "8px 10px", fontSize: 12.5, fontWeight: 700, color: "#1F4E8C", margin: "10px 0 8px", wordBreak: "break-all" }}>{link}</div>
+      <div style={{ display: "flex", gap: 8 }}>
+        <button onClick={copy} style={{ flex: 1, border: "1px solid #1F4E8C", background: "white", color: "#1F4E8C", borderRadius: 8, padding: "8px 0", fontSize: 12.5, fontWeight: 800, cursor: "pointer" }}>{copied ? "✓ Copy ho gaya" : "Link copy karein"}</button>
+        <a href={wa} target="_blank" rel="noreferrer" style={{ flex: 1, textAlign: "center", textDecoration: "none", background: "#1F4E8C", color: "white", borderRadius: 8, padding: "8px 0", fontSize: 12.5, fontWeight: 800 }}>WhatsApp par bhejein</a>
       </div>
     </div>
   );
