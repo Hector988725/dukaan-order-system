@@ -32,8 +32,8 @@ By creating an account or using the Platform, you agree to these Terms of Servic
     heading: "3. Subscription & Billing",
     body: [
       "The Platform is offered on a paid subscription basis. Current pricing is displayed at the time of signup or in your account settings.",
-      "Certain early-adopter (\"Founding Member\") pricing may be offered for a limited number of Merchants and, where stated, is locked for as long as your subscription remains continuously active. If your subscription lapses and is later reactivated, founding-member pricing may not be guaranteed to continue.",
-      "Subscription fees are billed in advance (monthly, quarterly, half-yearly, or yearly as chosen) via our payment partner (Razorpay). Prices may change for new subscribers or renewal cycles with prior notice; existing locked-in pricing (where applicable) will be honored as described above.",
+      "Special or promotional pricing may be offered to certain Merchants for a limited period. Where stated, such pricing applies only for as long as your subscription remains continuously active. If your subscription lapses and is later reactivated, the special pricing may not be guaranteed to continue.",
+      "Subscription fees are billed in advance (monthly, quarterly, half-yearly, or yearly as chosen) via our payment partner (Razorpay). Prices may change for new subscribers or renewal cycles with prior notice; any special pricing already agreed with you (where applicable) will be honored as described above.",
       "If a subscription payment fails or is not renewed, your storefront and admin access may be suspended until payment is completed. We are not responsible for any loss of business resulting from suspension due to non-payment.",
     ],
   },
@@ -172,8 +172,8 @@ export const REFUND_CONTENT = [
     body: `${PLATFORM_NAME} is a technology platform and is not the seller of products/services listed on a Merchant's storefront. Refunds, cancellations, or quality disputes for an order (e.g., wrong item, damaged goods, non-delivery) must be resolved directly with the Merchant from whom the order was placed. We encourage Merchants to clearly communicate their own refund/cancellation terms to their customers.`,
   },
   {
-    heading: "5. Founding Member / Promotional Pricing",
-    body: `Where locked-in promotional pricing has been offered (e.g., a discounted "Founding Member" rate), this pricing applies only while your subscription remains continuously active. It does not itself entitle you to any refund of the difference between promotional and standard pricing under any circumstance.`,
+    heading: "5. Promotional / Special Pricing",
+    body: `Where a promotional or special price has been offered (e.g., a discounted monthly rate), this pricing applies only while your subscription remains continuously active. It does not itself entitle you to any refund of the difference between promotional and standard pricing under any circumstance.`,
   },
   {
     heading: "6. How to Request a Refund",

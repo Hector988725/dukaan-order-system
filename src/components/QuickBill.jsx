@@ -33,6 +33,7 @@ export default function QuickBill({ store, products, onOrderPlaced }) {
     [products]
   );
 
+  const SHOW_LIMIT = 60; // lamba list page ko bhaari na kare — baaki search se milega
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return allVariants;
@@ -182,11 +183,11 @@ export default function QuickBill({ store, products, onOrderPlaced }) {
             />
           </div>
 
-          <div style={{ maxHeight: "min(52vh, 420px)", overflowY: "auto", display: "flex", flexDirection: "column", gap: "6px", paddingBottom: cartCount > 0 ? "70px" : 0 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "6px", paddingBottom: cartCount > 0 ? "70px" : 0 }}>
             {filtered.length === 0 && (
               <div style={{ textAlign: "center", padding: "30px 0", color: "#8B8576", fontSize: "13px" }}>Koi product nahi mila.</div>
             )}
-            {filtered.map((v) => {
+            {filtered.slice(0, SHOW_LIMIT).map((v) => {
               const qty = cart[v.id] || 0;
               const pricing = getVariantPricing(v);
               const outOfStock = (v.stock ?? 0) <= 0;
@@ -211,6 +212,11 @@ export default function QuickBill({ store, products, onOrderPlaced }) {
                 </div>
               );
             })}
+            {filtered.length > SHOW_LIMIT && (
+              <div style={{ textAlign: "center", padding: "8px 0", color: "#8B8576", fontSize: "11.5px" }}>
+                Aur {filtered.length - SHOW_LIMIT} products hain — upar search karke dhoondein.
+              </div>
+            )}
           </div>
 
           {cartCount > 0 && (

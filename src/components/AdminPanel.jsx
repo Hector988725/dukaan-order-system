@@ -23,6 +23,25 @@ export default function AdminPanel({ store, products, user, onRefresh, initialTa
 
 function AdminContent({ store, products, user, onRefresh, initialTab }) {
   const [tab, setTab] = useState(initialTab || "products");
+  // Tab-strip: jab aur tabs side mein chhupe hon to right edge par fade+arrow dikhao
+  const tabStripRef = useRef(null);
+  const [moreRight, setMoreRight] = useState(false);
+  const updateMoreRight = () => {
+    const el = tabStripRef.current;
+    if (el) setMoreRight(el.scrollWidth - el.scrollLeft - el.clientWidth > 6);
+  };
+  useEffect(() => {
+    updateMoreRight();
+    window.addEventListener("resize", updateMoreRight);
+    return () => window.removeEventListener("resize", updateMoreRight);
+  }, []);
+  useEffect(() => {
+    // chuna hua tab screen me aa jaye
+    const el = tabStripRef.current;
+    const btn = el && el.querySelector('[data-active="true"]');
+    if (btn && btn.scrollIntoView) btn.scrollIntoView({ inline: "nearest", block: "nearest" });
+    updateMoreRight();
+  }, [tab]);
 
   // Salon/Beauty Parlour (booking-mode) mein delivery boy ka concept
   // hai hi nahi (appointment hai, delivery nahi) — isliye sirf isi
@@ -41,9 +60,10 @@ function AdminContent({ store, products, user, onRefresh, initialTab }) {
 
   return (
     <div style={{ maxWidth: "600px", margin: "0 auto", padding: "16px 18px 40px" }}>
-      <div style={{ display: "flex", gap: "2px", borderBottom: "1px solid #E3DECF", marginBottom: "16px", overflowX: "auto" }}>
+      <div style={{ position: "relative", marginBottom: "16px" }}>
+      <div ref={tabStripRef} onScroll={updateMoreRight} style={{ display: "flex", gap: "2px", borderBottom: "1px solid #E3DECF", overflowX: "auto", scrollbarWidth: "none" }}>
         {tabs.map((t) => (
-          <button key={t.id} onClick={() => setTab(t.id)} style={{
+          <button key={t.id} data-active={tab === t.id ? "true" : "false"} onClick={() => setTab(t.id)} style={{
             display: "flex", alignItems: "center", gap: "6px", padding: "9px 12px", fontSize: "12px", fontWeight: 700,
             border: "none", background: "transparent", cursor: "pointer", whiteSpace: "nowrap",
             color: tab === t.id ? "#1B4332" : "#8B8576",
@@ -53,6 +73,10 @@ function AdminContent({ store, products, user, onRefresh, initialTab }) {
             {t.icon} {t.label}
           </button>
         ))}
+      </div>
+      {moreRight && (
+        <div aria-hidden="true" style={{ position: "absolute", top: 0, right: 0, bottom: "1px", width: "34px", pointerEvents: "none", display: "flex", alignItems: "center", justifyContent: "flex-end", paddingRight: "2px", background: "linear-gradient(to right, rgba(245,243,236,0), #F7F5F0 70%)", color: "#1B4332", fontSize: "18px", fontWeight: 800 }}>›</div>
+      )}
       </div>
 
       {tab === "products" && <ProductManager store={store} products={products} onRefresh={onRefresh} />}
