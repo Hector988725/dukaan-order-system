@@ -111,7 +111,7 @@ function LoginCard() {
           </button>
           <div style={{ borderTop: `1px solid ${BORDER}`, marginTop: 6, paddingTop: 14 }}>
             <div style={{ fontSize: 11.5, color: MUTED, textAlign: "center", marginBottom: 8, lineHeight: 1.5 }}>Roz aasani se kholne ke liye app phone par install kar lein</div>
-            <InstallAppButton label="Staff App install karein" color={G} outline helpTitle="Staff App kaise install karein" />
+            <InstallAppButton role="staff" appName="Dukaan Staff" label="Staff App install karein" color={G} outline helpTitle="Staff App kaise install karein" />
           </div>
         </div>
       </div>
@@ -169,6 +169,7 @@ function Home({ ctx }) {
         </div>
         <button onClick={() => signOut()} aria-label="Logout" style={{ background: "rgba(255,255,255,0.12)", border: "none", borderRadius: 8, width: 36, height: 36, color: "white", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><LogOut size={16} /></button>
       </div>
+      <InstallAppButton compact role="staff" appName="Dukaan Staff" label="📲 App install karein" color={G} helpTitle="Staff App kaise install karein" />
       <div style={{ padding: "14px 14px 0" }}>
         {tabs.length === 0 && <div style={{ textAlign: "center", padding: 40, color: MUTED, fontSize: 13 }}>Abhi aapko koi kaam allow nahi hai. Dukaandar se baat karein.</div>}
         {tab === "orders" && canOrders && <OrdersTab ctx={ctx} canPay={!!perms.payment_verify} />}

@@ -727,6 +727,9 @@ function OwnerArea() {
         </div>
       </div>
 
+      {/* Install ki chhoti pill — jab tak app install nahi hota (ya install ho gaya to "icon se kholein" yaad dilata hai) */}
+      <InstallAppButton compact role="owner" appName="Dukaan" label="📲 App install karein" color="#1B4332" helpTitle="Dukaan app kaise install karein" />
+
       {(store.tagline || store.address) && <ScrollingTicker text={store.tagline || store.address} />}
 
       {(() => {
@@ -830,7 +833,7 @@ function OwnerAppTips({ onGoStaff }) {
           Dukaan ka app install karke home screen se seedha khol sakte hain. Aapke <b>staff</b> ka bhi apna alag app hai — unki ID banayein, unhe link bhejein, wo khud app install karke apne mobile + password se login karenge.
         </div>
         <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-          {!installed && <div style={{ flex: "1 1 170px" }}><InstallAppButton label="Mera app install karein" color="#1B4332" helpTitle="Dukaan app kaise install karein" /></div>}
+          {!installed && <div style={{ flex: "1 1 170px" }}><InstallAppButton role="owner" appName="Dukaan" label="Mera app install karein" color="#1B4332" helpTitle="Dukaan app kaise install karein" /></div>}
           <button onClick={onGoStaff} style={{ flex: "1 1 170px", border: "1.5px solid #1F4E8C", background: "white", color: "#1F4E8C", borderRadius: 10, padding: "11px 14px", fontSize: 13, fontWeight: 800, cursor: "pointer" }}>👥 Staff ki ID banayein</button>
         </div>
       </div>

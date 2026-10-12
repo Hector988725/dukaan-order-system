@@ -15,8 +15,24 @@ const notify = () => subs.forEach((f) => { try { f(); } catch { /* ignore */ } }
 
 if (typeof window !== "undefined") {
   window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); deferred = e; notify(); });
-  window.addEventListener("appinstalled", () => { deferred = null; notify(); });
+  window.addEventListener("appinstalled", () => { deferred = null; markInstalled(roleFromPath()); notify(); });
 }
+
+// Kaun sa app (owner / staff / distributor) — page ke address se pata chalta hai.
+export function roleFromPath() {
+  if (typeof window === "undefined") return "owner";
+  const p = window.location.pathname || "/";
+  if (p.startsWith("/staff")) return "staff";
+  if (p.startsWith("/distributor")) return "distributor";
+  return "owner";
+}
+
+// "Is browser se install ho chuka hai" — yaad rakhte hain taaki button ki jagah
+// saaf message dikhe ("icon app drawer mein hai"), aur customer ko confusion na ho.
+const flagKey = (role) => `dos_installed_${role}`;
+export function markInstalled(role) { try { localStorage.setItem(flagKey(role), String(Date.now())); } catch { /* ignore */ } }
+export function wasInstalled(role) { try { return !!localStorage.getItem(flagKey(role)); } catch { return false; } }
+export function clearInstalled(role) { try { localStorage.removeItem(flagKey(role)); } catch { /* ignore */ } }
 
 export function isStandalone() {
   if (typeof window === "undefined") return false;
@@ -53,7 +69,8 @@ export async function promptInstall() {
   try {
     e.prompt();
     const choice = await e.userChoice;
-    return choice && choice.outcome === "accepted" ? "accepted" : "dismissed";
+    if (choice && choice.outcome === "accepted") { markInstalled(roleFromPath()); return "accepted"; }
+    return "dismissed";
   } catch { return "unavailable"; }
 }
 
