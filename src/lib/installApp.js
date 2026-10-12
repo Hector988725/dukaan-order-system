@@ -34,6 +34,17 @@ export function markInstalled(role) { try { localStorage.setItem(flagKey(role), 
 export function wasInstalled(role) { try { return !!localStorage.getItem(flagKey(role)); } catch { return false; } }
 export function clearInstalled(role) { try { localStorage.removeItem(flagKey(role)); } catch { /* ignore */ } }
 
+// Chrome batata hai ki ye app is phone par pehle se install hai ya nahi
+// (getInstalledRelatedApps — manifest ki related_applications se match karta hai,
+// jo build ke waqt apne aap bharti hai). Support na ho to false.
+export async function detectInstalled() {
+  try {
+    if (typeof navigator === "undefined" || !navigator.getInstalledRelatedApps) return false;
+    const apps = await navigator.getInstalledRelatedApps();
+    return Array.isArray(apps) && apps.some((a) => a && a.platform === "webapp");
+  } catch { return false; }
+}
+
 export function isStandalone() {
   if (typeof window === "undefined") return false;
   try {

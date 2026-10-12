@@ -823,17 +823,15 @@ function OwnerAppTips({ onGoStaff }) {
     setHidden(true);
     try { localStorage.setItem(TIPS_KEY, String(Date.now() + 14 * 24 * 60 * 60 * 1000)); } catch { /* ignore */ }
   };
-  const installed = isStandalone();
   return (
     <div style={{ maxWidth: "900px", margin: "0 auto", padding: "10px 18px 0" }}>
       <div style={{ position: "relative", background: "#F1F6F3", border: "1px solid #CFE0D5", borderRadius: "12px", padding: "12px 38px 12px 14px" }}>
         <button onClick={hide} aria-label="Band karein" style={{ position: "absolute", top: 6, right: 8, background: "none", border: "none", fontSize: 18, lineHeight: 1, color: "#6F7F76", cursor: "pointer" }}>×</button>
-        <div style={{ fontWeight: 800, fontSize: "13px", color: "#1B4332", marginBottom: "4px" }}>📱 Apna app phone par rakhein</div>
+        <div style={{ fontWeight: 800, fontSize: "13px", color: "#1B4332", marginBottom: "4px" }}>👥 Apne staff ko app dein</div>
         <div style={{ fontSize: "12px", color: "#3F4A44", lineHeight: 1.55, marginBottom: "10px" }}>
-          Dukaan ka app install karke home screen se seedha khol sakte hain. Aapke <b>staff</b> ka bhi apna alag app hai — unki ID banayein, unhe link bhejein, wo khud app install karke apne mobile + password se login karenge.
+          Aapke <b>staff</b> ka bhi apna alag app hai — unki ID banayein, unhe link bhejein, wo khud app install karke apne mobile + password se login karenge.
         </div>
         <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-          {!installed && <div style={{ flex: "1 1 170px" }}><InstallAppButton role="owner" appName="Dukaan" label="Mera app install karein" color="#1B4332" helpTitle="Dukaan app kaise install karein" /></div>}
           <button onClick={onGoStaff} style={{ flex: "1 1 170px", border: "1.5px solid #1F4E8C", background: "white", color: "#1F4E8C", borderRadius: 10, padding: "11px 14px", fontSize: 13, fontWeight: 800, cursor: "pointer" }}>👥 Staff ki ID banayein</button>
         </div>
       </div>

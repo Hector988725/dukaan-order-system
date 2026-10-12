@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Download, X, CheckCircle2 } from "lucide-react";
-import { isStandalone, isIOS, canPromptInstall, promptInstall, subscribeInstall, waitForPrompt, roleFromPath, wasInstalled, clearInstalled } from "../lib/installApp";
+import { isStandalone, isIOS, canPromptInstall, promptInstall, subscribeInstall, waitForPrompt, roleFromPath, wasInstalled, clearInstalled, markInstalled, detectInstalled } from "../lib/installApp";
 
 // ============================================================
 // "App install karein" button.
@@ -13,7 +13,7 @@ import { isStandalone, isIOS, canPromptInstall, promptInstall, subscribeInstall,
 //   compact (chhoti pill — header ke neeche patti mein)
 // ============================================================
 export default function InstallAppButton({
-  label = "App install karein", color = "#1B4332", outline = false, helpTitle = "App kaise install karein",
+  label = "App install karein", color = "#1B4332", outline = false, helpTitle = "App install",
   lang = "hi", role, appName = "Dukaan", compact = false,
 }) {
   const en = lang === "en";
@@ -24,6 +24,12 @@ export default function InstallAppButton({
   const [busy, setBusy] = useState(false);
 
   useEffect(() => subscribeInstall(() => force((n) => n + 1)), []);
+  // Chrome se pooch lete hain: kya ye app is phone par pehle se install hai?
+  useEffect(() => {
+    let alive = true;
+    if (!wasInstalled(myRole)) detectInstalled().then((yes) => { if (alive && yes) { markInstalled(myRole); force((n) => n + 1); } });
+    return () => { alive = false; };
+  }, [myRole]);
 
   if (isStandalone()) return null;
   const installed = wasInstalled(myRole);
@@ -99,28 +105,19 @@ export default function InstallAppButton({
         </>)}
       </ol>
     ) : (
-      <ol style={{ margin: 0, paddingLeft: 20, fontSize: 13.5, lineHeight: 1.8 }}>
+      <div style={{ fontSize: 13.5, lineHeight: 1.7 }}>
         {en ? (<>
-          <li>In Chrome, tap the <b>⋮ (three dots)</b> at the top right.</li>
-          <li>Choose <b>"Install app"</b> or <b>"Add to Home screen"</b>.</li>
-          <li>Tap <b>Install</b>. The icon appears in your <b>app list</b> (and sometimes on the home screen).</li>
+          Chrome is not offering a direct install right now. This usually means <b>the app is already installed on this phone</b> — open <b>"{appName}"</b> from your app list (swipe up on the home screen).
+          <div style={{ marginTop: 8 }}>Not there? Chrome menu <b>⋮</b> → <b>Install app</b>.</div>
         </>) : (<>
-          <li>Chrome mein upar daayein <b>⋮ (teen dot)</b> dabayein.</li>
-          <li><b>"Install app"</b> ya <b>"Add to Home screen"</b> chunein.</li>
-          <li><b>Install</b> dabayein. Icon <b>app drawer</b> mein aata hai (kabhi kabhi home screen par bhi).</li>
+          Chrome abhi seedha install nahi de raha. Aksar iska matlab hota hai ki <b>ye app is phone par pehle se install hai</b> — app drawer (home screen par upar swipe) me <b>"{appName}"</b> icon dhoondhkar kholein.
+          <div style={{ marginTop: 8 }}>Wahan na mile to Chrome menu <b>⋮</b> → <b>Install app</b>.</div>
         </>)}
-      </ol>
+      </div>
     )}
     <div style={{ fontSize: 11.5, color: "#8B8576", marginTop: 12, lineHeight: 1.5 }}>
       {en ? "After installing, tapping the icon opens the app directly, without the browser address bar." : "Install ke baad icon dabane se seedha app khulta hai, browser ki address bar ke bina."}
     </div>
-    {!ios && (
-      <div style={{ fontSize: 11.5, color: "#8B8576", marginTop: 8, lineHeight: 1.5 }}>
-        {en
-          ? "Why no direct install button? Chrome shows its install popup only when it decides the app can be installed. If the app is already installed on this phone, open it from your app list instead."
-          : "Seedha install popup kyun nahi aaya? Chrome popup tabhi deta hai jab use lagta hai app install ho sakta hai. Agar app is phone par pehle se install hai to app drawer ke icon se kholein."}
-      </div>
-    )}
   </>);
 
   // ---- Chhoti pill (header ke neeche patti) ----
