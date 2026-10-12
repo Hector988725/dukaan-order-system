@@ -6,6 +6,8 @@ import { getTheme, getShoppingMode, isBookingCategory, getDiscountInfo, getVaria
 import { OrderTrackingModal } from "./OrderTracking";
 
 import { friendlyError } from "../lib/errors";
+import { useLang } from "../lib/i18n";
+import LangToggle from "./LangToggle";
 const PENDING_UPI_KEY = "dukaan_pending_upi_checkout";
 
 // Order place hone ke baad uska number is device par (customer ke apne
@@ -62,6 +64,7 @@ function getComboMaxQty(combo) {
 }
 
 const CustomerView = forwardRef(function CustomerView({ store, products, onOrderPlaced }, ref) {
+  const { t, lang } = useLang();
   const theme = getTheme(store.business_type);
   const isGalleryMode = getShoppingMode(store.business_type) === "gallery";
   // Salon/Beauty Parlour — services bikte hain, cart/delivery nahi.
@@ -474,7 +477,7 @@ const CustomerView = forwardRef(function CustomerView({ store, products, onOrder
       setCartOpen(false);
       onOrderPlaced?.();
     } catch (e) {
-      alert("Order could not be saved: " + friendlyError(e, "en"));
+      alert(t("Order could not be saved: ") + friendlyError(e, lang));
     } finally {
       setSubmitting(false);
     }
@@ -511,12 +514,13 @@ const CustomerView = forwardRef(function CustomerView({ store, products, onOrder
       `}</style>
       {/* Search + categories */}
       <div style={{ padding: "16px 18px 0" }}>
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "8px" }}><LangToggle /></div>
         <div style={{ display: "flex", alignItems: "center", gap: "10px", background: "white", border: "1px solid #E3DECF", borderRadius: "11px", padding: "10px 14px" }}>
           <Search size={16} color="#8B8576" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search products..."
+            placeholder={t("Search products...")}
             style={{ border: "none", outline: "none", fontSize: "13.5px", width: "100%", background: "transparent", fontFamily: "inherit" }}
           />
         </div>
@@ -552,7 +556,7 @@ const CustomerView = forwardRef(function CustomerView({ store, products, onOrder
                       : <span style={{ fontSize: "20px" }}>{rep?.emoji || "🛒"}</span>
                   }
                 </div>
-                <span style={{ fontSize: "11px", fontWeight: active ? 700 : 600, color: active ? theme.primary : "#5C5747", whiteSpace: "nowrap" }}>{cat}</span>
+                <span style={{ fontSize: "11px", fontWeight: active ? 700 : 600, color: active ? theme.primary : "#5C5747", whiteSpace: "nowrap" }}>{cat === "All" ? t("All") : cat}</span>
               </button>
             );
           })}
@@ -562,7 +566,7 @@ const CustomerView = forwardRef(function CustomerView({ store, products, onOrder
             {["All", ...subCategories].map((sc) => {
               const on = sc === activeSub;
               return (
-                <button key={sc} onClick={() => setActiveSub(sc)} style={{ whiteSpace: "nowrap", flexShrink: 0, cursor: "pointer", fontSize: "11.5px", fontWeight: 700, borderRadius: "999px", padding: "6px 12px", border: on ? `1.5px solid ${theme.primary}` : "1px solid #E3DECF", background: on ? theme.primary : "white", color: on ? "white" : "#5C5747" }}>{sc}</button>
+                <button key={sc} onClick={() => setActiveSub(sc)} style={{ whiteSpace: "nowrap", flexShrink: 0, cursor: "pointer", fontSize: "11.5px", fontWeight: 700, borderRadius: "999px", padding: "6px 12px", border: on ? `1.5px solid ${theme.primary}` : "1px solid #E3DECF", background: on ? theme.primary : "white", color: on ? "white" : "#5C5747" }}>{sc === "All" ? t("All") : sc}</button>
               );
             })}
           </div>
@@ -575,7 +579,7 @@ const CustomerView = forwardRef(function CustomerView({ store, products, onOrder
           ne kam se kam ek active combo banaya ho. */}
       {combos.length > 0 && (
         <div style={{ padding: "6px 18px 4px" }}>
-          <div style={{ fontSize: "13px", fontWeight: 700, marginBottom: "10px", fontFamily: "'Fraunces', serif" }}>🔥 Combo Deals</div>
+          <div style={{ fontSize: "13px", fontWeight: 700, marginBottom: "10px", fontFamily: "'Fraunces', serif" }}>{t("🔥 Combo Deals")}</div>
           <div style={{ display: "flex", gap: "10px", overflowX: "auto", paddingBottom: "6px" }}>
             {combos.map((combo) => (
               <ComboCard
@@ -600,7 +604,7 @@ const CustomerView = forwardRef(function CustomerView({ store, products, onOrder
       <div className="ddemo-masonry" style={{ padding: "8px 18px 90px" }}>
         {filtered.length === 0 && (
           <div style={{ textAlign: "center", padding: "40px 0", color: "#8B8576", fontSize: "13px" }}>
-            No products found.
+            {t("No products found.")}
           </div>
         )}
         {filtered.map((p, idx) => (
@@ -637,7 +641,7 @@ const CustomerView = forwardRef(function CustomerView({ store, products, onOrder
             target="_blank" rel="noreferrer"
             style={{ display: "inline-flex", alignItems: "center", gap: "6px", background: theme.primary, color: "white", fontWeight: 700, fontSize: "12px", borderRadius: "999px", padding: "9px 18px", textDecoration: "none" }}
           >
-            <MapPin size={14} /> Get Directions
+            <MapPin size={14} /> {t("Get Directions")}
           </a>
         </div>
       )}
@@ -647,7 +651,7 @@ const CustomerView = forwardRef(function CustomerView({ store, products, onOrder
           to yeh poora block hi nahi dikhta. */}
       {(store.facebook_url || store.instagram_url || store.youtube_url || store.gmb_url) && (
         <div style={{ padding: "6px 18px 24px", textAlign: "center", borderTop: "1px solid #E3DECF", marginTop: "-4px" }}>
-          <div style={{ fontSize: "10.5px", fontWeight: 700, color: "#8B8576", letterSpacing: "0.5px", margin: "14px 0 10px" }}>FOLLOW US</div>
+          <div style={{ fontSize: "10.5px", fontWeight: 700, color: "#8B8576", letterSpacing: "0.5px", margin: "14px 0 10px" }}>{t("FOLLOW US")}</div>
           <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
             {store.facebook_url && (
               <a href={store.facebook_url} target="_blank" rel="noreferrer" style={{ width: 36, height: 36, borderRadius: "50%", background: "#1877F2", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -665,7 +669,7 @@ const CustomerView = forwardRef(function CustomerView({ store, products, onOrder
               </a>
             )}
             {store.gmb_url && (
-              <a href={store.gmb_url} target="_blank" rel="noreferrer" title="Find us on Google" style={{ width: 36, height: 36, borderRadius: "50%", background: "#4285F4", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <a href={store.gmb_url} target="_blank" rel="noreferrer" title={t("Find us on Google")} style={{ width: 36, height: 36, borderRadius: "50%", background: "#4285F4", display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <MapPin size={16} color="white" />
               </a>
             )}
@@ -701,7 +705,7 @@ const CustomerView = forwardRef(function CustomerView({ store, products, onOrder
                 </span>
               ))}
             </span>
-            🛒 {cartCount} item{cartCount > 1 ? "s" : ""}
+            🛒 {cartCount} {cartCount > 1 ? t("items") : t("item")}
           </span>
           <span style={{ display: "flex", alignItems: "center", gap: "6px", fontWeight: 700, fontSize: "13.5px" }}>
             ₹{cartTotal} <ChevronRight size={15} />
@@ -1058,6 +1062,7 @@ function Row({ label, value }) {
 // COMBO CARD — horizontal-scroll strip mein ek combo ki tile.
 // ============================================================
 function ComboCard({ combo, qty, onAdd, onDec, theme }) {
+  const { t, lang } = useLang();
   const maxQty = getComboMaxQty(combo);
   const soldOut = maxQty <= 0;
   const itemsLabel = (combo.combo_items || []).map((ci) => ci.variants?.products?.name).filter(Boolean).join(" + ");
@@ -1076,9 +1081,9 @@ function ComboCard({ combo, qty, onAdd, onDec, theme }) {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <span style={{ fontWeight: 800, fontSize: "13.5px", color: theme.primary }}>₹{combo.combo_price}</span>
           {soldOut ? (
-            <span style={{ fontSize: "10px", color: "#B3261E", fontWeight: 700 }}>Sold Out</span>
+            <span style={{ fontSize: "10px", color: "#B3261E", fontWeight: 700 }}>{t("Sold Out")}</span>
           ) : qty === 0 ? (
-            <button onClick={onAdd} className="ddemo-add-btn" style={{ background: theme.primary, color: "white", border: "none", borderRadius: "7px", padding: "5px 12px", fontSize: "11.5px", fontWeight: 700, cursor: "pointer" }}>Add</button>
+            <button onClick={onAdd} className="ddemo-add-btn" style={{ background: theme.primary, color: "white", border: "none", borderRadius: "7px", padding: "5px 12px", fontSize: "11.5px", fontWeight: 700, cursor: "pointer" }}>{t("Add")}</button>
           ) : (
             <div style={{ display: "flex", alignItems: "center", gap: "6px", background: theme.primary, borderRadius: "7px", padding: "3px 6px" }}>
               <button onClick={onDec} style={{ background: "none", border: "none", color: "white", cursor: "pointer", display: "flex", padding: 0 }}><Minus size={13} /></button>
@@ -1093,6 +1098,7 @@ function ComboCard({ combo, qty, onAdd, onDec, theme }) {
 }
 
 function ProductCard({ product: p, idx, theme, isGalleryMode, bookingMode, onBookNow, cart, addToCart, decFromCart, onBuyNow, triggerFlyToCart, setDetailProduct, setVariantPicker, serverOffsetMs }) {
+  const { t, lang } = useLang();
   const totalStock = p.variants.reduce((s, v) => s + v.stock, 0);
   // "Available: No" (dukaandar ne band kiya) ko bhi out-of-stock jaisa dikhate hain
   const outOfStock = totalStock <= 0 || p.is_available === false;
@@ -1143,7 +1149,7 @@ function ProductCard({ product: p, idx, theme, isGalleryMode, bookingMode, onBoo
     >
       {p.featured && (
         <div style={{ position: "absolute", top: "8px", left: "8px", zIndex: 1, display: "flex", alignItems: "center", gap: "3px", background: theme.accent, color: "#123026", fontSize: "10px", fontWeight: 800, padding: "3px 8px", borderRadius: "999px" }}>
-          <Star size={10} fill="#123026" /> Featured
+          <Star size={10} fill="#123026" /> {t("Featured")}
         </div>
       )}
       <div style={{
@@ -1172,11 +1178,11 @@ function ProductCard({ product: p, idx, theme, isGalleryMode, bookingMode, onBoo
         {/* Limited-Time Offer block — header, exact expiry, aur live countdown */}
         {pricing?.isLimitedTimeOffer && (
           <div style={{ marginTop: "3px", background: "#FDECEA", border: "1px solid #F3C6C1", borderRadius: "7px", padding: "5px 7px" }}>
-            <div style={{ fontSize: "10px", fontWeight: 800, color: "#B3261E" }}>🔥 Limited-Time Offer</div>
-            <div style={{ fontSize: "9px", color: "#8B5A5A", marginTop: "1px" }}>Offer ends: {formatOfferExpiry(onlyVariant.offer_ends_at)}</div>
+            <div style={{ fontSize: "10px", fontWeight: 800, color: "#B3261E" }}>{t("🔥 Limited-Time Offer")}</div>
+            <div style={{ fontSize: "9px", color: "#8B5A5A", marginTop: "1px" }}>{t("Offer ends:")} {formatOfferExpiry(onlyVariant.offer_ends_at)}</div>
             {countdown && (
               <div style={{ fontSize: "10.5px", fontWeight: 800, color: "#B3261E", marginTop: "2px", fontVariantNumeric: "tabular-nums" }}>
-                Ends in: {String(countdown.days).padStart(2, "0")}d {String(countdown.hours).padStart(2, "0")}h {String(countdown.minutes).padStart(2, "0")}m {String(countdown.seconds).padStart(2, "0")}s
+                {t("Ends in:")} {String(countdown.days).padStart(2, "0")}d {String(countdown.hours).padStart(2, "0")}h {String(countdown.minutes).padStart(2, "0")}m {String(countdown.seconds).padStart(2, "0")}s
               </div>
             )}
           </div>
@@ -1187,13 +1193,13 @@ function ProductCard({ product: p, idx, theme, isGalleryMode, bookingMode, onBoo
             <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
               <span style={{ fontSize: "11px", color: "#A89F87", textDecoration: "line-through" }}>₹{pricing.strikePrice}</span>
               <span style={{ fontSize: "12.5px", fontWeight: 700, color: "#1A1A1A" }}>₹{pricing.effectivePrice}</span>
-              <span style={{ fontSize: "10px", fontWeight: 800, color: "#178C42", background: "#E7F5EA", padding: "1px 6px", borderRadius: "5px" }}>{pricing.pct}% OFF</span>
+              <span style={{ fontSize: "10px", fontWeight: 800, color: "#178C42", background: "#E7F5EA", padding: "1px 6px", borderRadius: "5px" }}>{pricing.pct}{t("% OFF")}</span>
             </div>
           </div>
         ) : (
           <div style={{ fontSize: "11.5px", color: "#8B8576", marginTop: "2px" }}>
             {singleVariant ? `₹${onlyVariant.price} / ${onlyVariant.unit}` : minPrice === maxPrice ? `₹${minPrice}` : `₹${minPrice}–${maxPrice}`}
-            {!singleVariant && <span style={{ color: "#A89F87" }}> · {p.variants.length} options</span>}
+            {!singleVariant && <span style={{ color: "#A89F87" }}> · {p.variants.length} {t("options")}</span>}
           </div>
         )}
 
@@ -1201,11 +1207,11 @@ function ProductCard({ product: p, idx, theme, isGalleryMode, bookingMode, onBoo
             card par hi visible, "Dekhein" khole bina. */}
         {qtyDealBadge && qtyDealDetail && (
           <div style={{ marginTop: "4px", background: "#F5FAF6", border: "1px solid #D4E4D9", borderRadius: "7px", padding: "5px 7px" }}>
-            <div style={{ fontSize: "10px", fontWeight: 800, color: "#1B4332" }}>📦 Buy More, Save More</div>
+            <div style={{ fontSize: "10px", fontWeight: 800, color: "#1B4332" }}>{t("📦 Buy More, Save More")}</div>
             <div style={{ display: "flex", alignItems: "center", gap: "5px", flexWrap: "wrap", marginTop: "1px" }}>
-              <span style={{ fontSize: "10.5px", fontWeight: 700, color: "#1B4332" }}>Buy {qtyDealDetail.qty} → ₹{qtyDealPerPiece}/{onlyVariant.unit}</span>
+              <span style={{ fontSize: "10.5px", fontWeight: 700, color: "#1B4332" }}>{t("Buy")} {qtyDealDetail.qty} → ₹{qtyDealPerPiece}/{onlyVariant.unit}</span>
               <span style={{ fontSize: "9.5px", color: "#A89F87", textDecoration: "line-through" }}>₹{Math.round(pricing?.effectivePrice || onlyVariant.price)}</span>
-              <span style={{ fontSize: "9.5px", fontWeight: 800, color: "#178C42", background: "#E7F5EA", padding: "1px 5px", borderRadius: "5px" }}>Save ₹{qtyDealBadge.savings}</span>
+              <span style={{ fontSize: "9.5px", fontWeight: 800, color: "#178C42", background: "#E7F5EA", padding: "1px 5px", borderRadius: "5px" }}>{t("Save")} ₹{qtyDealBadge.savings}</span>
             </div>
           </div>
         )}
@@ -1218,11 +1224,11 @@ function ProductCard({ product: p, idx, theme, isGalleryMode, bookingMode, onBoo
         // practically kabhi nahi aata jab tak dukaandar khud 0 na kar de.
         outOfStock ? (
           <div style={{ fontSize: "11px", fontWeight: 700, color: "#B3261E", background: "#FDECEA", borderRadius: "7px", padding: "6px 0", textAlign: "center" }}>
-            Currently Unavailable
+            {t("Currently Unavailable")}
           </div>
         ) : (
           <button onClick={() => onBookNow(p)} className="ddemo-btn" style={{ background: theme.primary, color: "white", border: "none", borderRadius: "8px", fontSize: "12.5px", fontWeight: 700, padding: "8px 0", cursor: "pointer" }}>
-            Book Now
+            {t("Book Now")}
           </button>
         )
       ) : isGalleryMode ? (
@@ -1232,29 +1238,29 @@ function ProductCard({ product: p, idx, theme, isGalleryMode, bookingMode, onBoo
         // ka kaam karta hai (onClick upar poore card pe hai).
         outOfStock ? (
           <div style={{ fontSize: "11px", fontWeight: 700, color: "#B3261E", background: "#FDECEA", borderRadius: "7px", padding: "6px 0", textAlign: "center" }}>
-            Out of Stock
+            {t("Out of Stock")}
           </div>
         ) : (
           <div style={{ fontSize: "11.5px", fontWeight: 700, color: theme.primary, display: "flex", alignItems: "center", gap: "4px" }}>
-            View <ChevronRight size={13} />
+            {t("View")} <ChevronRight size={13} />
           </div>
         )
       ) : outOfStock ? (
         <div style={{ fontSize: "11px", fontWeight: 700, color: "#B3261E", background: "#FDECEA", borderRadius: "7px", padding: "6px 0", textAlign: "center" }}>
-          Out of Stock
+          {t("Out of Stock")}
         </div>
       ) : singleVariant ? (
         qtyInCart === 0 ? (
           <div style={{ display: "flex", gap: "6px" }}>
-            <button onClick={(e) => { addToCart(onlyVariant.id); triggerFlyToCart(e.currentTarget, p.image_url, p.emoji); }} className="ddemo-btn ddemo-add-btn" style={{ ...btnOutline(theme), flex: 1 }}>+ Add</button>
-            <button onClick={() => onBuyNow(onlyVariant.id)} className="ddemo-btn" style={{ flex: 1, background: theme.primary, color: "white", border: "none", borderRadius: "8px", fontSize: "12.5px", fontWeight: 700, padding: "7px 0", cursor: "pointer" }}>Buy</button>
+            <button onClick={(e) => { addToCart(onlyVariant.id); triggerFlyToCart(e.currentTarget, p.image_url, p.emoji); }} className="ddemo-btn ddemo-add-btn" style={{ ...btnOutline(theme), flex: 1 }}>{t("+ Add")}</button>
+            <button onClick={() => onBuyNow(onlyVariant.id)} className="ddemo-btn" style={{ flex: 1, background: theme.primary, color: "white", border: "none", borderRadius: "8px", fontSize: "12.5px", fontWeight: 700, padding: "7px 0", cursor: "pointer" }}>{t("Buy")}</button>
           </div>
         ) : (
           <QtyStepper qty={qtyInCart} onInc={() => addToCart(onlyVariant.id)} onDec={() => decFromCart(onlyVariant.id)} />
         )
       ) : (
         <button onClick={() => setVariantPicker(p)} className="ddemo-btn" style={{ ...btnOutline(theme), display: "flex", alignItems: "center", justifyContent: "center", gap: "5px" }}>
-          Choose Option <ChevronRight size={13} />
+          {t("Choose Option")} <ChevronRight size={13} />
         </button>
       )}
       </div>
@@ -1276,6 +1282,7 @@ function QtyStepper({ qty, onInc, onDec }) {
 // kholta hai. Quick-mode products (Kirana/Medical/etc) mein sirf photo
 // par tap karne se yeh khulta hai — Add/Buy buttons alag hi rehte hain.
 function ProductDetailModal({ product, cart, addToCart, decFromCart, onBuyNow, theme, onClose, triggerFlyToCart, cartCount, cartTotal, onGoToCart }) {
+  const { t, lang } = useLang();
   const [activePhoto, setActivePhoto] = useState(0);
   const photos = product.image_urls && product.image_urls.length > 0
     ? product.image_urls
@@ -1330,7 +1337,7 @@ function ProductDetailModal({ product, cart, addToCart, decFromCart, onBuyNow, t
         <div style={{ padding: "16px" }}>
           {product.brand && <div style={{ fontSize: "11.5px", fontWeight: 700, color: "#8B8576", letterSpacing: "0.3px", textTransform: "uppercase", marginBottom: "2px" }}>{product.brand}</div>}
           <div style={{ fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: "18px" }}>{product.name}</div>
-          {product.age_group && <div style={{ display: "inline-block", marginTop: "6px", fontSize: "11px", fontWeight: 700, color: theme.primary, background: "#F3ECDC", borderRadius: "999px", padding: "3px 10px" }}>Age: {product.age_group}</div>}
+          {product.age_group && <div style={{ display: "inline-block", marginTop: "6px", fontSize: "11px", fontWeight: 700, color: theme.primary, background: "#F3ECDC", borderRadius: "999px", padding: "3px 10px" }}>{t("Age:")} {product.age_group}</div>}
           {product.description && (
             <div style={{ fontSize: "12.5px", color: "#1A1A1A", marginTop: "8px", lineHeight: 1.55 }}>{product.description}</div>
           )}
@@ -1360,11 +1367,11 @@ function ProductDetailModal({ product, cart, addToCart, decFromCart, onBuyNow, t
                       {showLabel && <div style={{ fontWeight: 600, fontSize: "13.5px", color: "#1A1A1A" }}>{v.label}</div>}
                       {vPricing.strikePrice ? (
                         <div>
-                          {vPricing.isLimitedTimeOffer && <div style={{ fontSize: "9px", fontWeight: 800, color: "#B3261E" }}>🔥 Limited Time Deal</div>}
+                          {vPricing.isLimitedTimeOffer && <div style={{ fontSize: "9px", fontWeight: 800, color: "#B3261E" }}>{t("🔥 Limited Time Deal")}</div>}
                           <div style={{ display: "flex", alignItems: "center", gap: "5px", marginTop: "1px" }}>
                             <span style={{ fontSize: "10.5px", color: "#8B8576", textDecoration: "line-through" }}>₹{vPricing.strikePrice}</span>
                             <span style={{ fontSize: "13px", fontWeight: 800, color: "#1565C0" }}>₹{vPricing.effectivePrice}</span>
-                            <span style={{ fontSize: "9.5px", fontWeight: 800, color: "#178C42", background: "#E7F5EA", padding: "1px 5px", borderRadius: "5px" }}>{vPricing.pct}% OFF</span>
+                            <span style={{ fontSize: "9.5px", fontWeight: 800, color: "#178C42", background: "#E7F5EA", padding: "1px 5px", borderRadius: "5px" }}>{vPricing.pct}{t("% OFF")}</span>
                           </div>
                         </div>
                       ) : (
@@ -1372,15 +1379,15 @@ function ProductDetailModal({ product, cart, addToCart, decFromCart, onBuyNow, t
                       )}
                       {vQtyBadge && (
                         <div style={{ marginTop: "3px", fontSize: "9.5px", fontWeight: 800, color: "#1B4332", background: "#E7F0EA", display: "inline-block", padding: "2px 6px", borderRadius: "5px" }}>
-                          📦 Buy {vQtyBadge.qty} & Save ₹{vQtyBadge.savings}
+                          📦 {t("Buy")} {vQtyBadge.qty} & {t("Save")} ₹{vQtyBadge.savings}
                         </div>
                       )}
                     </div>
                     {!isSingleVariant && (
                       out ? (
-                        <span style={{ fontSize: "11px", fontWeight: 700, color: "#B3261E" }}>Out of Stock</span>
+                        <span style={{ fontSize: "11px", fontWeight: 700, color: "#B3261E" }}>{t("Out of Stock")}</span>
                       ) : qty === 0 ? (
-                        <button onClick={(e) => { addToCart(v.id); triggerFlyToCart(e.currentTarget, product.image_urls?.[0] || product.image_url, product.emoji); }} className="ddemo-btn ddemo-add-btn" style={{ ...btnOutline(theme), width: "auto", padding: "7px 18px" }}>+ Add</button>
+                        <button onClick={(e) => { addToCart(v.id); triggerFlyToCart(e.currentTarget, product.image_urls?.[0] || product.image_url, product.emoji); }} className="ddemo-btn ddemo-add-btn" style={{ ...btnOutline(theme), width: "auto", padding: "7px 18px" }}>{t("+ Add")}</button>
                       ) : (
                         <QtyStepper qty={qty} onInc={() => addToCart(v.id)} onDec={() => decFromCart(v.id)} />
                       )
@@ -1389,12 +1396,12 @@ function ProductDetailModal({ product, cart, addToCart, decFromCart, onBuyNow, t
                   {isSingleVariant && (
                     out ? (
                       <div style={{ marginTop: "10px", fontSize: "11px", fontWeight: 700, color: "#B3261E", background: "#FDECEA", borderRadius: "7px", padding: "8px 0", textAlign: "center" }}>
-                        Out of Stock
+                        {t("Out of Stock")}
                       </div>
                     ) : qty === 0 ? (
                       <div style={{ display: "flex", gap: "8px", marginTop: "10px" }}>
-                        <button onClick={(e) => { addToCart(v.id); triggerFlyToCart(e.currentTarget, product.image_urls?.[0] || product.image_url, product.emoji); }} className="ddemo-btn ddemo-add-btn" style={{ ...btnOutline(theme), flex: 1 }}>+ Add</button>
-                        <button onClick={() => onBuyNow(v.id)} className="ddemo-btn" style={{ flex: 1, background: theme.primary, color: "white", border: "none", borderRadius: "8px", fontSize: "12.5px", fontWeight: 700, padding: "7px 0", cursor: "pointer" }}>Buy</button>
+                        <button onClick={(e) => { addToCart(v.id); triggerFlyToCart(e.currentTarget, product.image_urls?.[0] || product.image_url, product.emoji); }} className="ddemo-btn ddemo-add-btn" style={{ ...btnOutline(theme), flex: 1 }}>{t("+ Add")}</button>
+                        <button onClick={() => onBuyNow(v.id)} className="ddemo-btn" style={{ flex: 1, background: theme.primary, color: "white", border: "none", borderRadius: "8px", fontSize: "12.5px", fontWeight: 700, padding: "7px 0", cursor: "pointer" }}>{t("Buy")}</button>
                       </div>
                     ) : (
                       <div style={{ marginTop: "10px" }}>
@@ -1415,8 +1422,8 @@ function ProductDetailModal({ product, cart, addToCart, decFromCart, onBuyNow, t
             hai — ek hi tap mein checkout ki taraf aage badh jaate hain. */}
         {cartCount > 0 && (
           <button onClick={onGoToCart} className="ddemo-btn" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", background: theme.primary, color: "white", border: "none", padding: "14px 18px", fontSize: "13.5px", fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>
-            <span>🛒 {cartCount} item{cartCount > 1 ? "s" : ""} in Cart</span>
-            <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>₹{cartTotal} — Proceed <ChevronRight size={15} /></span>
+            <span>🛒 {cartCount} {cartCount > 1 ? t("items") : t("item")} {t("in Cart")}</span>
+            <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>₹{cartTotal} — {t("Proceed")} <ChevronRight size={15} /></span>
           </button>
         )}
       </div>
@@ -1425,6 +1432,7 @@ function ProductDetailModal({ product, cart, addToCart, decFromCart, onBuyNow, t
 }
 
 function VariantPickerModal({ product, cart, addToCart, decFromCart, theme, onClose, triggerFlyToCart, cartCount, cartTotal, onGoToCart }) {
+  const { t, lang } = useLang();
   return (
     <div style={overlayBottomStyle}>
       <div style={{ background: "white", width: "100%", maxWidth: "480px", borderRadius: "16px 16px 0 0", maxHeight: "75%", display: "flex", flexDirection: "column", animation: "ddemoSlideUp 0.25s ease" }}>
@@ -1446,22 +1454,22 @@ function VariantPickerModal({ product, cart, addToCart, decFromCart, theme, onCl
                   <div style={{ fontWeight: 600, fontSize: "13px" }}>{v.label}</div>
                   {vPricing.strikePrice ? (
                     <div>
-                      {vPricing.isLimitedTimeOffer && <div style={{ fontSize: "9px", fontWeight: 800, color: "#B3261E" }}>🔥 Limited Time Deal</div>}
+                      {vPricing.isLimitedTimeOffer && <div style={{ fontSize: "9px", fontWeight: 800, color: "#B3261E" }}>{t("🔥 Limited Time Deal")}</div>}
                       <div style={{ display: "flex", alignItems: "center", gap: "5px", marginTop: "1px" }}>
                         <span style={{ fontSize: "10.5px", color: "#A89F87", textDecoration: "line-through" }}>₹{vPricing.strikePrice}</span>
                         <span style={{ fontSize: "11.5px", fontWeight: 700 }}>₹{vPricing.effectivePrice}</span>
-                        <span style={{ fontSize: "9.5px", fontWeight: 800, color: "#178C42", background: "#E7F5EA", padding: "1px 5px", borderRadius: "5px" }}>{vPricing.pct}% OFF</span>
-                        {out && <span style={{ fontSize: "10.5px", color: "#B3261E" }}>· Out of Stock</span>}
+                        <span style={{ fontSize: "9.5px", fontWeight: 800, color: "#178C42", background: "#E7F5EA", padding: "1px 5px", borderRadius: "5px" }}>{vPricing.pct}{t("% OFF")}</span>
+                        {out && <span style={{ fontSize: "10.5px", color: "#B3261E" }}>· {t("Out of Stock")}</span>}
                       </div>
                     </div>
                   ) : (
-                    <div style={{ fontSize: "11.5px", color: "#8B8576", marginTop: "2px" }}>₹{v.price} / {v.unit}{out && " · Out of Stock"}</div>
+                    <div style={{ fontSize: "11.5px", color: "#8B8576", marginTop: "2px" }}>₹{v.price} / {v.unit}{out && " · " + t("Out of Stock")}</div>
                   )}
                 </div>
                 {out ? (
-                  <span style={{ fontSize: "11px", fontWeight: 700, color: "#B3261E" }}>Out of Stock</span>
+                  <span style={{ fontSize: "11px", fontWeight: 700, color: "#B3261E" }}>{t("Out of Stock")}</span>
                 ) : qty === 0 ? (
-                  <button onClick={(e) => { addToCart(v.id); triggerFlyToCart(e.currentTarget, product.image_url, product.emoji); }} className="ddemo-btn ddemo-add-btn" style={{ ...btnOutline(theme), padding: "7px 16px" }}>+ Add</button>
+                  <button onClick={(e) => { addToCart(v.id); triggerFlyToCart(e.currentTarget, product.image_url, product.emoji); }} className="ddemo-btn ddemo-add-btn" style={{ ...btnOutline(theme), padding: "7px 16px" }}>{t("+ Add")}</button>
                 ) : (
                   <QtyStepper qty={qty} onInc={() => addToCart(v.id)} onDec={() => decFromCart(v.id)} />
                 )}
@@ -1471,8 +1479,8 @@ function VariantPickerModal({ product, cart, addToCart, decFromCart, theme, onCl
         </div>
         {cartCount > 0 && (
           <button onClick={onGoToCart} className="ddemo-btn" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", background: theme.primary, color: "white", border: "none", padding: "14px 18px", fontSize: "13.5px", fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>
-            <span>🛒 {cartCount} item{cartCount > 1 ? "s" : ""} in Cart</span>
-            <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>₹{cartTotal} — Proceed <ChevronRight size={15} /></span>
+            <span>🛒 {cartCount} {cartCount > 1 ? t("items") : t("item")} {t("in Cart")}</span>
+            <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>₹{cartTotal} — {t("Proceed")} <ChevronRight size={15} /></span>
           </button>
         )}
       </div>
@@ -1481,11 +1489,12 @@ function VariantPickerModal({ product, cart, addToCart, decFromCart, theme, onCl
 }
 
 function CartDrawer({ cartItems, comboCartItems = [], cartTotal, gstSummary, onClose, onRemove, onRemoveCombo, onCheckout }) {
+  const { t, lang } = useLang();
   return (
     <div style={overlayBottomStyle}>
       <div style={{ background: "#F7F5F0", width: "100%", maxWidth: "480px", borderRadius: "16px 16px 0 0", maxHeight: "85%", display: "flex", flexDirection: "column", animation: "ddemoSlideUp 0.25s ease" }}>
         <div style={{ ...drawerHeaderStyle, borderBottom: "1px solid #E3DECF" }}>
-          <div style={{ fontWeight: 700, fontSize: "15px", fontFamily: "'Fraunces', serif" }}>Your Cart</div>
+          <div style={{ fontWeight: 700, fontSize: "15px", fontFamily: "'Fraunces', serif" }}>{t("Your Cart")}</div>
           <button onClick={onClose} style={closeBtnStyle}><X size={20} /></button>
         </div>
         <div style={{ overflowY: "auto", padding: "10px 18px", flex: 1 }}>
@@ -1498,7 +1507,7 @@ function CartDrawer({ cartItems, comboCartItems = [], cartTotal, gstSummary, onC
                 }
                 <div>
                   <div style={{ fontWeight: 600, fontSize: "13px" }}>🔥 {c.name}</div>
-                  <div style={{ fontSize: "11.5px", color: "#8B8576" }}>Combo · {c.qty} × ₹{c.combo_price}</div>
+                  <div style={{ fontSize: "11.5px", color: "#8B8576" }}>{t("Combo")} · {c.qty} × ₹{c.combo_price}</div>
                 </div>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
@@ -1521,7 +1530,7 @@ function CartDrawer({ cartItems, comboCartItems = [], cartTotal, gstSummary, onC
                     <div style={{ fontWeight: 600, fontSize: "13px" }}>{it.productName}</div>
                     <div style={{ fontSize: "11.5px", color: "#8B8576" }}>{it.label} · {it.qty} {it.unit} × ₹{it.price}</div>
                     {deal && deal.savings > 0 && (
-                      <div style={{ fontSize: "10.5px", color: "#178C42", fontWeight: 700 }}>📦 Deal applied: saved ₹{deal.savings}</div>
+                      <div style={{ fontSize: "10.5px", color: "#178C42", fontWeight: 700 }}>📦 {t("Deal applied: saved")} ₹{deal.savings}</div>
                     )}
                   </div>
                 </div>
@@ -1536,14 +1545,14 @@ function CartDrawer({ cartItems, comboCartItems = [], cartTotal, gstSummary, onC
         <div style={{ padding: "16px 18px", borderTop: "1px solid #E3DECF", background: "white" }}>
           {gstSummary && gstSummary.gstAmount > 0 && (
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px", fontSize: "12px", color: "#5C5747" }}>
-              <span>GST included in total</span><span>₹{gstSummary.gstAmount}</span>
+              <span>{t("GST included in total")}</span><span>₹{gstSummary.gstAmount}</span>
             </div>
           )}
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "12px", fontSize: "14px", fontWeight: 700 }}>
-            <span>Total</span><span>₹{gstSummary ? gstSummary.finalAmount : cartTotal}</span>
+            <span>{t("Total")}</span><span>₹{gstSummary ? gstSummary.finalAmount : cartTotal}</span>
           </div>
           <button onClick={onCheckout} className="ddemo-btn" style={{ width: "100%", background: "#D4A24C", color: "#123026", fontWeight: 800, fontSize: "14px", border: "none", borderRadius: "10px", padding: "13px 0", cursor: "pointer" }}>
-            Place Order
+            {t("Place Order")}
           </button>
         </div>
       </div>
@@ -1552,6 +1561,7 @@ function CartDrawer({ cartItems, comboCartItems = [], cartTotal, gstSummary, onC
 }
 
 function CheckoutModal({ store, cartTotal, computeGST, submitting, resumeData, cart, comboCart, onClose, onSubmit }) {
+  const { t, lang } = useLang();
   const theme = getTheme(store.business_type);
   const [orderType, setOrderType] = useState(resumeData?.orderType || (store.delivery_enabled === false ? "Pickup" : "Delivery"));
   const [name, setName] = useState(resumeData?.name || "");
@@ -1669,7 +1679,7 @@ function CheckoutModal({ store, cartTotal, computeGST, submitting, resumeData, c
     <div style={{ ...overlayBottomStyle, alignItems: "center" }}>
       <div style={{ background: "white", borderRadius: "14px", width: "100%", maxWidth: "360px", maxHeight: "90vh", overflowY: "auto", padding: "22px", margin: "20px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-          <div style={{ fontWeight: 700, fontSize: "16px", fontFamily: "'Fraunces', serif" }}>Delivery Details</div>
+          <div style={{ fontWeight: 700, fontSize: "16px", fontFamily: "'Fraunces', serif" }}>{t("Delivery Details")}</div>
           <button onClick={handleCloseClick} style={closeBtnStyle}><X size={18} /></button>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
@@ -1677,65 +1687,65 @@ function CheckoutModal({ store, cartTotal, computeGST, submitting, resumeData, c
               business type ke liye). Yeh sabse pehle poochte hain kyunki
               isी se decide hota hai neeche address zaroori hai ya nahi. */}
           <div>
-            <div style={{ fontSize: "11.5px", fontWeight: 600, color: "#5C5747", marginBottom: "6px" }}>How would you like your order?</div>
+            <div style={{ fontSize: "11.5px", fontWeight: 600, color: "#5C5747", marginBottom: "6px" }}>{t("How would you like your order?")}</div>
             <div style={{ display: "flex", gap: "8px" }}>
               {store.delivery_enabled !== false && (
                 <button onClick={() => setOrderType("Delivery")} style={{ flex: 1, padding: "10px 0", borderRadius: "9px", border: orderType === "Delivery" ? `1.5px solid ${theme.primary}` : "1px solid #E3DECF", background: orderType === "Delivery" ? "#E7F0EA" : "white", color: orderType === "Delivery" ? theme.primary : "#5C5747", fontWeight: 700, fontSize: "12.5px", cursor: "pointer" }}>
-                  🛵 Home Delivery
+                  {t("🛵 Home Delivery")}
                 </button>
               )}
               <button onClick={() => setOrderType("Pickup")} style={{ flex: 1, padding: "10px 0", borderRadius: "9px", border: orderType === "Pickup" ? `1.5px solid ${theme.primary}` : "1px solid #E3DECF", background: orderType === "Pickup" ? "#E7F0EA" : "white", color: orderType === "Pickup" ? theme.primary : "#5C5747", fontWeight: 700, fontSize: "12.5px", cursor: "pointer" }}>
-                🏪 Store Pickup
+                {t("🏪 Store Pickup")}
               </button>
               {store.business_type === "restaurant" && (
                 <button onClick={() => setOrderType("Dine In")} style={{ flex: 1, padding: "10px 0", borderRadius: "9px", border: orderType === "Dine In" ? `1.5px solid ${theme.primary}` : "1px solid #E3DECF", background: orderType === "Dine In" ? "#E7F0EA" : "white", color: orderType === "Dine In" ? theme.primary : "#5C5747", fontWeight: 700, fontSize: "12.5px", cursor: "pointer" }}>
-                  🍽️ Dine In
+                  {t("🍽️ Dine In")}
                 </button>
               )}
             </div>
           </div>
 
-          <Field label="Mobile Number" value={phone} onChange={(v) => setPhone(v.replace(/\D/g, "").slice(0, 10))} placeholder="10 digit number" type="tel" />
+          <Field label={t("Mobile Number")} value={phone} onChange={(v) => setPhone(v.replace(/\D/g, "").slice(0, 10))} placeholder={t("10 digit number")} type="tel" />
           {lookupStatus === "checking" && (
             <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "11.5px", color: "#8B8576", marginTop: "-4px" }}>
-              <Loader2 size={12} className="ddemo-spin" /> Checking details...
+              <Loader2 size={12} className="ddemo-spin" /> {t("Checking details...")}
             </div>
           )}
           {lookupStatus === "found" && (
             <div style={{ fontSize: "11.5px", color: "#1B4332", fontWeight: 600, marginTop: "-4px" }}>
-              ✓ Found your previous details — edit if needed
+              {t("✓ Found your previous details — edit if needed")}
             </div>
           )}
-          <Field label="Your Name" value={name} onChange={setName} placeholder="e.g. Ramesh Yadav" />
+          <Field label={t("Your Name")} value={name} onChange={setName} placeholder={t("e.g. Ramesh Yadav")} />
           {store.gst_enabled && (
             <div>
-              <div style={{ fontSize: "11.5px", fontWeight: 600, color: "#5C5747", marginBottom: "4px" }}>Your State (for GST)</div>
+              <div style={{ fontSize: "11.5px", fontWeight: 600, color: "#5C5747", marginBottom: "4px" }}>{t("Your State (for GST)")}</div>
               <select value={customerState} onChange={(e) => setCustomerState(e.target.value)} style={inputStyle}>
-                <option value="">Select state</option>
+                <option value="">{t("Select state")}</option>
                 {INDIAN_STATES.map((st) => <option key={st} value={st}>{st}</option>)}
               </select>
             </div>
           )}
           {orderType === "Dine In" && (
-            <Field label="Table Number (optional)" value={landmark} onChange={setLandmark} placeholder="e.g. Table 5" />
+            <Field label={t("Table Number (optional)")} value={landmark} onChange={setLandmark} placeholder={t("e.g. Table 5")} />
           )}
           {isDeliveryType && (
             <>
-              <Field label="House/Street Address" value={address} onChange={setAddress} placeholder="House number, street, area" textarea />
+              <Field label={t("House/Street Address")} value={address} onChange={setAddress} placeholder={t("House number, street, area")} textarea />
               <div style={{ display: "flex", gap: "8px" }}>
-                <div style={{ flex: 1.4 }}><Field label="Landmark (optional)" value={landmark} onChange={setLandmark} placeholder="e.g. near Shiv Mandir" /></div>
-                <div style={{ flex: 1 }}><Field label="Pin Code" value={pincode} onChange={(v) => setPincode(v.replace(/\D/g, "").slice(0, 6))} placeholder="471606" type="tel" /></div>
+                <div style={{ flex: 1.4 }}><Field label={t("Landmark (optional)")} value={landmark} onChange={setLandmark} placeholder={t("e.g. near Shiv Mandir")} /></div>
+                <div style={{ flex: 1 }}><Field label={t("Pin Code")} value={pincode} onChange={(v) => setPincode(v.replace(/\D/g, "").slice(0, 6))} placeholder="471606" type="tel" /></div>
               </div>
             </>
           )}
           {!isDeliveryType && orderType !== "Dine In" && (
             <div style={{ background: "#F7F5F0", borderRadius: "9px", padding: "10px 12px", fontSize: "11.5px", color: "#5C5747" }}>
-              🏪 You'll pick up your order from the store yourself — no address needed.
+              {t("🏪 You'll pick up your order from the store yourself — no address needed.")}
             </div>
           )}
           {orderType === "Dine In" && (
             <div style={{ background: "#F7F5F0", borderRadius: "9px", padding: "10px 12px", fontSize: "11.5px", color: "#5C5747" }}>
-              🍽️ You're ordering to eat at the restaurant — no delivery needed.
+              {t("🍽️ You're ordering to eat at the restaurant — no delivery needed.")}
             </div>
           )}
 
@@ -1744,18 +1754,18 @@ function CheckoutModal({ store, cartTotal, computeGST, submitting, resumeData, c
             // (ya UPI app se wapas resume hua hai) — ab QR/payment-selector dobara
             // nahi dikhate, sirf confirmation message aur enabled button.
             <div style={{ background: "#E7F0EA", borderRadius: "10px", padding: "16px", textAlign: "center" }}>
-              <div style={{ fontSize: "13px", fontWeight: 700, color: "#1B4332" }}>✓ UPI app opened</div>
+              <div style={{ fontSize: "13px", fontWeight: 700, color: "#1B4332" }}>{t("✓ UPI app opened")}</div>
               <div style={{ fontSize: "11.5px", color: "#5C5747", marginTop: "4px", lineHeight: 1.5 }}>
-                After completing the payment, tap "I've Paid" below — the shopkeeper will verify and confirm your order.
+                {t("After completing the payment, tap \"I've Paid\" below — the shopkeeper will verify and confirm your order.")}
               </div>
             </div>
           ) : (
             <>
-              <div style={{ fontSize: "12px", fontWeight: 600, color: "#5C5747", marginTop: "4px" }}>Payment Method</div>
+              <div style={{ fontSize: "12px", fontWeight: 600, color: "#5C5747", marginTop: "4px" }}>{t("Payment Method")}</div>
               <div style={{ display: "flex", gap: "8px" }}>
                 {["COD", "UPI"].map((p) => (
                   <button key={p} onClick={() => { setPayment(p); setUpiOpened(false); }} style={{ flex: 1, padding: "9px 0", borderRadius: "8px", border: payment === p ? `1.5px solid ${theme.primary}` : "1px solid #E3DECF", background: payment === p ? "#E7F0EA" : "white", color: payment === p ? theme.primary : "#5C5747", fontWeight: 700, fontSize: "12.5px", cursor: "pointer" }}>
-                    {p === "COD" ? "Cash on Delivery" : "Pay via UPI"}
+                    {p === "COD" ? t("Cash on Delivery") : t("Pay via UPI")}
                   </button>
                 ))}
               </div>
@@ -1764,8 +1774,8 @@ function CheckoutModal({ store, cartTotal, computeGST, submitting, resumeData, c
                 <div style={{ background: "#F7F5F0", borderRadius: "10px", padding: "14px", textAlign: "center" }}>
                   {qrImageUrl ? (
                     <>
-                      <img src={qrImageUrl} alt="UPI QR Code" style={{ width: 140, height: 140, margin: "0 auto 8px", borderRadius: "8px" }} />
-                      <div style={{ fontSize: "12px", color: "#5C5747" }}>Scan or send to this UPI ID:</div>
+                      <img src={qrImageUrl} alt={t("UPI QR Code")} style={{ width: 140, height: 140, margin: "0 auto 8px", borderRadius: "8px" }} />
+                      <div style={{ fontSize: "12px", color: "#5C5747" }}>{t("Scan or send to this UPI ID:")}</div>
                       <div style={{ fontWeight: 700, fontSize: "13px", color: "#1B4332", marginTop: "2px" }}>{upiId}</div>
 
                       {/* Mobile par tap karne se seedha GPay/PhonePe/Paytm/BHIM khulega — payment seedha
@@ -1775,14 +1785,14 @@ function CheckoutModal({ store, cartTotal, computeGST, submitting, resumeData, c
                         onClick={handleUpiAppOpen}
                         style={{ display: "block", marginTop: "10px", background: theme.primary, color: "white", fontWeight: 700, fontSize: "12.5px", borderRadius: "8px", padding: "10px 0", textDecoration: "none" }}
                       >
-                        Pay via UPI
+                        {t("Pay via UPI")}
                       </a>
                     </>
                   ) : (
-                    <div style={{ fontSize: "12px", color: "#B3261E" }}>Store hasn't set up a UPI ID yet. Please choose Cash on Delivery.</div>
+                    <div style={{ fontSize: "12px", color: "#B3261E" }}>{t("Store hasn't set up a UPI ID yet. Please choose Cash on Delivery.")}</div>
                   )}
                   <div style={{ fontSize: "11px", color: "#8B8576", marginTop: "8px", lineHeight: 1.5 }}>
-                    After paying, come back to this page and tap "I've Paid" — the shopkeeper will verify and confirm your order.
+                    {t("After paying, come back to this page and tap \"I've Paid\" — the shopkeeper will verify and confirm your order.")}
                   </div>
                 </div>
               )}
@@ -1793,50 +1803,50 @@ function CheckoutModal({ store, cartTotal, computeGST, submitting, resumeData, c
             {store.gst_enabled ? (
               <>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12.5px", color: "#5C5747" }}>
-                  <span>Subtotal</span><span>₹{gst.subtotalAmount}</span>
+                  <span>{t("Subtotal")}</span><span>₹{gst.subtotalAmount}</span>
                 </div>
                 {gst.discountAmount > 0 && (
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12.5px", color: "#1B4332" }}>
-                    <span>Discount</span><span>− ₹{gst.discountAmount}</span>
+                    <span>{t("Discount")}</span><span>− ₹{gst.discountAmount}</span>
                   </div>
                 )}
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12.5px", color: "#5C5747" }}>
-                  <span>Taxable Amount</span><span>₹{gst.taxableAmount}</span>
+                  <span>{t("Taxable Amount")}</span><span>₹{gst.taxableAmount}</span>
                 </div>
                 {gst.cgstAmount > 0 && (
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12.5px", color: "#5C5747" }}>
-                    <span>CGST</span><span>₹{gst.cgstAmount}</span>
+                    <span>{t("CGST")}</span><span>₹{gst.cgstAmount}</span>
                   </div>
                 )}
                 {gst.sgstAmount > 0 && (
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12.5px", color: "#5C5747" }}>
-                    <span>SGST</span><span>₹{gst.sgstAmount}</span>
+                    <span>{t("SGST")}</span><span>₹{gst.sgstAmount}</span>
                   </div>
                 )}
                 {gst.igstAmount > 0 && (
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12.5px", color: "#5C5747" }}>
-                    <span>IGST</span><span>₹{gst.igstAmount}</span>
+                    <span>{t("IGST")}</span><span>₹{gst.igstAmount}</span>
                   </div>
                 )}
               </>
             ) : (
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12.5px", color: "#5C5747" }}>
-                <span>Items Total</span><span>₹{cartTotal}</span>
+                <span>{t("Items Total")}</span><span>₹{cartTotal}</span>
               </div>
             )}
             {orderType === "Delivery" && (
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12.5px", color: deliveryFee === 0 ? "#1B4332" : "#5C5747" }}>
-                <span>Delivery Charge</span>
-                <span>{deliveryFee === 0 ? "FREE" : `₹${deliveryFee}`}</span>
+                <span>{t("Delivery Charge")}</span>
+                <span>{deliveryFee === 0 ? t("FREE") : `₹${deliveryFee}`}</span>
               </div>
             )}
             {orderType === "Delivery" && deliveryFee > 0 && store.free_delivery_above != null && (
               <div style={{ fontSize: "11px", color: "#9A6B00", fontWeight: 600 }}>
-                🎉 Order ₹{(Number(store.free_delivery_above) - cartTotal).toFixed(0)} more to get FREE delivery!
+                {t("🎉 Order ₹")}{(Number(store.free_delivery_above) - cartTotal).toFixed(0)} {t("more to get FREE delivery!")}
               </div>
             )}
             <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, fontSize: "14px", marginTop: "4px" }}>
-              <span>Total Payable</span><span>₹{grandTotal}</span>
+              <span>{t("Total Payable")}</span><span>₹{grandTotal}</span>
             </div>
           </div>
 
@@ -1846,7 +1856,7 @@ function CheckoutModal({ store, cartTotal, computeGST, submitting, resumeData, c
             className="ddemo-btn"
             style={{ width: "100%", background: valid && !submitting && (payment !== "UPI" || upiOpened) ? theme.primary : "#D8D2BF", color: "white", fontWeight: 800, fontSize: "14px", border: "none", borderRadius: "10px", padding: "13px 0", cursor: valid && !submitting && (payment !== "UPI" || upiOpened) ? "pointer" : "not-allowed" }}
           >
-            {submitting ? "Placing order..." : payment === "UPI" ? "I've Paid" : "Place Order"}
+            {submitting ? t("Placing order...") : payment === "UPI" ? t("I've Paid") : t("Place Order")}
           </button>
         </div>
       </div>
@@ -1868,6 +1878,7 @@ function Field({ label, value, onChange, placeholder, type = "text", textarea })
 }
 
 function OrderConfirmedModal({ order, storeName, whatsapp, theme, onClose, store }) {
+  const { t, lang } = useLang();
   const waText = encodeURIComponent(`Hi! I've placed order ${order.order_number} (₹${order.total}). Please confirm the order.`);
   const [showTracking, setShowTracking] = useState(false);
   // Confetti particles ka ek fixed set — random hone ki zaroorat nahi,
@@ -1903,18 +1914,18 @@ function OrderConfirmedModal({ order, storeName, whatsapp, theme, onClose, store
             </svg>
           </div>
         </div>
-        <div style={{ fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: "17px", marginBottom: "6px" }}>Order Placed!</div>
-        <div style={{ fontSize: "12.5px", color: "#5C5747", marginBottom: "16px" }}>Order ID: <b>{order.order_number}</b></div>
+        <div style={{ fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: "17px", marginBottom: "6px" }}>{t("Order Placed!")}</div>
+        <div style={{ fontSize: "12.5px", color: "#5C5747", marginBottom: "16px" }}>{t("Order ID:")} <b>{order.order_number}</b></div>
 
         {order.taxable_amount != null && (Number(order.cgst_amount) + Number(order.sgst_amount) + Number(order.igst_amount)) > 0 && (
           <div style={{ background: "#F7F5F0", borderRadius: "10px", padding: "12px", marginBottom: "12px", textAlign: "left", fontSize: "12px", color: "#5C5747", display: "flex", flexDirection: "column", gap: "3px" }}>
-            {Number(order.discount_amount) > 0 && <div style={{ display: "flex", justifyContent: "space-between" }}><span>Discount</span><span>− ₹{order.discount_amount}</span></div>}
-            <div style={{ display: "flex", justifyContent: "space-between" }}><span>Taxable Amount</span><span>₹{order.taxable_amount}</span></div>
-            {Number(order.cgst_amount) > 0 && <div style={{ display: "flex", justifyContent: "space-between" }}><span>CGST</span><span>₹{order.cgst_amount}</span></div>}
-            {Number(order.sgst_amount) > 0 && <div style={{ display: "flex", justifyContent: "space-between" }}><span>SGST</span><span>₹{order.sgst_amount}</span></div>}
-            {Number(order.igst_amount) > 0 && <div style={{ display: "flex", justifyContent: "space-between" }}><span>IGST</span><span>₹{order.igst_amount}</span></div>}
-            {Number(order.delivery_fee) > 0 && <div style={{ display: "flex", justifyContent: "space-between" }}><span>Delivery Charge</span><span>₹{order.delivery_fee}</span></div>}
-            <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, color: "#1A1A1A" }}><span>Final Total</span><span>₹{order.total}</span></div>
+            {Number(order.discount_amount) > 0 && <div style={{ display: "flex", justifyContent: "space-between" }}><span>{t("Discount")}</span><span>− ₹{order.discount_amount}</span></div>}
+            <div style={{ display: "flex", justifyContent: "space-between" }}><span>{t("Taxable Amount")}</span><span>₹{order.taxable_amount}</span></div>
+            {Number(order.cgst_amount) > 0 && <div style={{ display: "flex", justifyContent: "space-between" }}><span>{t("CGST")}</span><span>₹{order.cgst_amount}</span></div>}
+            {Number(order.sgst_amount) > 0 && <div style={{ display: "flex", justifyContent: "space-between" }}><span>{t("SGST")}</span><span>₹{order.sgst_amount}</span></div>}
+            {Number(order.igst_amount) > 0 && <div style={{ display: "flex", justifyContent: "space-between" }}><span>{t("IGST")}</span><span>₹{order.igst_amount}</span></div>}
+            {Number(order.delivery_fee) > 0 && <div style={{ display: "flex", justifyContent: "space-between" }}><span>{t("Delivery Charge")}</span><span>₹{order.delivery_fee}</span></div>}
+            <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, color: "#1A1A1A" }}><span>{t("Final Total")}</span><span>₹{order.total}</span></div>
           </div>
         )}
 
@@ -1923,18 +1934,18 @@ function OrderConfirmedModal({ order, storeName, whatsapp, theme, onClose, store
             <MessageCircle size={16} color="white" />
           </div>
           <div style={{ fontSize: "11.5px", color: "#3A3729", lineHeight: 1.4 }}>
-            Tap to send order confirmation to <b>{storeName}</b> on WhatsApp.
+            {t("Tap to send order confirmation to")} <b>{storeName}</b> {t("on WhatsApp.")}
           </div>
         </a>
 
         {store && (
           <button onClick={() => setShowTracking(true)} className="ddemo-btn" style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", background: "white", border: `1.5px solid ${theme?.primary || "#1B4332"}`, color: theme?.primary || "#1B4332", fontWeight: 700, fontSize: "12.5px", borderRadius: "9px", padding: "10px 0", cursor: "pointer", marginBottom: "10px" }}>
-            📦 Track Your Order
+            {t("📦 Track Your Order")}
           </button>
         )}
 
         <button onClick={onClose} className="ddemo-btn" style={{ width: "100%", background: theme?.primary || "#1B4332", color: "white", fontWeight: 700, fontSize: "13.5px", border: "none", borderRadius: "9px", padding: "11px 0", cursor: "pointer" }}>
-          Done
+          {t("Done")}
         </button>
       </div>
 

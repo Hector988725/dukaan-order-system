@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Download, X } from "lucide-react";
-import { isStandalone, isIOS, canPromptInstall, promptInstall, subscribeInstall } from "../lib/installApp";
+import { isStandalone, isIOS, canPromptInstall, promptInstall, subscribeInstall, waitForPrompt } from "../lib/installApp";
 
 // ============================================================
 // "App install karein" button. Agar app pehle se install (standalone) hai to
@@ -13,6 +13,7 @@ export default function InstallAppButton({ label = "App install karein", color =
   const [, force] = useState(0);
   const [help, setHelp] = useState(false);
   const [done, setDone] = useState(false);
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => subscribeInstall(() => force((n) => n + 1)), []);
 
@@ -20,13 +21,18 @@ export default function InstallAppButton({ label = "App install karein", color =
   if (done) return <div style={{ fontSize: 12, color: "#1B4332", fontWeight: 700 }}>{en ? "✓ Installing — look for the icon on your home screen" : "✓ Install ho raha hai — home screen par icon dekhein"}</div>;
 
   const onClick = async () => {
-    if (canPromptInstall()) {
-      const r = await promptInstall();
-      if (r === "accepted") setDone(true);
-      else if (r === "unavailable") setHelp(true);
-      return;
-    }
-    setHelp(true);
+    if (busy) return;
+    setBusy(true);
+    try {
+      // Browser ka asli install popup mil sake to wahi kholte hain (thoda ruk kar bhi dekhte hain).
+      if (!isIOS() && (canPromptInstall() || (await waitForPrompt(1200)))) {
+        const r = await promptInstall();
+        if (r === "accepted") setDone(true);
+        else if (r === "unavailable") setHelp(true);
+        return;
+      }
+      setHelp(true);
+    } finally { setBusy(false); }
   };
 
   const ios = isIOS();
@@ -40,7 +46,7 @@ export default function InstallAppButton({ label = "App install karein", color =
           borderRadius: 10, padding: "11px 14px", fontSize: 13, fontWeight: 800, cursor: "pointer",
         }}
       >
-        <Download size={15} /> {label}
+        <Download size={15} /> {busy ? (en ? "Please wait…" : "Ruko…") : label}
       </button>
       {help && (
         <div onClick={() => setHelp(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 1000, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
@@ -79,6 +85,13 @@ export default function InstallAppButton({ label = "App install karein", color =
             <div style={{ fontSize: 11.5, color: "#8B8576", marginTop: 12, lineHeight: 1.5 }}>
               {en ? "After installing, tapping the icon opens the app directly, without the browser address bar." : "Install ke baad icon dabane se seedha app khulta hai, browser ki address bar ke bina."}
             </div>
+            {!ios && (
+              <div style={{ fontSize: 11.5, color: "#8B8576", marginTop: 8, lineHeight: 1.5 }}>
+                {en
+                  ? "Why no direct install button? Chrome shows its install popup only when it decides the app can be installed. If the app is already installed on this phone, open it from your home screen / app drawer instead."
+                  : "Seedha install popup kyun nahi aaya? Chrome popup tabhi deta hai jab use lagta hai app install ho sakta hai. Agar app is phone par pehle se install hai to home screen / app drawer ke icon se kholein."}
+              </div>
+            )}
           </div>
         </div>
       )}

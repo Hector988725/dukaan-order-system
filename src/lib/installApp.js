@@ -6,6 +6,8 @@
 // Kuch bhi na mile (ya purana browser): Chrome menu ⋮ → "Install app" ke steps.
 // Event page load ke turant baad aa sakta hai (component se pehle), isliye
 // listener module load par hi laga dete hain aur event yaad rakhte hain.
+// IMPORTANT: ye file main.jsx se sabse pehle import hoti hai — warna lazy
+// screen load hone tak event nikal jata hai aur button sirf steps dikhata hai.
 // ============================================================
 let deferred = null;
 const subs = new Set();
@@ -30,6 +32,18 @@ export function isIOS() {
 }
 
 export function canPromptInstall() { return !!deferred; }
+
+// Click par event abhi tak na aaya ho to thodi der (default 1.2 sec) intezaar —
+// Chrome kabhi kabhi page khulne ke kuch second baad hi event bhejta hai.
+export function waitForPrompt(ms = 1200) {
+  if (deferred) return Promise.resolve(true);
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = (v) => { if (done) return; done = true; unsub(); clearTimeout(timer); resolve(v); };
+    const unsub = subscribeInstall(() => { if (deferred) finish(true); });
+    const timer = setTimeout(() => finish(!!deferred), ms);
+  });
+}
 
 export async function promptInstall() {
   if (!deferred) return "unavailable";

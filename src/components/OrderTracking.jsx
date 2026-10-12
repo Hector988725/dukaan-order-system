@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { PackageSearch, X, Loader2, Phone, MessageCircle, Check } from "lucide-react";
 import { fetchOrderTracking } from "../lib/api";
 import { getRecentOrders, getTrackPhone, saveTrackPhone } from "./CustomerView";
+import { useLang } from "../lib/i18n";
 
 // ============================================================
 // ORDER TRACKING — order_number se, koi login nahi. Backend mein abhi
@@ -39,6 +40,7 @@ const STEPS_DINEIN = [
 ];
 
 export default function OrderTrackingButton({ store }) {
+  const { t } = useLang();
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -47,7 +49,7 @@ export default function OrderTrackingButton({ store }) {
         className="ddemo-btn ddemo-header-action-btn"
         style={{ display: "flex", alignItems: "center", gap: "6px", background: "rgba(255,255,255,0.14)", color: "white", border: "none", borderRadius: "8px", padding: "7px 12px", fontSize: "11.5px", fontWeight: 700, cursor: "pointer" }}
       >
-        <PackageSearch size={13} /> <span className="ddemo-header-action-label">Track Order</span>
+        <PackageSearch size={13} /> <span className="ddemo-header-action-label">{t("Track Order")}</span>
       </button>
       {open && <OrderTrackingModal store={store} onClose={() => setOpen(false)} />}
     </>
@@ -55,6 +57,7 @@ export default function OrderTrackingButton({ store }) {
 }
 
 export function OrderTrackingModal({ store, onClose, initialOrderNumber }) {
+  const { t } = useLang();
   const [orderNumber, setOrderNumber] = useState(initialOrderNumber || "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -66,21 +69,21 @@ export function OrderTrackingModal({ store, onClose, initialOrderNumber }) {
 
   const handleCheck = async (numberOverride) => {
     const num = numberOverride || orderNumber;
-    if (!num.trim()) { setError("Please enter an order number."); return; }
-    if (phone.replace(/\D/g, "").length < 10) { setError("Please enter the mobile number used while ordering."); return; }
+    if (!num.trim()) { setError(t("Please enter an order number.")); return; }
+    if (phone.replace(/\D/g, "").length < 10) { setError(t("Please enter the mobile number used while ordering.")); return; }
     setError("");
     setLoading(true);
     try {
       const data = await fetchOrderTracking(store.id, num.trim().toUpperCase(), phone);
       if (!data) {
-        setError("Order not found. Check the order number and the mobile number you used while ordering.");
+        setError(t("Order not found. Check the order number and the mobile number you used while ordering."));
         setOrder(null);
       } else {
         saveTrackPhone(store.id, phone);
         setOrder(data);
       }
     } catch (e) {
-      setError("Something went wrong, please try again.");
+      setError(t("Something went wrong, please try again."));
     } finally {
       setLoading(false);
     }
@@ -93,7 +96,7 @@ export function OrderTrackingModal({ store, onClose, initialOrderNumber }) {
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 60 }}>
       <div style={{ background: "white", borderRadius: "14px", width: "100%", maxWidth: "380px", maxHeight: "85vh", overflowY: "auto", padding: "20px", margin: "20px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
-          <div style={{ fontWeight: 700, fontSize: "15px", display: "flex", alignItems: "center", gap: "8px", fontFamily: "'Fraunces', serif" }}><PackageSearch size={17} /> Track Order</div>
+          <div style={{ fontWeight: 700, fontSize: "15px", display: "flex", alignItems: "center", gap: "8px", fontFamily: "'Fraunces', serif" }}><PackageSearch size={17} /> {t("Track Order")}</div>
           <button onClick={onClose} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#5C5747" }}><X size={18} /></button>
         </div>
 
@@ -101,7 +104,7 @@ export function OrderTrackingModal({ store, onClose, initialOrderNumber }) {
           <>
             {recentOrders.length > 0 && (
               <div style={{ marginBottom: "12px" }}>
-                <div style={{ fontSize: "11px", fontWeight: 700, color: "#5C5747", marginBottom: "6px" }}>Your recent orders on this device</div>
+                <div style={{ fontSize: "11px", fontWeight: 700, color: "#5C5747", marginBottom: "6px" }}>{t("Your recent orders on this device")}</div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
                   {recentOrders.map((num) => (
                     <button key={num} onClick={() => { setOrderNumber(num); handleCheck(num); }} style={{ border: "1px solid #E3DECF", background: "#F7F5F0", borderRadius: "999px", padding: "6px 12px", fontSize: "11.5px", fontWeight: 700, cursor: "pointer", color: "#1B4332" }}>
@@ -111,29 +114,29 @@ export function OrderTrackingModal({ store, onClose, initialOrderNumber }) {
                 </div>
               </div>
             )}
-            <div style={{ fontSize: "12px", color: "#8B8576", marginBottom: "10px" }}>Or enter your Order Number (e.g. ORD1234) — you got this when you placed the order.</div>
+            <div style={{ fontSize: "12px", color: "#8B8576", marginBottom: "10px" }}>{t("Or enter your Order Number (e.g. ORD1234) — you got this when you placed the order.")}</div>
             <input
               value={orderNumber}
               onChange={(e) => setOrderNumber(e.target.value.toUpperCase())}
-              placeholder="e.g. ORD1234"
+              placeholder={t("e.g. ORD1234")}
               style={{ width: "100%", border: "1px solid #E3DECF", borderRadius: "8px", padding: "10px 12px", fontSize: "14px", outline: "none", marginBottom: "8px", fontFamily: "inherit" }}
               autoFocus
             />
             <input
               value={phone}
               onChange={(e) => setPhone(e.target.value.replace(/[^\d+ ]/g, ""))}
-              placeholder="Mobile number used for the order"
+              placeholder={t("Mobile number used for the order")}
               inputMode="tel"
               style={{ width: "100%", border: "1px solid #E3DECF", borderRadius: "8px", padding: "10px 12px", fontSize: "14px", outline: "none", marginBottom: "8px", fontFamily: "inherit" }}
             />
             {error && <div style={{ color: "#B3261E", fontSize: "11.5px", marginBottom: "8px" }}>{error}</div>}
             <button onClick={() => handleCheck()} disabled={loading} className="ddemo-btn" style={{ width: "100%", background: "#1B4332", color: "white", border: "none", borderRadius: "9px", padding: "11px 0", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}>
-              {loading ? <Loader2 size={15} className="spin" /> : "Track"}
+              {loading ? <Loader2 size={15} className="spin" /> : t("Track")}
             </button>
           </>
         ) : (
           <>
-            <div style={{ fontSize: "12px", color: "#8B8576", marginBottom: "16px" }}>Order <b>{order.order_number}</b> · ₹{order.total}</div>
+            <div style={{ fontSize: "12px", color: "#8B8576", marginBottom: "16px" }}>{t("Order")} <b>{order.order_number}</b> · ₹{order.total}</div>
 
             {/* Visual stepper */}
             <div style={{ marginBottom: "18px" }}>
@@ -154,7 +157,7 @@ export function OrderTrackingModal({ store, onClose, initialOrderNumber }) {
                       {!isLast && <div style={{ width: 2, flex: 1, minHeight: "20px", background: i < currentIdx ? "#1B4332" : "#E3DECF" }} />}
                     </div>
                     <div style={{ paddingBottom: isLast ? 0 : "18px" }}>
-                      <div style={{ fontSize: "12.5px", fontWeight: done ? 700 : 500, color: done ? "#1A1A1A" : "#8B8576" }}>{s.label}</div>
+                      <div style={{ fontSize: "12.5px", fontWeight: done ? 700 : 500, color: done ? "#1A1A1A" : "#8B8576" }}>{t(s.label)}</div>
                     </div>
                   </div>
                 );
@@ -163,26 +166,26 @@ export function OrderTrackingModal({ store, onClose, initialOrderNumber }) {
 
             {order.status === "Out for Delivery" && (
               <div style={{ background: "#E7F0EA", borderRadius: "10px", padding: "12px", marginBottom: "12px", textAlign: "center" }}>
-                <div style={{ fontSize: "12.5px", fontWeight: 700, color: "#1B4332" }}>🛵 Your order is on the way</div>
+                <div style={{ fontSize: "12.5px", fontWeight: 700, color: "#1B4332" }}>{t("🛵 Your order is on the way")}</div>
               </div>
             )}
 
             {order.delivery_boy_name && (order.status === "Out for Delivery" || order.status === "Ready") && (
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#F7F5F0", borderRadius: "10px", padding: "12px" }}>
                 <div>
-                  <div style={{ fontSize: "10.5px", color: "#8B8576" }}>Delivery Boy</div>
+                  <div style={{ fontSize: "10.5px", color: "#8B8576" }}>{t("Delivery Boy")}</div>
                   <div style={{ fontSize: "13px", fontWeight: 700 }}>{order.delivery_boy_name}</div>
                 </div>
                 {order.delivery_boy_phone && (
                   <a href={`tel:${order.delivery_boy_phone}`} style={{ display: "flex", alignItems: "center", gap: "6px", background: "#1B4332", color: "white", borderRadius: "999px", padding: "8px 14px", textDecoration: "none", fontSize: "12px", fontWeight: 700 }}>
-                    <Phone size={13} /> Call
+                    <Phone size={13} /> {t("Call")}
                   </a>
                 )}
               </div>
             )}
 
             <button onClick={() => { setOrder(null); setOrderNumber(""); }} style={{ width: "100%", background: "transparent", border: "1px solid #E3DECF", borderRadius: "9px", padding: "9px 0", fontSize: "12px", fontWeight: 700, color: "#5C5747", cursor: "pointer", marginTop: "14px" }}>
-              Check Another Order
+              {t("Check Another Order")}
             </button>
           </>
         )}
