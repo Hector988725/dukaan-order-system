@@ -16,6 +16,7 @@ import CategoryFields from "./CategoryFields";
 import CatalogPicker from "./CatalogPicker";
 import AccountSettings from "./AccountSettings";
 import ComboManager from "./ComboManager";
+import TableQR from "./TableQR";
 
 export default function AdminPanel({ store, products, user, onRefresh, initialTab }) {
   return <AdminContent store={store} products={products} user={user} onRefresh={onRefresh} initialTab={initialTab} />;
@@ -52,6 +53,7 @@ function AdminContent({ store, products, user, onRefresh, initialTab }) {
     { id: "products", label: "Products", icon: <Package size={14} /> },
     { id: "combos", label: "Combos", icon: <Gift size={14} /> },
     ...(isBookingCategory(store.business_type) ? [] : [{ id: "delivery", label: "Delivery", icon: <Bike size={14} /> }]),
+    ...(store.business_type === "restaurant" ? [{ id: "tableqr", label: "Table QR", icon: <Package size={14} /> }] : []),
     { id: "staff", label: "Staff", icon: <Users size={14} /> },
     { id: "settings", label: "Store Settings", icon: <Settings size={14} /> },
     { id: "account", label: "Account", icon: <UserCircle size={14} /> },
@@ -83,6 +85,7 @@ function AdminContent({ store, products, user, onRefresh, initialTab }) {
       {tab === "combos" && <ComboManager store={store} products={products} />}
       {tab === "delivery" && <DeliveryBoyManager store={store} />}
       {tab === "staff" && <ShopStaffManager store={store} />}
+      {tab === "tableqr" && <TableQR store={store} />}
       {tab === "settings" && <StoreSettingsForm store={store} onRefresh={onRefresh} />}
       {tab === "account" && <AccountSettings user={user} />}
       {tab === "subscription" && <SubscriptionPanel store={store} onRefresh={onRefresh} />}

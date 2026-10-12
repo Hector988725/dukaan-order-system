@@ -27,6 +27,12 @@ export default function QuickBill({ store, products, onOrderPlaced }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [lastOrder, setLastOrder] = useState(null);
+  // Restaurant: "Table Order" — dukaandar/waiter table par baithe customer ka order
+  // seedha kitchen ko bhejta hai (Dine In + table number). Payment baad mein table par.
+  const isRestaurant = store.business_type === "restaurant";
+  const [mode, setMode] = useState("counter"); // counter | table
+  const [tableNo, setTableNo] = useState("");
+  const tableMode = isRestaurant && mode === "table";
 
   const allVariants = useMemo(
     () => products.flatMap((p) => p.variants.map((v) => ({ ...v, productName: p.name, productEmoji: p.emoji }))),
@@ -139,6 +145,39 @@ export default function QuickBill({ store, products, onOrderPlaced }) {
     }
   };
 
+  const sendToKitchen = async () => {
+    setError("");
+    const table = tableNo.trim();
+    if (!table) { setError("Table number likhna zaroori hai."); return; }
+    setSubmitting(true);
+    try {
+      const orderNumber = "ORD" + Math.floor(1000 + Math.random() * 9000);
+      await createOrder({
+        store_id: store.id,
+        order_number: orderNumber,
+        customer_name: customerName.trim() || `Table ${table}`,
+        customer_phone: customerPhone.trim() || "",
+        address: "",
+        landmark: table,
+        pincode: "",
+        order_type: "Dine In",
+        delivery_fee: 0,
+        payment_method: "Pay at Table",
+        payment_status: "Pay at Table",
+        status: "Accepted",
+        items: cartItems.map((it) => ({ variant_id: it.id, name: it.productName, variant: it.label, qty: it.qty, unit: it.unit, price: it.price })),
+        total: cartTotal,
+      });
+      setLastOrder({ orderNumber, items: cartItems, total: cartTotal, table });
+      setStage("kitchenSent");
+      onOrderPlaced?.();
+    } catch (e) {
+      setError(friendlyError(e) || "Order kitchen tak nahi pahunch paaya.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const startNewBill = () => {
     setCart({});
     setSearch("");
@@ -147,6 +186,7 @@ export default function QuickBill({ store, products, onOrderPlaced }) {
     setReceivedInput("");
     setError("");
     setLastOrder(null);
+    setTableNo("");
     setStage("billing");
   };
 
@@ -173,6 +213,19 @@ export default function QuickBill({ store, products, onOrderPlaced }) {
     <div>
       {stage === "billing" && (
         <>
+          {isRestaurant && (
+            <div style={{ display: "flex", gap: "6px", marginBottom: "10px" }}>
+              {[["counter", "🧾 Counter Bill"], ["table", "🍽️ Table Order"]].map(([id, label]) => (
+                <button key={id} onClick={() => { setMode(id); setError(""); }} style={{ flex: 1, padding: "9px 0", borderRadius: "9px", fontSize: "12.5px", fontWeight: 700, cursor: "pointer", border: mode === id ? "1.5px solid #1B4332" : "1px solid #E3DECF", background: mode === id ? "#E7F0EA" : "white", color: mode === id ? "#1B4332" : "#5C5747" }}>{label}</button>
+              ))}
+            </div>
+          )}
+          {tableMode && (
+            <div style={{ marginBottom: "10px" }}>
+              <Field label="Table Number (zaroori)" value={tableNo} onChange={setTableNo} placeholder="jaise 5" />
+            </div>
+          )}
+          {error && stage === "billing" && <div style={{ color: "#B3261E", fontSize: "12px", marginBottom: "8px" }}>{error}</div>}
           <div style={{ position: "relative", marginBottom: "10px" }}>
             <Search size={15} color="#8B8576" style={{ position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)" }} />
             <input
@@ -221,9 +274,9 @@ export default function QuickBill({ store, products, onOrderPlaced }) {
 
           {cartCount > 0 && (
             <div style={{ position: "sticky", bottom: 0, background: "white", borderTop: "1px solid #E3DECF", padding: "10px 0 0", marginTop: "8px" }}>
-              <button onClick={goToPayment} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", background: "#1B4332", color: "white", border: "none", borderRadius: "10px", padding: "13px 16px", fontSize: "13.5px", fontWeight: 700, cursor: "pointer" }}>
+              <button onClick={tableMode ? sendToKitchen : goToPayment} disabled={submitting} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", background: "#1B4332", color: "white", border: "none", borderRadius: "10px", padding: "13px 16px", fontSize: "13.5px", fontWeight: 700, cursor: "pointer" }}>
                 <span>{cartCount} item{cartCount !== 1 ? "s" : ""}</span>
-                <span>Bill Banayein · ₹{cartTotal} →</span>
+                <span>{tableMode ? (submitting ? "Bhej rahe hain..." : `Kitchen ko Bhejein · ₹${cartTotal} →`) : `Bill Banayein · ₹${cartTotal} →`}</span>
               </button>
             </div>
           )}
@@ -293,6 +346,30 @@ export default function QuickBill({ store, products, onOrderPlaced }) {
               {submitting ? "Ho raha hai..." : "Bill Complete Karein"}
             </button>
           </div>
+        </div>
+      )}
+
+      {stage === "kitchenSent" && lastOrder && (
+        <div>
+          <div style={{ textAlign: "center", padding: "6px 0 16px" }}>
+            <div style={{ fontSize: "34px", marginBottom: "6px" }}>👨‍🍳</div>
+            <div style={{ fontWeight: 700, fontSize: "15px" }}>Table {lastOrder.table} ka order kitchen ko bhej diya</div>
+            <div style={{ fontSize: "11px", color: "#8B8576" }}>Order No: {lastOrder.orderNumber} · Payment table par baad mein (Orders tab se "Payment mil gaya" dabayein)</div>
+          </div>
+          <div style={{ background: "#F7F5F0", borderRadius: "10px", padding: "12px 14px", marginBottom: "14px" }}>
+            {lastOrder.items.map((it) => (
+              <div key={it.id} style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", padding: "4px 0" }}>
+                <span>{it.qty} × {it.productName}{it.label && it.label !== "Standard" ? ` (${it.label})` : ""}</span>
+                <span>₹{it.price * it.qty}</span>
+              </div>
+            ))}
+            <div style={{ borderTop: "1px solid #E3DECF", marginTop: "6px", paddingTop: "6px", display: "flex", justifyContent: "space-between", fontWeight: 800, fontSize: "13.5px" }}>
+              <span>Total</span><span>₹{lastOrder.total}</span>
+            </div>
+          </div>
+          <button onClick={startNewBill} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", background: "#1B4332", color: "white", border: "none", borderRadius: "9px", padding: "11px 0", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}>
+            <RotateCcw size={13} /> Naya Table Order
+          </button>
         </div>
       )}
 

@@ -52,6 +52,7 @@ function getNextLabel(order) {
 const paymentStatusMeta = {
   "Cash on Delivery": { color: "#5C5747", bg: "#F0EEE6" },
   "Pending Verification": { color: "#9A6B00", bg: "#FFF4DB" },
+  "Pay at Table": { color: "#9A6B00", bg: "#FFF4DB" },
   "Payment Confirmed": { color: "#1B4332", bg: "#E7F0EA" },
 };
 
@@ -307,6 +308,9 @@ function OrderCard({ order, store, deliveryBoys, onAdvance, onPaymentConfirm, on
   const nextLabel = getNextLabel(order);
 
   const isNew = order.status === "New";
+  // Restaurant: table par baithe customer ka bill baad mein milta hai — dukaandar paisa
+  // lekar "Payment mil gaya" dabata hai.
+  const needsTablePayment = isDineIn && order.payment_status === "Pay at Table";
 
   // Packing checklist — dukaandar order pack karte waqt har item tick
   // kar sakta hai, phir usi ticked list ka ek chhota bill/invoice bana
@@ -452,9 +456,11 @@ function OrderCard({ order, store, deliveryBoys, onAdvance, onPaymentConfirm, on
       )}
 
       <div style={{ display: "flex", gap: "8px" }}>
-        <a href={`https://wa.me/91${order.customer_phone}`} target="_blank" rel="noreferrer" className="ddemo-btn" style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", border: "1.5px solid #25D366", color: "#178C42", textDecoration: "none", fontSize: "12.5px", fontWeight: 700, borderRadius: "9px", padding: "10px 0" }}>
+        {order.customer_phone ? (
+          <a href={`https://wa.me/91${order.customer_phone}`} target="_blank" rel="noreferrer" className="ddemo-btn" style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", border: "1.5px solid #25D366", color: "#178C42", textDecoration: "none", fontSize: "12.5px", fontWeight: 700, borderRadius: "9px", padding: "10px 0" }}>
           <MessageCircle size={15} /> WhatsApp
         </a>
+        ) : <div style={{ flex: 1 }} />}
         {needsPaymentVerification ? (
           <button onClick={onPaymentConfirm} className="ddemo-btn" style={{ flex: 1.5, background: "#9A6B00", color: "white", border: "none", fontSize: "12.5px", fontWeight: 700, borderRadius: "9px", padding: "10px 0", cursor: "pointer" }}>
             Payment Confirm Karein
@@ -465,6 +471,11 @@ function OrderCard({ order, store, deliveryBoys, onAdvance, onPaymentConfirm, on
           </button>
         ) : null}
       </div>
+      {needsTablePayment && (
+        <button onClick={onPaymentConfirm} className="ddemo-btn" style={{ width: "100%", marginTop: "8px", background: "#9A6B00", color: "white", border: "none", fontSize: "12.5px", fontWeight: 700, borderRadius: "9px", padding: "10px 0", cursor: "pointer" }}>
+          💵 Payment mil gaya (₹{order.total})
+        </button>
+      )}
     </div>
   );
 }

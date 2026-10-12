@@ -65,6 +65,12 @@ function getComboMaxQty(combo) {
 
 const CustomerView = forwardRef(function CustomerView({ store, products, onOrderPlaced }, ref) {
   const { t, lang } = useLang();
+  // Restaurant ki table-QR: /dukaan-ka-link?table=5 se aaya customer — table number
+  // apne aap bhar jaata hai aur Dine In order hi hota hai.
+  const qrTable = useMemo(() => {
+    if (store.business_type !== "restaurant") return "";
+    try { return (new URLSearchParams(window.location.search).get("table") || "").replace(/[^\w\- ]/g, "").trim().slice(0, 12); } catch { return ""; }
+  }, [store.business_type]);
   const theme = getTheme(store.business_type);
   const isGalleryMode = getShoppingMode(store.business_type) === "gallery";
   // Salon/Beauty Parlour — services bikte hain, cart/delivery nahi.
@@ -515,6 +521,11 @@ const CustomerView = forwardRef(function CustomerView({ store, products, onOrder
       {/* Search + categories */}
       <div style={{ padding: "16px 18px 0" }}>
         <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "8px" }}><LangToggle /></div>
+        {qrTable && (
+          <div style={{ background: "#FBE9E7", color: "#8A1F1F", borderRadius: "10px", padding: "10px 12px", marginBottom: "10px", fontSize: "12.5px", fontWeight: 700, lineHeight: 1.4 }}>
+            🍽️ {t("Table")} {qrTable} — {t("your food will be served at your table")}
+          </div>
+        )}
         <div style={{ display: "flex", alignItems: "center", gap: "10px", background: "white", border: "1px solid #E3DECF", borderRadius: "11px", padding: "10px 14px" }}>
           <Search size={16} color="#8B8576" />
           <input
@@ -742,7 +753,7 @@ const CustomerView = forwardRef(function CustomerView({ store, products, onOrder
       )}
 
       {!bookingMode && checkoutOpen && (
-        <CheckoutModal store={store} cartTotal={cartTotal} computeGST={computeGST} submitting={submitting} resumeData={resumeCheckout} cart={cart} comboCart={comboCart} onClose={() => { setCheckoutOpen(false); sessionStorage.removeItem(PENDING_UPI_KEY); }} onSubmit={placeOrder} />
+        <CheckoutModal qrTable={qrTable} store={store} cartTotal={cartTotal} computeGST={computeGST} submitting={submitting} resumeData={resumeCheckout} cart={cart} comboCart={comboCart} onClose={() => { setCheckoutOpen(false); sessionStorage.removeItem(PENDING_UPI_KEY); }} onSubmit={placeOrder} />
       )}
 
       {!bookingMode && orderPlaced && (
@@ -1560,14 +1571,14 @@ function CartDrawer({ cartItems, comboCartItems = [], cartTotal, gstSummary, onC
   );
 }
 
-function CheckoutModal({ store, cartTotal, computeGST, submitting, resumeData, cart, comboCart, onClose, onSubmit }) {
+function CheckoutModal({ qrTable, store, cartTotal, computeGST, submitting, resumeData, cart, comboCart, onClose, onSubmit }) {
   const { t, lang } = useLang();
   const theme = getTheme(store.business_type);
-  const [orderType, setOrderType] = useState(resumeData?.orderType || (store.delivery_enabled === false ? "Pickup" : "Delivery"));
+  const [orderType, setOrderType] = useState(resumeData?.orderType || (qrTable ? "Dine In" : store.delivery_enabled === false ? "Pickup" : "Delivery"));
   const [name, setName] = useState(resumeData?.name || "");
   const [phone, setPhone] = useState(resumeData?.phone || "");
   const [address, setAddress] = useState(resumeData?.address || "");
-  const [landmark, setLandmark] = useState(resumeData?.landmark || "");
+  const [landmark, setLandmark] = useState(resumeData?.landmark || qrTable || "");
   const [pincode, setPincode] = useState(resumeData?.pincode || "");
   const [payment, setPayment] = useState(resumeData?.payment || "COD");
   // GST — customer ki state (default: dukaan ki apni state, kyunki zyadatar
@@ -1603,7 +1614,7 @@ function CheckoutModal({ store, cartTotal, computeGST, submitting, resumeData, c
         if (customer) {
           setName(customer.name || "");
           setAddress(customer.address || "");
-          setLandmark(customer.landmark || "");
+          if (!qrTable && orderType !== "Dine In") setLandmark(customer.landmark || "");
           setPincode(customer.pincode || "");
           setLookupStatus("found");
         } else {
@@ -1620,8 +1631,13 @@ function CheckoutModal({ store, cartTotal, computeGST, submitting, resumeData, c
   // customer pehle hi UPI app khol chuka tha, isliye gate already khula
   // rakhte hain.
   const [upiOpened, setUpiOpened] = useState(!!resumeData);
+  // Order type badalte waqt "landmark" box ko saaf rakhte hain — Dine In mein wahi table number hai.
+  const pickType = (ty) => {
+    if (ty !== orderType) setLandmark(ty === "Dine In" ? (qrTable || "") : orderType === "Dine In" ? "" : landmark);
+    setOrderType(ty);
+  };
   const isDeliveryType = orderType === "Delivery";
-  const valid = name.trim() && phone.trim().length >= 10 && (!isDeliveryType || (address.trim() && pincode.trim().length === 6));
+  const valid = name.trim() && phone.trim().length >= 10 && (orderType !== "Dine In" || landmark.trim()) && (!isDeliveryType || (address.trim() && pincode.trim().length === 6));
 
   const upiId = store?.upi_id || "";
   const upiLink = upiId
@@ -1686,19 +1702,19 @@ function CheckoutModal({ store, cartTotal, computeGST, submitting, resumeData, c
           {/* Order Type — Pickup/Delivery/Dine In (Dine In sirf restaurant
               business type ke liye). Yeh sabse pehle poochte hain kyunki
               isी se decide hota hai neeche address zaroori hai ya nahi. */}
-          <div>
+          <div style={qrTable ? { display: "none" } : undefined}>
             <div style={{ fontSize: "11.5px", fontWeight: 600, color: "#5C5747", marginBottom: "6px" }}>{t("How would you like your order?")}</div>
             <div style={{ display: "flex", gap: "8px" }}>
               {store.delivery_enabled !== false && (
-                <button onClick={() => setOrderType("Delivery")} style={{ flex: 1, padding: "10px 0", borderRadius: "9px", border: orderType === "Delivery" ? `1.5px solid ${theme.primary}` : "1px solid #E3DECF", background: orderType === "Delivery" ? "#E7F0EA" : "white", color: orderType === "Delivery" ? theme.primary : "#5C5747", fontWeight: 700, fontSize: "12.5px", cursor: "pointer" }}>
+                <button onClick={() => pickType("Delivery")} style={{ flex: 1, padding: "10px 0", borderRadius: "9px", border: orderType === "Delivery" ? `1.5px solid ${theme.primary}` : "1px solid #E3DECF", background: orderType === "Delivery" ? "#E7F0EA" : "white", color: orderType === "Delivery" ? theme.primary : "#5C5747", fontWeight: 700, fontSize: "12.5px", cursor: "pointer" }}>
                   {t("🛵 Home Delivery")}
                 </button>
               )}
-              <button onClick={() => setOrderType("Pickup")} style={{ flex: 1, padding: "10px 0", borderRadius: "9px", border: orderType === "Pickup" ? `1.5px solid ${theme.primary}` : "1px solid #E3DECF", background: orderType === "Pickup" ? "#E7F0EA" : "white", color: orderType === "Pickup" ? theme.primary : "#5C5747", fontWeight: 700, fontSize: "12.5px", cursor: "pointer" }}>
+              <button onClick={() => pickType("Pickup")} style={{ flex: 1, padding: "10px 0", borderRadius: "9px", border: orderType === "Pickup" ? `1.5px solid ${theme.primary}` : "1px solid #E3DECF", background: orderType === "Pickup" ? "#E7F0EA" : "white", color: orderType === "Pickup" ? theme.primary : "#5C5747", fontWeight: 700, fontSize: "12.5px", cursor: "pointer" }}>
                 {t("🏪 Store Pickup")}
               </button>
               {store.business_type === "restaurant" && (
-                <button onClick={() => setOrderType("Dine In")} style={{ flex: 1, padding: "10px 0", borderRadius: "9px", border: orderType === "Dine In" ? `1.5px solid ${theme.primary}` : "1px solid #E3DECF", background: orderType === "Dine In" ? "#E7F0EA" : "white", color: orderType === "Dine In" ? theme.primary : "#5C5747", fontWeight: 700, fontSize: "12.5px", cursor: "pointer" }}>
+                <button onClick={() => pickType("Dine In")} style={{ flex: 1, padding: "10px 0", borderRadius: "9px", border: orderType === "Dine In" ? `1.5px solid ${theme.primary}` : "1px solid #E3DECF", background: orderType === "Dine In" ? "#E7F0EA" : "white", color: orderType === "Dine In" ? theme.primary : "#5C5747", fontWeight: 700, fontSize: "12.5px", cursor: "pointer" }}>
                   {t("🍽️ Dine In")}
                 </button>
               )}
@@ -1727,7 +1743,7 @@ function CheckoutModal({ store, cartTotal, computeGST, submitting, resumeData, c
             </div>
           )}
           {orderType === "Dine In" && (
-            <Field label={t("Table Number (optional)")} value={landmark} onChange={setLandmark} placeholder={t("e.g. Table 5")} />
+            <Field label={t("Table Number")} value={landmark} onChange={setLandmark} placeholder={t("e.g. Table 5")} readOnly={!!qrTable} />
           )}
           {isDeliveryType && (
             <>
@@ -1864,14 +1880,14 @@ function CheckoutModal({ store, cartTotal, computeGST, submitting, resumeData, c
   );
 }
 
-function Field({ label, value, onChange, placeholder, type = "text", textarea }) {
+function Field({ label, value, onChange, placeholder, type = "text", textarea, readOnly }) {
   return (
     <div>
       <div style={{ fontSize: "11.5px", fontWeight: 600, color: "#5C5747", marginBottom: "4px" }}>{label}</div>
       {textarea ? (
         <textarea value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} rows={2} style={inputStyle} />
       ) : (
-        <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} type={type} style={inputStyle} />
+        <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} type={type} readOnly={readOnly} style={readOnly ? { ...inputStyle, background: "#F3ECDC", fontWeight: 700 } : inputStyle} />
       )}
     </div>
   );

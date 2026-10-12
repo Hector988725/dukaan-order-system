@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { Store, ShoppingCart, LayoutGrid, Loader2, AlertTriangle, ShieldCheck, LogOut, Pill, Wrench, Smartphone, Shirt, BookOpen, Cake, Scissors, UtensilsCrossed, Footprints, Plus, BookText, Zap, Eye, Menu, Truck, Sparkles, Gift } from "lucide-react";
+import { Store, ShoppingCart, LayoutGrid, Loader2, AlertTriangle, ShieldCheck, LogOut, Pill, Wrench, Smartphone, Shirt, BookOpen, Cake, Scissors, UtensilsCrossed, Footprints, Plus, BookText, Zap, Eye, Menu, Truck, Sparkles, Gift, ChefHat } from "lucide-react";
 import { getTheme, getHeaderBackground, isBookingCategory } from "./lib/theme";
 
 // Business-type icon naam (theme.js mein string ke roop mein) ko
@@ -9,7 +9,7 @@ const BUSINESS_ICONS = { Store, Pill, Wrench, Smartphone, Shirt, BookOpen, Cake,
 // Owner Area ke top nav tabs, EXACT usi order mein jis order mein buttons
 // render hote hain — sliding highlight background isi array se apni
 // position/width calculate karta hai.
-const NAV_TABS = ["dashboard", "khata", "quickbill", "purchase", "storepreview", "admin"];
+const NAV_TABS = ["dashboard", "kitchen", "khata", "quickbill", "purchase", "storepreview", "admin"];
 import { getSlugFromUrl, isSupabaseConfigured } from "./lib/supabase";
 import {
   fetchStoreBySlug, fetchStoreByUserId, fetchProducts, fetchOrders,
@@ -20,6 +20,7 @@ import CustomerView from "./components/CustomerView";
 import DashboardView from "./components/DashboardView";
 import AdminPanel from "./components/AdminPanel";
 import QuickBill from "./components/QuickBill";
+import KitchenScreen from "./components/KitchenScreen";
 import PurchasePanel from "./components/PurchasePanel";
 import { TERMS_CONTENT, PRIVACY_CONTENT, REFUND_CONTENT, PLATFORM_NAME } from "./legalContent";
 import KhataPanel from "./components/KhataPanel";
@@ -661,7 +662,8 @@ function OwnerArea() {
   // Salon/Beauty Parlour (booking-mode) mein services bikti hain, stock
   // nahi — isliye wahan Purchase tab hide hai (Delivery Staff tab jaisa).
   const showPurchaseTab = !isBookingCategory(store.business_type);
-  const visibleNavTabs = NAV_TABS.filter((t) => t !== "purchase" || showPurchaseTab);
+  const showKitchenTab = store.business_type === "restaurant";
+  const visibleNavTabs = NAV_TABS.filter((t) => (t !== "purchase" || showPurchaseTab) && (t !== "kitchen" || showKitchenTab));
 
   const handleToggleOpen = async () => {
     const newValue = !(store.is_open !== false);
@@ -691,6 +693,11 @@ function OwnerArea() {
               <LayoutGrid size={13} /> Orders
               {newOrderCount > 0 && <span style={{ background: "#B3261E", color: "white", fontSize: "10px", fontWeight: 700, borderRadius: "999px", padding: "1px 6px" }}>{newOrderCount}</span>}
             </button>
+            {showKitchenTab && (
+              <button className={`ddemo-toggle-btn ${view === "kitchen" ? "active" : ""}`} onClick={() => setView("kitchen")}>
+                <ChefHat size={13} /> Kitchen
+              </button>
+            )}
             <button className={`ddemo-toggle-btn ${view === "khata" ? "active" : ""}`} onClick={() => setView("khata")}>
               <BookText size={13} /> Khata
             </button>
@@ -742,6 +749,7 @@ function OwnerArea() {
       {view === "dashboard" && <OwnerAppTips onGoStaff={() => { setAdminTab("staff"); setView("admin"); }} />}
 
       {view === "dashboard" && <DashboardView store={store} products={products} orders={orders} deliveryBoys={deliveryBoys} hasMoreOrders={hasMoreOrders} loadingMoreOrders={loadingMoreOrders} onLoadMoreOrders={loadMoreOrders} onRefresh={silentRefresh} />}
+      {view === "kitchen" && showKitchenTab && <KitchenScreen store={store} orders={orders} onRefresh={silentRefresh} />}
       {view === "khata" && <div style={{ padding: "16px 0 40px" }}><KhataPanel store={store} /></div>}
       {view === "quickbill" && <div style={{ maxWidth: "600px", margin: "0 auto", padding: "16px 18px 40px" }}><QuickBill store={store} products={products} onOrderPlaced={silentRefresh} /></div>}
       {view === "purchase" && showPurchaseTab && <div style={{ maxWidth: "600px", margin: "0 auto", padding: "16px 18px 40px" }}><PurchasePanel store={store} products={products} onRefresh={silentRefresh} /></div>}
