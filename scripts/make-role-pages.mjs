@@ -24,20 +24,3 @@ for (const p of pages) {
   writeFileSync(p.file, html);
   console.log("bana:", p.file);
 }
-
-// Har manifest mein "related_applications" bharte hain (apna hi web-app) taaki Chrome
-// browser ke andar se bata sake ki ye app is phone par pehle se install hai
-// (navigator.getInstalledRelatedApps). Domain Vercel se milta hai; na mile to chhod dete hain.
-const host = process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL;
-if (host) {
-  for (const m of ["manifest.json", "manifest-staff.json", "manifest-distributor.json", "manifest-superadmin.json"]) {
-    const f = "dist/" + m;
-    if (!existsSync(f)) continue;
-    const j = JSON.parse(readFileSync(f, "utf8"));
-    j.related_applications = [{ platform: "webapp", url: `https://${host}/${m}` }];
-    writeFileSync(f, JSON.stringify(j, null, 2));
-    console.log("related_applications:", m, "->", host);
-  }
-} else {
-  console.log("VERCEL_PROJECT_PRODUCTION_URL nahi mila — related_applications skip.");
-}
