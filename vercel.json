@@ -9,6 +9,10 @@
       "destination": "/distributor.html"
     },
     {
+      "source": "/superadmin",
+      "destination": "/superadmin.html"
+    },
+    {
       "source": "/((?!.*\\.).*)",
       "destination": "/index.html"
     }
