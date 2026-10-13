@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Volume2, VolumeX, Printer, Maximize2 } from "lucide-react";
 import { updateOrderStatus } from "../lib/api";
 import { friendlyError } from "../lib/errors";
+import { printHtml } from "../lib/print";
 
 // ============================================================
 // KITCHEN SCREEN (KOT) — restaurant ke chef/counter ke liye.
@@ -56,15 +57,7 @@ h1{font-size:15px;text-align:center;margin:0 0 2px}.c{text-align:center}.big{fon
 table{width:100%;border-collapse:collapse;margin-top:6px}td{padding:3px 0;border-bottom:1px dashed #999;font-size:14px}td.q{width:30px;font-weight:800}</style></head>
 <body><h1>${esc(store.name)}</h1><div class="c">KOT · ${esc(o.order_number)} · ${esc(time)}</div>
 <div class="big">${esc(info.label.replace(/^[^\w]+/, ""))}</div><table>${rows}</table></body></html>`;
-  const iframe = document.createElement("iframe");
-  iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0";
-  document.body.appendChild(iframe);
-  const d = iframe.contentWindow.document;
-  d.open(); d.write(html); d.close();
-  setTimeout(() => {
-    try { iframe.contentWindow.focus(); iframe.contentWindow.print(); } catch { /* ignore */ }
-    setTimeout(() => iframe.remove(), 2000);
-  }, 300);
+  printHtml(html);
 }
 
 export default function KitchenScreen({ store, orders, onRefresh }) {
@@ -101,7 +94,20 @@ export default function KitchenScreen({ store, orders, onRefresh }) {
     try { localStorage.setItem(SOUND_KEY, v ? "1" : "0"); } catch { /* ignore */ }
     if (v) beep();
   };
-  const fullscreen = () => { try { rootRef.current?.requestFullscreen?.(); } catch { /* ignore */ } };
+  // Full screen: ON/OFF ek hi button se. Full screen mein bhi upar ka button dikhta rahta hai
+  // ("Band karein"), aur phone ka Back bhi ise band kar deta hai.
+  const [isFull, setIsFull] = useState(false);
+  useEffect(() => {
+    const onChange = () => setIsFull(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", onChange);
+    return () => document.removeEventListener("fullscreenchange", onChange);
+  }, []);
+  const fullscreen = () => {
+    try {
+      if (document.fullscreenElement) document.exitFullscreen?.();
+      else rootRef.current?.requestFullscreen?.();
+    } catch { /* ignore */ }
+  };
 
   const advance = async (o) => {
     const step = nextStep(o); if (!step) return;
@@ -152,14 +158,14 @@ export default function KitchenScreen({ store, orders, onRefresh }) {
   );
 
   return (
-    <div ref={rootRef} style={{ background: "#F7F5F0", padding: "14px 16px 40px", minHeight: "70vh" }}>
+    <div ref={rootRef} style={{ background: "#F7F5F0", padding: "14px 16px 40px", minHeight: "70vh", ...(isFull ? { height: "100vh", overflowY: "auto" } : {}) }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, gap: 8 }}>
         <div style={{ fontWeight: 800, fontSize: 16, fontFamily: "'Fraunces', serif" }}>👨‍🍳 Kitchen</div>
         <div style={{ display: "flex", gap: 6 }}>
           <button onClick={toggleSound} style={{ border: "1px solid #E3DECF", background: sound ? "#E7F0EA" : "white", borderRadius: 9, padding: "7px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 5 }}>
             {sound ? <Volume2 size={14} /> : <VolumeX size={14} />} {sound ? "Awaaz ON" : "Awaaz OFF"}
           </button>
-          <button onClick={fullscreen} style={{ border: "1px solid #E3DECF", background: "white", borderRadius: 9, padding: "7px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 5 }}><Maximize2 size={14} /> Full screen</button>
+          <button onClick={fullscreen} style={{ border: "1px solid #E3DECF", background: "white", borderRadius: 9, padding: "7px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 5 }}><Maximize2 size={14} /> {isFull ? "Full screen band karein" : "Full screen"}</button>
         </div>
       </div>
       <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "flex-start" }}>

@@ -384,7 +384,25 @@ function OwnerArea() {
   const [hasMoreOrders, setHasMoreOrders] = useState(false);
   const [loadingMoreOrders, setLoadingMoreOrders] = useState(false);
   const [deliveryBoys, setDeliveryBoys] = useState([]);
-  const [view, setView] = useState("dashboard");
+  // Tabs ke beech phone ka Back button: har tab ek history entry banata hai, to Back dabane par
+  // pichhla tab khulta hai (app band nahi hota). Dashboard par Back = normal (app se bahar).
+  const [view, setViewState] = useState("dashboard");
+  const viewRef = useRef("dashboard");
+  const setView = (v) => {
+    if (v !== viewRef.current) { try { window.history.pushState({ dosView: v }, ""); } catch { /* ignore */ } }
+    viewRef.current = v;
+    setViewState(v);
+  };
+  useEffect(() => {
+    try { window.history.replaceState({ dosView: "dashboard" }, ""); } catch { /* ignore */ }
+    const onPop = (e) => {
+      const v = (e.state && e.state.dosView) || "dashboard";
+      viewRef.current = v;
+      setViewState(v);
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
   const [adminTab, setAdminTab] = useState(null);
   const [loadingStore, setLoadingStore] = useState(false);
   // storeChecked: server se store ka jawab (mila ya "nahi hai") sach mein aa chuka hai.
@@ -686,7 +704,6 @@ function OwnerArea() {
 
         <div className="ddemo-nav-wrap" style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           <div className="ddemo-toggle-track" style={{ overflowX: "auto", WebkitOverflowScrolling: "touch", flexShrink: 1 }}>
-            <div className="ddemo-toggle-bg" style={{ left: `calc(${visibleNavTabs.indexOf(view)} * ${100 / visibleNavTabs.length}% + 3px)`, width: `calc(${100 / visibleNavTabs.length}% - 6px)` }} />
             <button className={`ddemo-toggle-btn ${view === "dashboard" ? "active" : ""}`} onClick={() => setView("dashboard")}>
               <LayoutGrid size={13} /> Orders
               {newOrderCount > 0 && <span style={{ background: "#B3261E", color: "white", fontSize: "10px", fontWeight: 700, borderRadius: "999px", padding: "1px 6px" }}>{newOrderCount}</span>}
@@ -1112,8 +1129,8 @@ function GlobalStyles() {
       @keyframes ddemoSlideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
       @keyframes ddemoPop { 0% { transform: scale(0.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
       .ddemo-toggle-track { position: relative; display: inline-flex; background: rgba(255,255,255,0.14); border-radius: 999px; padding: 4px; gap: 2px; }
-      .ddemo-toggle-btn { position: relative; z-index: 1; padding: 8px 14px; border-radius: 999px; font-size: 12.5px; font-weight: 600; cursor: pointer; border: none; background: transparent; color: rgba(255,255,255,0.75); display: flex; align-items: center; gap: 6px; transition: color 0.2s; white-space: nowrap; }
-      .ddemo-toggle-btn.active { color: #123026; }
+      .ddemo-toggle-btn { position: relative; z-index: 1; padding: 8px 14px; border-radius: 999px; font-size: 12.5px; font-weight: 600; cursor: pointer; border: none; background: transparent; color: rgba(255,255,255,0.75); display: flex; align-items: center; gap: 6px; transition: color 0.2s, background 0.2s; white-space: nowrap; }
+      .ddemo-toggle-btn.active { color: #123026; background: #D4A24C; }
       .ddemo-toggle-bg { position: absolute; top: 4px; bottom: 4px; border-radius: 999px; background: #D4A24C; transition: left 0.25s, width 0.25s; z-index: 0; }
       /* Mobile par 4 tabs (Orders/Khata/Bill/Admin) ka text+icon mila ke
          itni width ban jaati thi ki poori row viewport se bahar chali
