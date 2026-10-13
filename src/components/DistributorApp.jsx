@@ -3,7 +3,6 @@ import { Users, Mail, Lock, Eye, EyeOff, LogOut, Copy, Check, TrendingUp, Loader
 import { signUp, signIn, signOut, onAuthChange, claimDistributorAccount, fetchDistributorDashboard, registerDistributorNominee, fetchDistributorProfile, fetchDistributorReferredShops, fetchDistributorCommissionHistory } from "../lib/api";
 
 import { friendlyError } from "../lib/errors";
-import InstallAppButton from "./InstallAppButton";
 // ============================================================
 // ROOT — /distributor route. Login/signup gate, phir apna dashboard.
 // Store-owner ke AuthGate se bilkul alag flow hai (alag role, alag
@@ -137,10 +136,6 @@ function DistributorAuthGate({ onAuthed }) {
         >
           {loading ? "..." : mode === "login" ? "Login" : "Create Account"}
         </button>
-        <div style={{ borderTop: "1px solid #E3DECF", marginTop: "6px", paddingTop: "14px" }}>
-          <div style={{ fontSize: "11.5px", color: "#8B8576", textAlign: "center", marginBottom: "8px", lineHeight: 1.5 }}>Install the app on your phone to open it quickly every day</div>
-          <InstallAppButton lang="en" role="distributor" appName="Dukaan Partner" label="Install Partner App" color="#6B2D5C" outline helpTitle="How to install the Partner App" />
-        </div>
       </div>
     </div>
   );
@@ -228,7 +223,6 @@ function DistributorDashboard({ user }) {
         </button>
       </div>
 
-      <InstallAppButton compact lang="en" role="distributor" appName="Dukaan Partner" label="📲 Install app" color="#6B2D5C" helpTitle="How to install the Partner App" />
       <div style={{ padding: "18px 20px 40px", maxWidth: "600px", margin: "0 auto" }}>
         {/* Referral link — sabse zaroori cheez, sabse upar */}
         <div style={{ background: "white", border: "1px solid #E3DECF", borderRadius: "12px", padding: "16px", marginBottom: "14px" }}>

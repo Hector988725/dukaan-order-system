@@ -1,5 +1,3 @@
-// Sabse pehle: "App install karein" ka event yahin pakad lete hain (React/lazy screens se pehle).
-import "./lib/installApp";
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App.jsx";

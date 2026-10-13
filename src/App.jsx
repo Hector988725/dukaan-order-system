@@ -34,8 +34,6 @@ import DistributorApp from "./components/DistributorApp";
 
 import StaffApp from "./components/StaffApp";
 import { friendlyError } from "./lib/errors";
-import InstallAppButton from "./components/InstallAppButton";
-import { isStandalone } from "./lib/installApp";
 export default function App() {
   // Deployment mein VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY set nahi hain —
   // pehle ye poori app ko blank white page bana ke crash kar deta tha. Ab
@@ -726,9 +724,6 @@ function OwnerArea() {
           </button>
         </div>
       </div>
-
-      {/* Install ki chhoti pill — jab tak app install nahi hota (ya install ho gaya to "icon se kholein" yaad dilata hai) */}
-      <InstallAppButton compact role="owner" appName="Dukaan" label="📲 App install karein" color="#1B4332" helpTitle="Dukaan app kaise install karein" />
 
       {(store.tagline || store.address) && <ScrollingTicker text={store.tagline || store.address} />}
 

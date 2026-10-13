@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import { Store, Mail, Lock, ArrowRight, Loader2, Eye, EyeOff } from "lucide-react";
 import { signUp, signIn, createStore, checkSlugAvailable, resetPasswordForEmail, updatePassword, attributeStoreToReferral, fetchBusinessTypeSettings } from "../lib/api";
 import { BUSINESS_TYPE_LIST } from "../lib/theme";
-import InstallAppButton from "./InstallAppButton";
 
 import { friendlyError } from "../lib/errors";
 const BUSINESS_TYPES = BUSINESS_TYPE_LIST;
@@ -47,11 +46,6 @@ export function AuthGate({ onAuthed }) {
       {mode === "signup" && <SignupForm onAuthed={onAuthed} />}
       {mode === "forgot" && <ForgotPasswordForm onBack={() => setMode("login")} />}
 
-      {/* Login/signup se pehle bhi install ka option — roz home screen se seedha kholne ke liye */}
-      <div style={{ marginTop: "18px", borderTop: "1px solid #E3DECF", paddingTop: "14px" }}>
-        <div style={{ fontSize: "11.5px", color: "#8B8576", textAlign: "center", marginBottom: "8px", lineHeight: 1.5 }}>Roz aasani se kholne ke liye app phone par install kar lein</div>
-        <InstallAppButton role="owner" appName="Dukaan" label="📲 App install karein" color="#1B4332" outline helpTitle="Dukaan app kaise install karein" />
-      </div>
 
       <div style={{ textAlign: "center", marginTop: "20px", fontSize: "10.5px", color: "#8B8576" }}>
         <a href="/terms" style={{ color: "#8B8576", textDecoration: "underline" }}>Terms</a>
