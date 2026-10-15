@@ -17,6 +17,7 @@ import CatalogPicker from "./CatalogPicker";
 import AccountSettings from "./AccountSettings";
 import ComboManager from "./ComboManager";
 import TableQR from "./TableQR";
+import { validateVeriloSettings } from "../lib/verilo";
 
 export default function AdminPanel({ store, products, user, onRefresh, initialTab }) {
   return <AdminContent store={store} products={products} user={user} onRefresh={onRefresh} initialTab={initialTab} />;
@@ -200,6 +201,10 @@ function StoreSettingsForm({ store, onRefresh }) {
   const [gstPriceType, setGstPriceType] = useState(store.gst_price_type || "exclusive");
   const [gstState, setGstState] = useState(store.gst_state || "");
   const [gstin, setGstin] = useState(store.gstin || "");
+  const [veriloOptIn, setVeriloOptIn] = useState(!!store.verilo_opt_in);
+  const [veriloCity, setVeriloCity] = useState(store.city || "");
+  const [veriloState, setVeriloState] = useState(store.state || "");
+  const [veriloPincode, setVeriloPincode] = useState(store.pincode || "");
   const [bulkGstRate, setBulkGstRate] = useState("18");
   const [bulkApplying, setBulkApplying] = useState(false);
   const [bulkMsg, setBulkMsg] = useState("");
@@ -226,10 +231,19 @@ function StoreSettingsForm({ store, onRefresh }) {
   const [saved, setSaved] = useState(false);
 
   const handleSave = async () => {
+    const verilo = validateVeriloSettings({
+      optIn: veriloOptIn, city: veriloCity, state: veriloState, pincode: veriloPincode,
+      wasOptIn: !!store.verilo_opt_in, existingAt: store.verilo_opt_in_at || null,
+    });
+    if (!verilo.ok) {
+      alert(verilo.error);
+      return;
+    }
     setSaving(true);
     setSaved(false);
     try {
       await updateStoreSettings(store.id, {
+        ...verilo.values,
         name, whatsapp_number: whatsapp, upi_id: upi, address, logo_url: logoUrl || null, tagline: tagline || null,
         timings: autoHours ? formatTimeRange(opensAt, closesAt) : (timings || null),
         delivery_fee: Number(deliveryFee) || 0,
@@ -400,6 +414,37 @@ function StoreSettingsForm({ store, onRefresh }) {
           <Field label="YouTube Channel Link" value={youtubeUrl} onChange={setYoutubeUrl} placeholder="https://youtube.com/@aapki-dukaan" />
           <Field label="Google Business Profile Link" value={gmbUrl} onChange={setGmbUrl} placeholder="Google Maps par dukaan ki listing ka link" />
         </div>
+      </div>
+      <div style={{ borderTop: "1px solid #E3DECF", paddingTop: "12px", marginTop: "2px" }}>
+        <div style={{ fontSize: "12px", fontWeight: 700, color: "#1A1A1A", marginBottom: "4px" }}>📍 Verilo par apni dukaan dikhayein (optional)</div>
+        <div style={{ fontSize: "10.5px", color: "#8B8576", marginBottom: "10px" }}>
+          Verilo ek local services directory hai jahan aas-paas ke log dukaan dhoondhte hain. ON karne par aapki dukaan wahan bhi dikh sakti hai — bina kisi extra charge ke.
+        </div>
+        <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", marginBottom: "10px" }}>
+          <input type="checkbox" checked={veriloOptIn} onChange={(e) => setVeriloOptIn(e.target.checked)} style={{ width: "16px", height: "16px" }} />
+          <span style={{ fontSize: "12px", fontWeight: 600 }}>Haan, meri dukaan Verilo par dikhayein</span>
+        </label>
+        {veriloOptIn && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            <Field label="City / Shehar" value={veriloCity} onChange={setVeriloCity} placeholder="jaise Anuppur" />
+            <div>
+              <div style={{ fontSize: "11px", fontWeight: 600, color: "#5C5747", marginBottom: "4px" }}>State</div>
+              <select value={veriloState} onChange={(e) => setVeriloState(e.target.value)} style={inputStyle}>
+                <option value="">State chunein</option>
+                {INDIAN_STATES.map((st) => <option key={st} value={st}>{st}</option>)}
+              </select>
+            </div>
+            <Field label="Pincode (6 digits)" value={veriloPincode} onChange={(v) => setVeriloPincode(v.replace(/[^0-9]/g, "").slice(0, 6))} placeholder="jaise 484224" />
+            <div style={{ fontSize: "10.5px", color: "#8B8576" }}>
+              Verilo par yeh dikhega: dukaan ka naam, tagline, logo, address, city, WhatsApp number, timings, Maps link aur social media links. UPI ID, GSTIN aur billing ki jaankari kabhi nahi dikhegi. Jab tak aapka Dukaan subscription active hai tabhi dukaan Verilo par dikhegi; subscription band hote hi apne aap hat jaayegi. Aap kabhi bhi yeh option OFF kar sakte hain.
+            </div>
+            {!(store.subscription_expires_at && new Date(store.subscription_expires_at) > new Date()) && (
+              <div style={{ fontSize: "10.5px", color: "#B3261E", background: "#FDECEA", borderRadius: "7px", padding: "8px 10px" }}>
+                Abhi aapka subscription active nahi hai, isliye subscription chalu hone tak dukaan Verilo par nahi dikhegi.
+              </div>
+            )}
+          </div>
+        )}
       </div>
       <button onClick={handleSave} disabled={saving} className="ddemo-btn" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", background: saved ? "#1B4332" : "#D4A24C", color: saved ? "white" : "#123026", fontWeight: 800, fontSize: "13.5px", border: "none", borderRadius: "10px", padding: "12px 0", cursor: "pointer", marginTop: "6px" }}>
         {saved ? <><Check size={15} /> Save Ho Gaya</> : <><Save size={15} /> {saving ? "Save ho raha hai..." : "Changes Save Karein"}</>}
