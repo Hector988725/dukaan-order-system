@@ -645,7 +645,7 @@ function CodeEditor({ distributor, onDone, onCancel }) {
   return (
     <div style={{ marginTop: "10px", background: "#F7F5F0", borderRadius: "9px", padding: "10px 12px", display: "flex", flexDirection: "column", gap: "8px" }}>
       <div style={{ fontSize: "10.5px", color: "#8B8576" }}>
-        Naya link: dukaan-order-system.vercel.app/dop-partner/{code || "..."}
+        Naya link: {typeof window !== "undefined" ? window.location.host : ""}/dop-partner/{code || "..."}
       </div>
       <input value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} style={{ border: "1px solid #E3DECF", borderRadius: "7px", padding: "7px 10px", fontSize: "12px", fontWeight: 700, outline: "none" }} />
       {error && <div style={{ color: "#B3261E", fontSize: "11px" }}>{error}</div>}

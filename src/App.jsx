@@ -43,7 +43,7 @@ export default function App() {
     return (
       <div style={shellStyle}>
         <GlobalStyles />
-        <ErrorScreen message="Supabase configuration missing hai. Vercel Project Settings → Environment Variables mein VITE_SUPABASE_URL aur VITE_SUPABASE_ANON_KEY daalkar dobara deploy karein." />
+        <ErrorScreen message="Supabase configuration missing hai. Hosting (Cloudflare/Vercel) ki Environment Variables mein VITE_SUPABASE_URL aur VITE_SUPABASE_ANON_KEY daalkar dobara deploy karein." />
       </div>
     );
   }

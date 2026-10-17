@@ -552,7 +552,7 @@ function SlugChangeSection({ store, onRefresh }) {
   return (
     <div style={{ background: "white", border: "1px solid #E3DECF", borderRadius: "12px", padding: "18px" }}>
       <div style={{ fontWeight: 700, fontSize: "13.5px", marginBottom: "4px" }}>🔗 Dukaan ka Link (URL)</div>
-      <div style={{ fontSize: "11.5px", color: "#8B8576", marginBottom: "12px" }}>Abhi ka link: <b>dukaan-order-system.vercel.app/{store.slug}</b></div>
+      <div style={{ fontSize: "11.5px", color: "#8B8576", marginBottom: "12px" }}>Abhi ka link: <b>{typeof window !== "undefined" ? window.location.host : ""}/{store.slug}</b></div>
 
       {!editing ? (
         <button onClick={() => setEditing(true)} style={{ background: "white", border: "1px solid #1B4332", color: "#1B4332", borderRadius: "8px", padding: "8px 14px", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}>
