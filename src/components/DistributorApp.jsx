@@ -42,6 +42,7 @@ function DistributorAuthGate({ onAuthed }) {
   const [show, setShow] = useState(false);
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
+  const [sentTo, setSentTo] = useState(""); // confirmation mail kis email par gayi (form chhupane ke liye)
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
@@ -76,7 +77,7 @@ function DistributorAuthGate({ onAuthed }) {
       if (!data.session) {
         // Email confirmation ON hai: abhi login nahi hua, isliye claim abhi nahi ho sakta
         // (bina login ke server permission deny karta hai). Claim Code kharch nahi hota.
-        setInfo(`Account created. We sent a confirmation email to ${email.trim()}. Open it and confirm, then come back here, tap "Login", and enter your Referral Code and Claim Code when asked.`);
+        setSentTo(email.trim());
         return;
       }
       await claimDistributorAccount(referralCode.trim(), claimCode.trim());
@@ -87,6 +88,34 @@ function DistributorAuthGate({ onAuthed }) {
       setLoading(false);
     }
   };
+
+  if (sentTo) {
+    return (
+      <div style={{ maxWidth: "360px", margin: "60px auto", padding: "0 18px", fontFamily: "'Inter', sans-serif" }}>
+        <div style={{ background: "white", border: "1px solid #E3DECF", borderRadius: "12px", padding: "22px 18px", textAlign: "center" }}>
+          <div style={{ width: 46, height: 46, borderRadius: "50%", background: "#E7F0EA", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px" }}>
+            <Mail size={20} color="#1B4332" />
+          </div>
+          <div style={{ fontWeight: 700, fontSize: "14px", marginBottom: "6px" }}>Verify your email</div>
+          <div style={{ fontSize: "12px", color: "#5C5747", lineHeight: 1.5 }}>
+            We sent a confirmation link to <b>{sentTo}</b>. Check your inbox and the Spam/Promotions folder, tap the link, then come back and log in. You will be asked for your Referral Code and Claim Code after you log in.
+          </div>
+          <button
+            onClick={() => { setSentTo(""); setMode("login"); setPassword(""); setError(""); }}
+            style={{ width: "100%", marginTop: "16px", background: "#1B4332", color: "white", border: "none", borderRadius: "9px", padding: "11px 0", fontWeight: 700, fontSize: "13px", cursor: "pointer" }}
+          >
+            I've confirmed — Log in
+          </button>
+          <button
+            onClick={() => { setSentTo(""); setPassword(""); }}
+            style={{ marginTop: "10px", background: "none", border: "none", color: "#8B8576", fontSize: "12px", textDecoration: "underline", cursor: "pointer" }}
+          >
+            Wrong email? Start over
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ maxWidth: "360px", margin: "60px auto", padding: "0 18px", fontFamily: "'Inter', sans-serif" }}>

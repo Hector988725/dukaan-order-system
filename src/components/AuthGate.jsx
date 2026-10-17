@@ -43,7 +43,7 @@ export function AuthGate({ onAuthed }) {
       )}
 
       {mode === "login" && <LoginForm onAuthed={onAuthed} onForgotPassword={() => setMode("forgot")} />}
-      {mode === "signup" && <SignupForm onAuthed={onAuthed} />}
+      {mode === "signup" && <SignupForm onAuthed={onAuthed} onGoLogin={() => setMode("login")} />}
       {mode === "forgot" && <ForgotPasswordForm onBack={() => setMode("login")} />}
 
 
@@ -214,7 +214,7 @@ export function ResetPasswordScreen({ onDone }) {
   );
 }
 
-function SignupForm({ onAuthed }) {
+function SignupForm({ onAuthed, onGoLogin }) {
   const [step, setStep] = useState(1); // 1: account, 2: store details
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -253,8 +253,21 @@ function SignupForm({ onAuthed }) {
         </div>
         <div style={{ fontWeight: 700, fontSize: "14px", marginBottom: "6px" }}>Email Verify Karein</div>
         <div style={{ fontSize: "12px", color: "#5C5747", lineHeight: 1.5 }}>
-          <b>{email}</b> pe ek confirmation link bheja hai. Link pe click karke apna account verify karein, phir login kar sakte hain.
+          <b>{email}</b> pe ek confirmation link bheja hai. Inbox ke saath <b>Spam / Promotions</b> folder bhi dekhein. Link pe click karke apna account verify karein, phir login kar sakte hain.
         </div>
+        <button
+          onClick={onGoLogin}
+          className="ddemo-btn"
+          style={{ width: "100%", marginTop: "16px", background: "#1B4332", color: "white", fontWeight: 700, fontSize: "13px", border: "none", borderRadius: "9px", padding: "11px 0", cursor: "pointer" }}
+        >
+          Maine confirm kar liya — Login karein
+        </button>
+        <button
+          onClick={() => { setNeedsConfirmation(false); setPassword(""); }}
+          style={{ marginTop: "10px", background: "none", border: "none", color: "#8B8576", fontSize: "12px", textDecoration: "underline", cursor: "pointer" }}
+        >
+          Galat email? Dobara bharein
+        </button>
       </div>
     );
   }

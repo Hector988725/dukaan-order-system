@@ -62,6 +62,7 @@ function LoginCard() {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
+  const [sent, setSent] = useState(false); // confirmation mail bhej di: form chhupao
   const isMobile = method === "mobile";
   const submit = async () => {
     setBusy(true); setMsg("");
@@ -70,7 +71,7 @@ function LoginCard() {
         // dukaandar ka diya password hamesha bade akshar + bina dash ke hota hai
         await signIn(staffEmailFromPhone(phone), password.replace(/[\s-]/g, "").toUpperCase());
       } else if (mode === "login") await signIn(email.trim(), password);
-      else { const r = await signUp(email.trim(), password, "/staff"); if (!r.session) setMsg("Email par confirmation link bheja gaya hai. Confirm karke login karein."); }
+      else { const r = await signUp(email.trim(), password, "/staff"); if (!r.session) setSent(true); }
     } catch (e) {
       const m = String(e.message || "");
       setMsg(isMobile && /invalid login/i.test(m) ? "Mobile number ya password galat hai. Dukaandar se poochein." : friendlyError(e));
@@ -78,6 +79,23 @@ function LoginCard() {
     setBusy(false);
   };
   const off = busy || (isMobile ? phone.length !== 10 || password.replace(/[\s-]/g, "").length < 6 : !email || password.length < 6);
+  if (sent) {
+    return (
+      <Centered>
+        <div style={{ width: "100%", maxWidth: 340 }}>
+          <Logo />
+          <div style={{ fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: 19, margin: "12px 0 6px" }}>Email Verify Karein</div>
+          <div style={{ fontSize: 12.5, color: MUTED, lineHeight: 1.5 }}>
+            <b>{email.trim()}</b> pe confirmation link bheja hai. Inbox ke saath Spam / Promotions folder bhi dekhein. Link pe click karke verify karein, phir login karein.
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 16 }}>
+            <button onClick={() => { setSent(false); setMode("login"); setPassword(""); setMsg(""); }} style={btn(true, false)}>Maine confirm kar liya — Login</button>
+            <button onClick={() => { setSent(false); setPassword(""); setMsg(""); }} style={{ background: "none", border: "none", color: MUTED, fontSize: 12, textDecoration: "underline", cursor: "pointer" }}>Galat email? Dobara bharein</button>
+          </div>
+        </div>
+      </Centered>
+    );
+  }
   return (
     <Centered>
       <div style={{ width: "100%", maxWidth: 340 }}>
