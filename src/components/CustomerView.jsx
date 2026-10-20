@@ -690,8 +690,8 @@ const CustomerView = forwardRef(function CustomerView({ store, products, onOrder
       )}
 
       {/* Customer ya koi bhi visitor ye app kisi dusre dukaandar ko bhej sake. */}
-      <div style={{ padding: "6px 18px 26px", textAlign: "center" }}>
-        <ShareAppButton audience="customer" lang={lang} variant="link" />
+      <div style={{ paddingBottom: "26px" }}>
+        <ShareAppButton audience="customer" lang={lang} />
       </div>
 
       {variantPicker && !bookingMode && (

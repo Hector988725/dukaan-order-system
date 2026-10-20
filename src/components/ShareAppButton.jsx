@@ -2,102 +2,97 @@ import React, { useState } from "react";
 
 // ============================================================
 // "Ye app kisi dusre dukaandar ko bhejein" — dukaandar aur customer dono ke liye.
-// - Phone par seedha native Share sheet (WhatsApp, Gmail, SMS, Telegram... jo bhi phone mein ho).
-// - Jahan native share nahi hota (computer), wahan chhota sheet: WhatsApp / Email / Copy link.
-// - Link hamesha app ka homepage hota hai (jahan naya dukaandar signup kar sakta hai),
-//   kisi ek dukaan ka link nahi.
-// Props: audience "owner" | "customer", lang "hi" | "en", variant "pill" | "link"
+// Ek saaf card: upar kya hai, beech mein asli link, neeche seedhe bade buttons
+// (WhatsApp / Email / Link copy / Aur apps). Koi chhupa hua sheet nahi.
+// Link hamesha app ka homepage hota hai (jahan naya dukaandar signup kar sake).
+// Props: audience "owner" | "customer", lang "hi" | "en"
 // ============================================================
 const TEXT = {
   owner: {
-    label: "📣 Ye app dusre dukaandar ko bhejein",
-    title: "Dukaan Order System",
+    title: "📣 Dusre dukaandar ko ye app bhejein",
+    sub: "Kisi bhi dukaandar dost ko ye link bhejein. Is link se wo apni dukaan ka online order link, khata aur bill bana sakta hai.",
+    linkLabel: "Bhejne wala link",
+    whatsapp: "WhatsApp par bhejein", email: "Email se bhejein", copy: "📋 Link copy karein", copied: "✓ Link copy ho gayi", more: "Aur apps se bhejein",
     message: "Apni dukaan ka online order link banayein! Dukaan Order System mein orders, khata, bill aur stock ek hi app mein. Yahan dekhein:",
-    sheetTitle: "Dusre dukaandar ko bhejein",
-    whatsapp: "WhatsApp", email: "Email", copy: "Link copy karein", copied: "✓ Link copy ho gayi", close: "Band karein",
     emailSubject: "Dukaan Order System — apni dukaan online layein",
+    appTitle: "Dukaan Order System",
   },
-  customerEn: {
-    label: "🏪 Know a shopkeeper? Share this app",
-    title: "Dukaan Order System",
+  en: {
+    title: "🏪 Know a shopkeeper? Share this app",
+    sub: "Send this link to a shopkeeper you know. With it they can get their own online order link, khata and billing.",
+    linkLabel: "Link to send",
+    whatsapp: "Send on WhatsApp", email: "Send by Email", copy: "📋 Copy link", copied: "✓ Link copied", more: "Send with other apps",
     message: "Do you run a shop? Get your own online ordering link, plus orders, khata and billing in one app — Dukaan Order System:",
-    sheetTitle: "Share with a shopkeeper",
-    whatsapp: "WhatsApp", email: "Email", copy: "Copy link", copied: "✓ Link copied", close: "Close",
     emailSubject: "Dukaan Order System — put your shop online",
+    appTitle: "Dukaan Order System",
   },
-  customerHi: {
-    label: "🏪 किसी दुकानदार को जानते हैं? ये ऐप भेजें",
-    title: "Dukaan Order System",
+  hi: {
+    title: "🏪 किसी दुकानदार को जानते हैं? ये ऐप भेजें",
+    sub: "अपने किसी दुकानदार जानकार को ये लिंक भेजें। इससे वो अपनी दुकान का ऑनलाइन ऑर्डर लिंक, खाता और बिल बना सकता है।",
+    linkLabel: "भेजने वाला लिंक",
+    whatsapp: "WhatsApp पर भेजें", email: "Email से भेजें", copy: "📋 लिंक कॉपी करें", copied: "✓ लिंक कॉपी हो गई", more: "दूसरे ऐप से भेजें",
     message: "क्या आपकी दुकान है? अपना ऑनलाइन ऑर्डर लिंक बनाएँ, और ऑर्डर, खाता व बिल एक ही ऐप में पाएँ — Dukaan Order System:",
-    sheetTitle: "दुकानदार को भेजें",
-    whatsapp: "WhatsApp", email: "Email", copy: "लिंक कॉपी करें", copied: "✓ लिंक कॉपी हो गई", close: "बंद करें",
     emailSubject: "Dukaan Order System — अपनी दुकान ऑनलाइन लाएँ",
+    appTitle: "Dukaan Order System",
   },
 };
 
-export default function ShareAppButton({ audience = "owner", lang = "en", variant = "pill" }) {
-  const [open, setOpen] = useState(false);
+export default function ShareAppButton({ audience = "owner", lang = "en" }) {
   const [copied, setCopied] = useState(false);
-  const c = audience === "owner" ? TEXT.owner : (lang === "hi" ? TEXT.customerHi : TEXT.customerEn);
+  const c = audience === "owner" ? TEXT.owner : (lang === "hi" ? TEXT.hi : TEXT.en);
   const url = `${window.location.origin}/`;
   const fullText = `${c.message} ${url}`;
-
-  const onClick = async () => {
-    if (navigator.share) {
-      try { await navigator.share({ title: c.title, text: c.message, url }); }
-      catch { /* share cancel kiya — koi error nahi */ }
-      return;
-    }
-    setOpen(true);
-  };
+  const canNativeShare = typeof navigator !== "undefined" && !!navigator.share;
 
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(fullText);
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      setTimeout(() => setCopied(false), 2200);
     } catch {
       window.prompt(c.copy, fullText);
     }
   };
 
-  const optStyle = {
-    display: "flex", alignItems: "center", justifyContent: "center", width: "100%", boxSizing: "border-box",
-    border: "1px solid #E3DECF", background: "white", color: "#1B4332", borderRadius: 10, padding: "12px 14px",
-    fontSize: 14, fontWeight: 700, textDecoration: "none", cursor: "pointer", fontFamily: "inherit",
+  const nativeShare = async () => {
+    try { await navigator.share({ title: c.appTitle, text: c.message, url }); }
+    catch { /* share cancel kiya — koi error nahi */ }
   };
 
-  const trigger = variant === "link" ? (
-    <button
-      type="button" onClick={onClick}
-      style={{ background: "none", border: "none", padding: "6px 4px", fontSize: 12.5, fontWeight: 700, color: "#6F6A5A", textDecoration: "underline", cursor: "pointer", fontFamily: "inherit" }}
-    >
-      {c.label}
-    </button>
-  ) : (
-    <button
-      type="button" onClick={onClick} className="ddemo-btn"
-      style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "white", border: "1px solid #E3DECF", borderRadius: 8, padding: "8px 12px", fontSize: 12, color: "#1B4332", fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}
-    >
-      {c.label}
-    </button>
-  );
+  const btn = {
+    display: "flex", alignItems: "center", justifyContent: "center", gap: 8, boxSizing: "border-box",
+    flex: "1 1 150px", borderRadius: 10, padding: "12px 14px", fontSize: 13.5, fontWeight: 800,
+    textDecoration: "none", cursor: "pointer", fontFamily: "inherit", minHeight: 44,
+  };
 
   return (
-    <>
-      {trigger}
-      {open && (
-        <div onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-          <div onClick={(e) => e.stopPropagation()} style={{ background: "#FFFFFF", borderRadius: 16, padding: 20, width: "100%", maxWidth: 360, display: "flex", flexDirection: "column", gap: 10, boxShadow: "0 12px 32px rgba(0,0,0,0.25)" }}>
-            <div style={{ fontWeight: 800, fontSize: 16, color: "#1A1A1A" }}>{c.sheetTitle}</div>
-            <div style={{ fontSize: 12.5, color: "#5C5747", lineHeight: 1.5, wordBreak: "break-word" }}>{c.message} {url}</div>
-            <a href={`https://wa.me/?text=${encodeURIComponent(fullText)}`} target="_blank" rel="noreferrer" style={optStyle}>{c.whatsapp}</a>
-            <a href={`mailto:?subject=${encodeURIComponent(c.emailSubject)}&body=${encodeURIComponent(fullText)}`} style={optStyle}>{c.email}</a>
-            <button type="button" onClick={copy} style={optStyle}>{copied ? c.copied : c.copy}</button>
-            <button type="button" onClick={() => setOpen(false)} style={{ background: "none", border: "none", color: "#6B6259", fontWeight: 700, fontSize: 13, cursor: "pointer", padding: "8px 0 0", fontFamily: "inherit" }}>{c.close}</button>
-          </div>
+    <div style={{ maxWidth: 900, margin: "0 auto", padding: "10px 18px 0" }}>
+      <div style={{ background: "#FFFFFF", border: "1px solid #E3DECF", borderRadius: 14, padding: "14px 14px 14px", textAlign: "left" }}>
+        <div style={{ fontWeight: 800, fontSize: 14, color: "#1B4332", marginBottom: 4 }}>{c.title}</div>
+        <div style={{ fontSize: 12.5, color: "#5C5747", lineHeight: 1.55, marginBottom: 10 }}>{c.sub}</div>
+
+        <div style={{ fontSize: 10.5, fontWeight: 700, color: "#8B8576", letterSpacing: 0.4, marginBottom: 4 }}>{c.linkLabel}</div>
+        <div style={{ background: "#F7F5F0", border: "1px dashed #CFC8B3", borderRadius: 8, padding: "9px 10px", fontSize: 13, color: "#1A1A1A", fontWeight: 700, wordBreak: "break-all", marginBottom: 12 }}>
+          {url}
         </div>
-      )}
-    </>
+
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <a href={`https://wa.me/?text=${encodeURIComponent(fullText)}`} target="_blank" rel="noreferrer" style={{ ...btn, background: "#25D366", color: "#FFFFFF", border: "none" }}>
+            {c.whatsapp}
+          </a>
+          <a href={`mailto:?subject=${encodeURIComponent(c.emailSubject)}&body=${encodeURIComponent(fullText)}`} style={{ ...btn, background: "#FFFFFF", color: "#1B4332", border: "1.5px solid #1B4332" }}>
+            {c.email}
+          </a>
+          <button type="button" onClick={copy} style={{ ...btn, background: copied ? "#E7F4EC" : "#FFFFFF", color: "#1B4332", border: "1.5px solid #1B4332" }}>
+            {copied ? c.copied : c.copy}
+          </button>
+          {canNativeShare && (
+            <button type="button" onClick={nativeShare} style={{ ...btn, background: "#FFFFFF", color: "#1B4332", border: "1.5px solid #1B4332" }}>
+              {c.more}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }

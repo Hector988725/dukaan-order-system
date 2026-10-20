@@ -758,12 +758,13 @@ function OwnerArea() {
         );
       })()}
 
-      <div style={{ maxWidth: "900px", margin: "0 auto", padding: "10px 18px 0", display: "flex", gap: "8px", flexWrap: "wrap" }}>
+      <div style={{ maxWidth: "900px", margin: "0 auto", padding: "10px 18px 0" }}>
         <StoreLinkShareButton store={store} />
-        <ShareAppButton audience="owner" />
       </div>
 
       {view === "dashboard" && <OwnerAppTips onGoStaff={() => { setAdminTab("staff"); setView("admin"); }} />}
+
+      {view === "dashboard" && <ShareAppButton audience="owner" />}
 
       {view === "dashboard" && <DashboardView store={store} products={products} orders={orders} deliveryBoys={deliveryBoys} hasMoreOrders={hasMoreOrders} loadingMoreOrders={loadingMoreOrders} onLoadMoreOrders={loadMoreOrders} onRefresh={silentRefresh} />}
       {view === "kitchen" && showKitchenTab && <KitchenScreen store={store} orders={orders} onRefresh={silentRefresh} />}
