@@ -34,7 +34,7 @@ import DistributorApp from "./components/DistributorApp";
 
 import StaffApp from "./components/StaffApp";
 import { friendlyError } from "./lib/errors";
-import ShareAppButton from "./components/ShareAppButton";
+import OwnerToolsBar from "./components/OwnerToolsBar";
 export default function App() {
   // Deployment mein VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY set nahi hain —
   // pehle ye poori app ko blank white page bana ke crash kar deta tha. Ab
@@ -758,13 +758,7 @@ function OwnerArea() {
         );
       })()}
 
-      <div style={{ maxWidth: "900px", margin: "0 auto", padding: "10px 18px 0" }}>
-        <StoreLinkShareButton store={store} />
-      </div>
-
-      {view === "dashboard" && <OwnerAppTips onGoStaff={() => { setAdminTab("staff"); setView("admin"); }} />}
-
-      {view === "dashboard" && <ShareAppButton audience="owner" />}
+      {view === "dashboard" && <OwnerToolsBar store={store} onGoStaff={() => { setAdminTab("staff"); setView("admin"); }} />}
 
       {view === "dashboard" && <DashboardView store={store} products={products} orders={orders} deliveryBoys={deliveryBoys} hasMoreOrders={hasMoreOrders} loadingMoreOrders={loadingMoreOrders} onLoadMoreOrders={loadMoreOrders} onRefresh={silentRefresh} />}
       {view === "kitchen" && showKitchenTab && <KitchenScreen store={store} orders={orders} onRefresh={silentRefresh} />}
@@ -772,84 +766,6 @@ function OwnerArea() {
       {view === "quickbill" && <div style={{ maxWidth: "600px", margin: "0 auto", padding: "16px 18px 40px" }}><QuickBill store={store} products={products} onOrderPlaced={silentRefresh} /></div>}
       {view === "purchase" && showPurchaseTab && <div style={{ maxWidth: "600px", margin: "0 auto", padding: "16px 18px 40px" }}><PurchasePanel store={store} products={products} onRefresh={silentRefresh} /></div>}
       {view === "admin" && <AdminPanel key={adminTab || "default"} store={store} products={products} user={user} onRefresh={silentRefresh} initialTab={adminTab || undefined} />}
-    </div>
-  );
-}
-
-// ============================================================
-// STORE LINK — SHARE/COPY (never navigate away from admin view)
-// ============================================================
-// Pehle yeh ek <a href target="_blank"> tha. Browser mein toh naya tab
-// khulta, lekin installed PWA mein (jahan "naya tab" jaisi cheez nahi
-// hoti — poora app ek hi window hai) yeh admin view se seedha customer
-// storefront par navigate kar deta tha, aur wapas aane ke liye app
-// force-close karke dobara kholna padta tha. Ab is button se link
-// share/copy hoti hai — dukaandar KABHI apni current screen se hatta
-// hi nahi.
-function StoreLinkShareButton({ store }) {
-  const [copied, setCopied] = useState(false);
-  const storeUrl = `${window.location.origin}/${store.slug}`;
-
-  const handleShare = async () => {
-    // Mobile par native "Share" sheet khulta hai (WhatsApp, SMS, etc.
-    // seedha) — yeh sabse achha UX hai, aur current page kabhi nahi badalti.
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: store.name, text: `${store.name} — order karne ke liye yeh link kholein:`, url: storeUrl });
-        return;
-      } catch {
-        // User ne share cancel kiya ho sakta hai — koi error nahi dikhate.
-        return;
-      }
-    }
-    // Share API na ho (jaise desktop browser) to link clipboard mein copy karo.
-    try {
-      await navigator.clipboard.writeText(storeUrl);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      alert("Link copy nahi ho paayi. Manually copy karein: " + storeUrl);
-    }
-  };
-
-  return (
-    <button
-      onClick={handleShare}
-      className="ddemo-btn"
-      style={{ display: "inline-flex", alignItems: "center", gap: "6px", background: "white", border: "1px solid #E3DECF", borderRadius: "8px", padding: "8px 12px", fontSize: "12px", color: "#1B4332", fontWeight: 700, cursor: "pointer" }}
-    >
-      {copied ? <>✓ Link Copy Ho Gayi</> : <>🔗 Aapki dukaan ka link: <b>/{store.slug}</b> — Share/Copy Karein</>}
-    </button>
-  );
-}
-
-// ============================================================
-// Dukaandar ke dashboard par: apna app install karein + staff ko app dein.
-// X dabane par 14 din ke liye chhup jata hai (storage na chale to bas is visit
-// me chhupta hai). Jab app pehle se install ho to install wala hissa nahi dikhta.
-// ============================================================
-const TIPS_KEY = "dos_owner_tips_hidden_until";
-function OwnerAppTips({ onGoStaff }) {
-  const [hidden, setHidden] = useState(() => {
-    try { return Number(localStorage.getItem(TIPS_KEY) || 0) > Date.now(); } catch { return false; }
-  });
-  if (hidden) return null;
-  const hide = () => {
-    setHidden(true);
-    try { localStorage.setItem(TIPS_KEY, String(Date.now() + 14 * 24 * 60 * 60 * 1000)); } catch { /* ignore */ }
-  };
-  return (
-    <div style={{ maxWidth: "900px", margin: "0 auto", padding: "10px 18px 0" }}>
-      <div style={{ position: "relative", background: "#F1F6F3", border: "1px solid #CFE0D5", borderRadius: "12px", padding: "12px 38px 12px 14px" }}>
-        <button onClick={hide} aria-label="Band karein" style={{ position: "absolute", top: 6, right: 8, background: "none", border: "none", fontSize: 18, lineHeight: 1, color: "#6F7F76", cursor: "pointer" }}>×</button>
-        <div style={{ fontWeight: 800, fontSize: "13px", color: "#1B4332", marginBottom: "4px" }}>👥 Apne staff ko app dein</div>
-        <div style={{ fontSize: "12px", color: "#3F4A44", lineHeight: 1.55, marginBottom: "10px" }}>
-          Aapke <b>staff</b> ka bhi apna alag app hai — unki ID banayein, unhe link bhejein, wo khud app install karke apne mobile + password se login karenge.
-        </div>
-        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-          <button onClick={onGoStaff} style={{ flex: "1 1 170px", border: "1.5px solid #1F4E8C", background: "white", color: "#1F4E8C", borderRadius: 10, padding: "11px 14px", fontSize: 13, fontWeight: 800, cursor: "pointer" }}>👥 Staff ki ID banayein</button>
-        </div>
-      </div>
     </div>
   );
 }

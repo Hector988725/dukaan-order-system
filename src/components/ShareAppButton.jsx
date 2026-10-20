@@ -5,7 +5,7 @@ import React, { useState } from "react";
 // Ek saaf card: upar kya hai, beech mein asli link, neeche seedhe bade buttons
 // (WhatsApp / Email / Link copy / Aur apps). Koi chhupa hua sheet nahi.
 // Link hamesha app ka homepage hota hai (jahan naya dukaandar signup kar sake).
-// Props: audience "owner" | "customer", lang "hi" | "en"
+// Props: audience "owner" | "customer" | "store", lang "hi" | "en", store (audience "store"), bare (bina bahar ke padding ke)
 // ============================================================
 const TEXT = {
   owner: {
@@ -37,10 +37,21 @@ const TEXT = {
   },
 };
 
-export default function ShareAppButton({ audience = "owner", lang = "en" }) {
+export default function ShareAppButton({ audience = "owner", lang = "en", store = null, bare = false }) {
   const [copied, setCopied] = useState(false);
-  const c = audience === "owner" ? TEXT.owner : (lang === "hi" ? TEXT.hi : TEXT.en);
-  const url = `${window.location.origin}/`;
+  const shopName = store?.name || "Dukaan";
+  const c = audience === "store"
+    ? {
+        title: "🔗 Apni dukaan ka link — customers ko bhejein",
+        sub: "Ye aapki dukaan ka link hai. Customer ise kholkar seedha aapki dukaan se order kar sakta hai. Ise WhatsApp group, status ya apne customers ko bhejein.",
+        linkLabel: "Aapki dukaan ka link",
+        whatsapp: "WhatsApp par bhejein", email: "Email se bhejein", copy: "📋 Link copy karein", copied: "✓ Link copy ho gayi", more: "Aur apps se bhejein",
+        message: `${shopName} — order karne ke liye yeh link kholein:`,
+        emailSubject: `${shopName} — online order link`,
+        appTitle: shopName,
+      }
+    : audience === "owner" ? TEXT.owner : (lang === "hi" ? TEXT.hi : TEXT.en);
+  const url = audience === "store" && store?.slug ? `${window.location.origin}/${store.slug}` : `${window.location.origin}/`;
   const fullText = `${c.message} ${url}`;
   const canNativeShare = typeof navigator !== "undefined" && !!navigator.share;
 
@@ -66,7 +77,7 @@ export default function ShareAppButton({ audience = "owner", lang = "en" }) {
   };
 
   return (
-    <div style={{ maxWidth: 900, margin: "0 auto", padding: "10px 18px 0" }}>
+    <div style={bare ? undefined : { maxWidth: 900, margin: "0 auto", padding: "10px 18px 0" }}>
       <div style={{ background: "#FFFFFF", border: "1px solid #E3DECF", borderRadius: 14, padding: "14px 14px 14px", textAlign: "left" }}>
         <div style={{ fontWeight: 800, fontSize: 14, color: "#1B4332", marginBottom: 4 }}>{c.title}</div>
         <div style={{ fontSize: 12.5, color: "#5C5747", lineHeight: 1.55, marginBottom: 10 }}>{c.sub}</div>
