@@ -34,6 +34,7 @@ import DistributorApp from "./components/DistributorApp";
 
 import StaffApp from "./components/StaffApp";
 import { friendlyError } from "./lib/errors";
+import ShareAppButton from "./components/ShareAppButton";
 export default function App() {
   // Deployment mein VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY set nahi hain —
   // pehle ye poori app ko blank white page bana ke crash kar deta tha. Ab
@@ -757,8 +758,9 @@ function OwnerArea() {
         );
       })()}
 
-      <div style={{ maxWidth: "900px", margin: "0 auto", padding: "10px 18px 0" }}>
+      <div style={{ maxWidth: "900px", margin: "0 auto", padding: "10px 18px 0", display: "flex", gap: "8px", flexWrap: "wrap" }}>
         <StoreLinkShareButton store={store} />
+        <ShareAppButton audience="owner" />
       </div>
 
       {view === "dashboard" && <OwnerAppTips onGoStaff={() => { setAdminTab("staff"); setView("admin"); }} />}

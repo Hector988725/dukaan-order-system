@@ -8,6 +8,7 @@ import { OrderTrackingModal } from "./OrderTracking";
 import { friendlyError } from "../lib/errors";
 import { useLang } from "../lib/i18n";
 import LangToggle from "./LangToggle";
+import ShareAppButton from "./ShareAppButton";
 const PENDING_UPI_KEY = "dukaan_pending_upi_checkout";
 
 // Order place hone ke baad uska number is device par (customer ke apne
@@ -687,6 +688,11 @@ const CustomerView = forwardRef(function CustomerView({ store, products, onOrder
           </div>
         </div>
       )}
+
+      {/* Customer ya koi bhi visitor ye app kisi dusre dukaandar ko bhej sake. */}
+      <div style={{ padding: "6px 18px 26px", textAlign: "center" }}>
+        <ShareAppButton audience="customer" lang={lang} variant="link" />
+      </div>
 
       {variantPicker && !bookingMode && (
         <VariantPickerModal product={variantPicker} cart={cart} addToCart={addToCart} decFromCart={decFromCart} theme={theme} onClose={() => setVariantPicker(null)} triggerFlyToCart={triggerFlyToCart} cartCount={cartCount} cartTotal={cartTotal} onGoToCart={() => { setVariantPicker(null); setDetailProduct(null); setCartOpen(true); }} />
