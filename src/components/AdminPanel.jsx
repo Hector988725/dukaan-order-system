@@ -19,11 +19,11 @@ import ComboManager from "./ComboManager";
 import TableQR from "./TableQR";
 import { validateVeriloSettings } from "../lib/verilo";
 
-export default function AdminPanel({ store, products, user, onRefresh, initialTab }) {
-  return <AdminContent store={store} products={products} user={user} onRefresh={onRefresh} initialTab={initialTab} />;
+export default function AdminPanel({ store, products, user, onRefresh, initialTab, focusSection }) {
+  return <AdminContent store={store} products={products} user={user} onRefresh={onRefresh} initialTab={initialTab} focusSection={focusSection} />;
 }
 
-function AdminContent({ store, products, user, onRefresh, initialTab }) {
+function AdminContent({ store, products, user, onRefresh, initialTab, focusSection }) {
   const [tab, setTab] = useState(initialTab || "products");
   // Tab-strip: jab aur tabs side mein chhupe hon to right edge par fade+arrow dikhao
   const tabStripRef = useRef(null);
@@ -87,7 +87,7 @@ function AdminContent({ store, products, user, onRefresh, initialTab }) {
       {tab === "delivery" && <DeliveryBoyManager store={store} />}
       {tab === "staff" && <ShopStaffManager store={store} />}
       {tab === "tableqr" && <TableQR store={store} />}
-      {tab === "settings" && <StoreSettingsForm store={store} onRefresh={onRefresh} />}
+      {tab === "settings" && <StoreSettingsForm store={store} onRefresh={onRefresh} focusSection={focusSection} />}
       {tab === "account" && <AccountSettings user={user} />}
       {tab === "subscription" && <SubscriptionPanel store={store} onRefresh={onRefresh} />}
     </div>
@@ -182,7 +182,7 @@ function formatTimeRange(opensAt, closesAt) {
   return `${fmt(opensAt)} To ${fmt(closesAt)}`;
 }
 
-function StoreSettingsForm({ store, onRefresh }) {
+function StoreSettingsForm({ store, onRefresh, focusSection }) {
   const [name, setName] = useState(store.name);
   const [whatsapp, setWhatsapp] = useState(store.whatsapp_number);
   const [upi, setUpi] = useState(store.upi_id || "");
@@ -201,6 +201,14 @@ function StoreSettingsForm({ store, onRefresh }) {
   const [gstPriceType, setGstPriceType] = useState(store.gst_price_type || "exclusive");
   const [gstState, setGstState] = useState(store.gst_state || "");
   const [gstin, setGstin] = useState(store.gstin || "");
+  const veriloRef = useRef(null);
+  // Dashboard ke "Manage Verilo Listing" button se aane par seedha Verilo section par scroll karo.
+  useEffect(() => {
+    if (focusSection === "verilo" && veriloRef.current) {
+      const t = setTimeout(() => veriloRef.current && veriloRef.current.scrollIntoView({ behavior: "smooth", block: "start" }), 120);
+      return () => clearTimeout(t);
+    }
+  }, [focusSection]);
   const [veriloOptIn, setVeriloOptIn] = useState(!!store.verilo_opt_in);
   const [veriloCity, setVeriloCity] = useState(store.city || "");
   const [veriloState, setVeriloState] = useState(store.state || "");
@@ -415,7 +423,7 @@ function StoreSettingsForm({ store, onRefresh }) {
           <Field label="Google Business Profile Link" value={gmbUrl} onChange={setGmbUrl} placeholder="Google Maps par dukaan ki listing ka link" />
         </div>
       </div>
-      <div style={{ borderTop: "1px solid #E3DECF", paddingTop: "12px", marginTop: "2px" }}>
+      <div ref={veriloRef} style={{ borderTop: "1px solid #E3DECF", paddingTop: "12px", marginTop: "2px", scrollMarginTop: "70px" }}>
         <div style={{ fontSize: "12px", fontWeight: 700, color: "#1A1A1A", marginBottom: "4px" }}>📍 Verilo par apni dukaan dikhayein (optional)</div>
         <div style={{ fontSize: "10.5px", color: "#8B8576", marginBottom: "10px" }}>
           Verilo ek local services directory hai jahan aas-paas ke log dukaan dhoondhte hain. ON karne par aapki dukaan wahan bhi dikh sakti hai — bina kisi extra charge ke.

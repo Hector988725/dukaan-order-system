@@ -35,6 +35,7 @@ import DistributorApp from "./components/DistributorApp";
 import StaffApp from "./components/StaffApp";
 import { friendlyError } from "./lib/errors";
 import OwnerToolsBar from "./components/OwnerToolsBar";
+import VeriloPartnerCard from "./components/VeriloPartnerCard";
 export default function App() {
   // Deployment mein VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY set nahi hain —
   // pehle ye poori app ko blank white page bana ke crash kar deta tha. Ab
@@ -405,6 +406,7 @@ function OwnerArea() {
     return () => window.removeEventListener("popstate", onPop);
   }, []);
   const [adminTab, setAdminTab] = useState(null);
+  const [adminFocus, setAdminFocus] = useState(null); // Store Settings me kis section par scroll karna hai (jaise "verilo")
   const [loadingStore, setLoadingStore] = useState(false);
   // storeChecked: server se store ka jawab (mila ya "nahi hai") sach mein aa chuka hai.
   // storeError: load fail hua (network/token) — tab "Dukaan banayein" form NAHI dikhana.
@@ -733,7 +735,7 @@ function OwnerArea() {
             <button className={`ddemo-toggle-btn ${view === "storepreview" ? "active" : ""}`} onClick={() => setView("storepreview")}>
               <Eye size={13} /> Dukaan
             </button>
-            <button className={`ddemo-toggle-btn ${view === "admin" ? "active" : ""}`} onClick={() => { setAdminTab(null); setView("admin"); }}>
+            <button className={`ddemo-toggle-btn ${view === "admin" ? "active" : ""}`} onClick={() => { setAdminTab(null); setAdminFocus(null); setView("admin"); }}>
               <ShieldCheck size={13} /> Admin
             </button>
           </div>
@@ -758,14 +760,15 @@ function OwnerArea() {
         );
       })()}
 
-      {view === "dashboard" && <OwnerToolsBar store={store} onGoStaff={() => { setAdminTab("staff"); setView("admin"); }} />}
+      {view === "dashboard" && <OwnerToolsBar store={store} onGoStaff={() => { setAdminTab("staff"); setAdminFocus(null); setView("admin"); }} />}
+      {view === "dashboard" && <VeriloPartnerCard store={store} onManage={() => { setAdminTab("settings"); setAdminFocus("verilo"); setView("admin"); }} />}
 
       {view === "dashboard" && <DashboardView store={store} products={products} orders={orders} deliveryBoys={deliveryBoys} hasMoreOrders={hasMoreOrders} loadingMoreOrders={loadingMoreOrders} onLoadMoreOrders={loadMoreOrders} onRefresh={silentRefresh} />}
       {view === "kitchen" && showKitchenTab && <KitchenScreen store={store} orders={orders} onRefresh={silentRefresh} />}
       {view === "khata" && <div style={{ padding: "16px 0 40px" }}><KhataPanel store={store} /></div>}
       {view === "quickbill" && <div style={{ maxWidth: "600px", margin: "0 auto", padding: "16px 18px 40px" }}><QuickBill store={store} products={products} onOrderPlaced={silentRefresh} /></div>}
       {view === "purchase" && showPurchaseTab && <div style={{ maxWidth: "600px", margin: "0 auto", padding: "16px 18px 40px" }}><PurchasePanel store={store} products={products} onRefresh={silentRefresh} /></div>}
-      {view === "admin" && <AdminPanel key={adminTab || "default"} store={store} products={products} user={user} onRefresh={silentRefresh} initialTab={adminTab || undefined} />}
+      {view === "admin" && <AdminPanel key={adminTab || "default"} store={store} products={products} user={user} onRefresh={silentRefresh} initialTab={adminTab || undefined} focusSection={adminFocus || undefined} />}
     </div>
   );
 }
