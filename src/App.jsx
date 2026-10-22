@@ -702,7 +702,7 @@ function OwnerArea() {
         backgroundImage: `${getHeaderBackground(getTheme(store.business_type))}, repeating-linear-gradient(135deg, rgba(255,255,255,0.05) 0px, rgba(255,255,255,0.05) 1px, transparent 1px, transparent 12px)`,
         padding: "14px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", flexWrap: "wrap",
       }}>
-        <StoreHeaderBrand store={store} editable onToggleOpen={handleToggleOpen} showTagline={false} />
+        <StoreHeaderBrand store={store} editable onToggleOpen={handleToggleOpen} showTagline={false} onGoVerilo={() => { setAdminTab("settings"); setAdminFocus("verilo"); setView("admin"); }} />
 
         <div className="ddemo-nav-wrap" style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           <div className="ddemo-toggle-track" style={{ overflowX: "auto", WebkitOverflowScrolling: "touch", flexShrink: 1 }}>
@@ -759,7 +759,7 @@ function OwnerArea() {
         );
       })()}
 
-      {view === "dashboard" && <OwnerToolsBar store={store} onGoStaff={() => { setAdminTab("staff"); setAdminFocus(null); setView("admin"); }} onGoVerilo={() => { setAdminTab("settings"); setAdminFocus("verilo"); setView("admin"); }} />}
+      {view === "dashboard" && <OwnerToolsBar store={store} onGoStaff={() => { setAdminTab("staff"); setAdminFocus(null); setView("admin"); }} />}
 
       {view === "dashboard" && <DashboardView store={store} products={products} orders={orders} deliveryBoys={deliveryBoys} hasMoreOrders={hasMoreOrders} loadingMoreOrders={loadingMoreOrders} onLoadMoreOrders={loadMoreOrders} onRefresh={silentRefresh} />}
       {view === "kitchen" && showKitchenTab && <KitchenScreen store={store} orders={orders} onRefresh={silentRefresh} />}
@@ -911,7 +911,7 @@ function ScrollingTicker({ text }) {
   );
 }
 
-function StoreHeaderBrand({ store, editable, onToggleOpen, showTagline = true }) {
+function StoreHeaderBrand({ store, editable, onToggleOpen, showTagline = true, onGoVerilo }) {
   const theme = getTheme(store.business_type);
   const isAuto = !!store.auto_hours_enabled;
   const [, forceTick] = useState(0);
@@ -971,6 +971,22 @@ function StoreHeaderBrand({ store, editable, onToggleOpen, showTagline = true })
             <span style={{ width: 5, height: 5, borderRadius: "50%", background: isOpen ? "#4CAF50" : "#D32F2F" }} />
             {isOpen ? "OPEN" : "BAND HAI"}{isAuto ? " 🕐" : ""}
           </button>
+          {/* Verilo (doosra app) ka chhota gold button — sirf dukaandar ke header me (onGoVerilo diya ho tabhi).
+              Dabane par seedha Store Settings ke Verilo section par jaata hai. Dot = maujooda setting (store.verilo_opt_in). */}
+          {onGoVerilo && (
+            <button
+              type="button" onClick={onGoVerilo} className="ddemo-btn"
+              title={store.verilo_opt_in ? "Verilo par aapki dukaan ON hai — manage karein" : "Verilo par apni dukaan dikhayein"}
+              style={{
+                display: "flex", alignItems: "center", gap: "4px", flexShrink: 0, cursor: "pointer", fontFamily: "inherit",
+                background: "#D4A24C", color: "#2B1D00", border: "none", borderRadius: "999px", padding: "2px 8px 2px 6px",
+                fontSize: "9.5px", fontWeight: 800, boxShadow: "0 1px 4px rgba(0,0,0,0.3)",
+              }}
+            >
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: store.verilo_opt_in ? "#1F8A4C" : "transparent", border: store.verilo_opt_in ? "none" : "1.2px solid #2B1D00" }} />
+              Verilo ↗
+            </button>
+          )}
         </div>
       </div>
     </div>
