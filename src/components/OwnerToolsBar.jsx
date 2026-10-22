@@ -35,17 +35,19 @@ export default function OwnerToolsBar({ store, onGoStaff, onGoVerilo }) {
         {chip("app", "📣 App share")}
         {chip("staff", "👥 Staff app")}
         {onGoVerilo && (
-          // Seedha Store Settings ke Verilo section par le jaata hai. Status wahi maujooda setting (store.verilo_opt_in) hai.
+          // Alag dikhne wala button: Verilo doosra app hai, isliye baaki chips se alag shape/rang, row ke right end par.
+          // Dabane par seedha Store Settings ke Verilo section par jaata hai. Status wahi maujooda setting (store.verilo_opt_in).
           <button
-            type="button" onClick={onGoVerilo}
+            type="button" onClick={onGoVerilo} title="Verilo par apni dukaan manage karein"
             style={{
-              display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer", fontFamily: "inherit",
-              borderRadius: 999, padding: "7px 12px", fontSize: 12, fontWeight: 800,
-              border: "1.5px solid #D4A24C", background: "#FFFBF0", color: "#1B4332",
+              marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 7, cursor: "pointer", fontFamily: "inherit",
+              borderRadius: 10, padding: "8px 14px", fontSize: 12.5, fontWeight: 800, border: "none",
+              background: "linear-gradient(135deg, #E8B95A, #C98E2B)", color: "#2B1D00",
+              boxShadow: "0 3px 10px rgba(201,142,43,0.4)",
             }}
           >
-            📍 Verilo
-            <span style={{ fontSize: 10.5, fontWeight: 800, borderRadius: 999, padding: "1px 7px", background: store.verilo_opt_in ? "#E7F4EC" : "#F1EEE4", color: store.verilo_opt_in ? "#1B4332" : "#6B6555" }}>
+            📍 Verilo ↗
+            <span style={{ fontSize: 10.5, fontWeight: 800, borderRadius: 999, padding: "1px 8px", background: store.verilo_opt_in ? "#1B4332" : "rgba(255,255,255,0.65)", color: store.verilo_opt_in ? "#FFFFFF" : "#6B4A00" }}>
               {store.verilo_opt_in ? "On" : "Off"}
             </span>
           </button>
