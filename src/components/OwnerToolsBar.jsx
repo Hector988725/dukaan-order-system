@@ -8,7 +8,7 @@ import ShareAppButton from "./ShareAppButton";
 //  2. Ye app dusre dukaandar ko bhejein
 //  3. Staff ko app dein
 // ============================================================
-export default function OwnerToolsBar({ store, onGoStaff }) {
+export default function OwnerToolsBar({ store, onGoStaff, onGoVerilo }) {
   const [open, setOpen] = useState(null); // null | "store" | "app" | "staff"
   const toggle = (k) => setOpen((cur) => (cur === k ? null : k));
 
@@ -34,6 +34,22 @@ export default function OwnerToolsBar({ store, onGoStaff }) {
         {chip("store", "🔗 Dukaan link")}
         {chip("app", "📣 App share")}
         {chip("staff", "👥 Staff app")}
+        {onGoVerilo && (
+          // Seedha Store Settings ke Verilo section par le jaata hai. Status wahi maujooda setting (store.verilo_opt_in) hai.
+          <button
+            type="button" onClick={onGoVerilo}
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer", fontFamily: "inherit",
+              borderRadius: 999, padding: "7px 12px", fontSize: 12, fontWeight: 800,
+              border: "1.5px solid #D4A24C", background: "#FFFBF0", color: "#1B4332",
+            }}
+          >
+            📍 Verilo
+            <span style={{ fontSize: 10.5, fontWeight: 800, borderRadius: 999, padding: "1px 7px", background: store.verilo_opt_in ? "#E7F4EC" : "#F1EEE4", color: store.verilo_opt_in ? "#1B4332" : "#6B6555" }}>
+              {store.verilo_opt_in ? "On" : "Off"}
+            </span>
+          </button>
+        )}
       </div>
 
       {open === "store" && <div style={{ marginTop: 10 }}><ShareAppButton audience="store" store={store} bare /></div>}

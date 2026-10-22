@@ -35,7 +35,6 @@ import DistributorApp from "./components/DistributorApp";
 import StaffApp from "./components/StaffApp";
 import { friendlyError } from "./lib/errors";
 import OwnerToolsBar from "./components/OwnerToolsBar";
-import VeriloPartnerCard from "./components/VeriloPartnerCard";
 export default function App() {
   // Deployment mein VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY set nahi hain —
   // pehle ye poori app ko blank white page bana ke crash kar deta tha. Ab
@@ -760,8 +759,7 @@ function OwnerArea() {
         );
       })()}
 
-      {view === "dashboard" && <OwnerToolsBar store={store} onGoStaff={() => { setAdminTab("staff"); setAdminFocus(null); setView("admin"); }} />}
-      {view === "dashboard" && <VeriloPartnerCard store={store} onManage={() => { setAdminTab("settings"); setAdminFocus("verilo"); setView("admin"); }} />}
+      {view === "dashboard" && <OwnerToolsBar store={store} onGoStaff={() => { setAdminTab("staff"); setAdminFocus(null); setView("admin"); }} onGoVerilo={() => { setAdminTab("settings"); setAdminFocus("verilo"); setView("admin"); }} />}
 
       {view === "dashboard" && <DashboardView store={store} products={products} orders={orders} deliveryBoys={deliveryBoys} hasMoreOrders={hasMoreOrders} loadingMoreOrders={loadingMoreOrders} onLoadMoreOrders={loadMoreOrders} onRefresh={silentRefresh} />}
       {view === "kitchen" && showKitchenTab && <KitchenScreen store={store} orders={orders} onRefresh={silentRefresh} />}
