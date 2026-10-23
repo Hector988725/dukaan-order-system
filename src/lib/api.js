@@ -106,6 +106,18 @@ export async function fetchStoreByUserId(userId) {
   return data;
 }
 
+// Verilo ke 5 fields ka database me ASLI maujooda haal (save ke baad pakka karne ke liye).
+// Owner apni hi store row padh sakta hai (wahi RLS jo fetchStoreByUserId me chalti hai).
+export async function fetchStoreVeriloSettings(storeId) {
+  const { data, error } = await supabase
+    .from("stores")
+    .select("verilo_opt_in, verilo_opt_in_at, city, state, pincode")
+    .eq("id", storeId)
+    .single();
+  if (error) throw error;
+  return data;
+}
+
 export async function checkSlugAvailable(slug) {
   const { data, error } = await supabase.rpc("is_slug_available", { check_slug: slug });
   if (error) throw error;

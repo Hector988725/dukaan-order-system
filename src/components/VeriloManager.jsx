@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { ArrowLeft, Check, Save } from "lucide-react";
-import { updateStoreSettings } from "../lib/api";
+import { updateStoreSettings, fetchStoreVeriloSettings } from "../lib/api";
 import { INDIAN_STATES } from "../lib/gst";
 import { validateVeriloSettings, veriloButtonState } from "../lib/verilo";
 
@@ -52,6 +52,14 @@ export default function VeriloManager({ store, onRefresh, onBack, onGoSubscripti
     setSaving(true);
     try {
       await updateStoreSettings(store.id, verilo.values); // sirf Verilo ke fields
+      // Pakka karo ki database me sach me save hua (update 0 rows par bhi bina error ke "ok" de sakta hai).
+      const stored = await fetchStoreVeriloSettings(store.id);
+      const v = verilo.values;
+      if (!stored || stored.verilo_opt_in !== v.verilo_opt_in || (stored.city || null) !== v.city || (stored.state || null) !== v.state || (stored.pincode || null) !== v.pincode) {
+        setError("Badlav database me save nahi hua, isliye Verilo par abhi koi badlav nahi aayega. Dobara koshish karein; phir bhi na ho to dobara login karke try karein.");
+        await onRefresh();
+        return;
+      }
       await onRefresh();
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);

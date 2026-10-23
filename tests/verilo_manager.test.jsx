@@ -5,11 +5,14 @@ import { renderToStaticMarkup } from "react-dom/server";
 // Save ka asli payload pakadne ke liye supabase client mock.
 const calls = [];
 vi.mock("../src/lib/supabase", () => ({
-  supabase: { from: (t) => ({ update: (payload) => ({ eq: async (c, v) => { calls.push({ t, payload: JSON.parse(JSON.stringify(payload)), c, v }); return { error: null }; } }) }) },
+  supabase: { from: (t) => ({
+    update: (payload) => ({ eq: async (c, v) => { calls.push({ t, payload: JSON.parse(JSON.stringify(payload)), c, v }); return { error: null }; } }),
+    select: (cols) => ({ eq: () => ({ single: async () => { calls.push({ t, select: cols }); return { data: globalThis.__stored, error: null }; } }) }),
+  }) },
 }));
 
 import VeriloManager from "../src/components/VeriloManager.jsx";
-import { updateStoreSettings } from "../src/lib/api.js";
+import { updateStoreSettings, fetchStoreVeriloSettings } from "../src/lib/api.js";
 import { validateVeriloSettings } from "../src/lib/verilo.js";
 
 const future = new Date(Date.now() + 864e5).toISOString();
@@ -65,5 +68,15 @@ describe("Save only touches Verilo fields", () => {
     const v = validateVeriloSettings({ optIn: false, city: "Anuppur", state: "Madhya Pradesh", pincode: "484224", wasOptIn: true, existingAt: "2026-10-15T00:00:00.000Z" });
     await updateStoreSettings("s1", v.values);
     expect(calls[0].payload).toEqual({ verilo_opt_in: false, verilo_opt_in_at: null, city: "Anuppur", state: "Madhya Pradesh", pincode: "484224" });
+  });
+});
+
+describe("read-back of stored Verilo settings", () => {
+  beforeEach(() => { calls.length = 0; });
+  it("reads exactly the 5 verilo columns from stores", async () => {
+    globalThis.__stored = { verilo_opt_in: false, verilo_opt_in_at: null, city: "Anuppur", state: "Madhya Pradesh", pincode: "484224" };
+    const r = await fetchStoreVeriloSettings("s1");
+    expect(r.verilo_opt_in).toBe(false);
+    expect(calls[0]).toMatchObject({ t: "stores", select: "verilo_opt_in, verilo_opt_in_at, city, state, pincode" });
   });
 });
