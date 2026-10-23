@@ -34,7 +34,9 @@ import DistributorApp from "./components/DistributorApp";
 
 import StaffApp from "./components/StaffApp";
 import { friendlyError } from "./lib/errors";
+import { veriloButtonState } from "./lib/verilo";
 import OwnerToolsBar from "./components/OwnerToolsBar";
+import VeriloManager from "./components/VeriloManager";
 export default function App() {
   // Deployment mein VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY set nahi hain —
   // pehle ye poori app ko blank white page bana ke crash kar deta tha. Ab
@@ -702,7 +704,7 @@ function OwnerArea() {
         backgroundImage: `${getHeaderBackground(getTheme(store.business_type))}, repeating-linear-gradient(135deg, rgba(255,255,255,0.05) 0px, rgba(255,255,255,0.05) 1px, transparent 1px, transparent 12px)`,
         padding: "14px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", flexWrap: "wrap",
       }}>
-        <StoreHeaderBrand store={store} editable onToggleOpen={handleToggleOpen} showTagline={false} onGoVerilo={() => { setAdminTab("settings"); setAdminFocus("verilo"); setView("admin"); }} />
+        <StoreHeaderBrand store={store} editable onToggleOpen={handleToggleOpen} showTagline={false} onGoVerilo={() => setView("verilo")} />
 
         <div className="ddemo-nav-wrap" style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           <div className="ddemo-toggle-track" style={{ overflowX: "auto", WebkitOverflowScrolling: "touch", flexShrink: 1 }}>
@@ -766,6 +768,7 @@ function OwnerArea() {
       {view === "khata" && <div style={{ padding: "16px 0 40px" }}><KhataPanel store={store} /></div>}
       {view === "quickbill" && <div style={{ maxWidth: "600px", margin: "0 auto", padding: "16px 18px 40px" }}><QuickBill store={store} products={products} onOrderPlaced={silentRefresh} /></div>}
       {view === "purchase" && showPurchaseTab && <div style={{ maxWidth: "600px", margin: "0 auto", padding: "16px 18px 40px" }}><PurchasePanel store={store} products={products} onRefresh={silentRefresh} /></div>}
+      {view === "verilo" && <VeriloManager store={store} onRefresh={silentRefresh} onBack={() => setView("dashboard")} onGoSubscription={() => { setAdminTab("subscription"); setAdminFocus(null); setView("admin"); }} />}
       {view === "admin" && <AdminPanel key={adminTab || "default"} store={store} products={products} user={user} onRefresh={silentRefresh} initialTab={adminTab || undefined} focusSection={adminFocus || undefined} />}
     </div>
   );
@@ -973,20 +976,24 @@ function StoreHeaderBrand({ store, editable, onToggleOpen, showTagline = true, o
           </button>
           {/* Verilo (doosra app) ka chhota gold button — sirf dukaandar ke header me (onGoVerilo diya ho tabhi).
               Dabane par seedha Store Settings ke Verilo section par jaata hai. Dot = maujooda setting (store.verilo_opt_in). */}
-          {onGoVerilo && (
-            <button
-              type="button" onClick={onGoVerilo} className="ddemo-btn"
-              title={store.verilo_opt_in ? "Verilo par aapki dukaan ON hai — manage karein" : "Verilo par apni dukaan dikhayein"}
-              style={{
-                display: "flex", alignItems: "center", gap: "4px", flexShrink: 0, cursor: "pointer", fontFamily: "inherit",
-                background: "#D4A24C", color: "#2B1D00", border: "none", borderRadius: "999px", padding: "2px 8px 2px 6px",
-                fontSize: "9.5px", fontWeight: 800, boxShadow: "0 1px 4px rgba(0,0,0,0.3)",
-              }}
-            >
-              <span style={{ width: 6, height: 6, borderRadius: "50%", background: store.verilo_opt_in ? "#1F8A4C" : "transparent", border: store.verilo_opt_in ? "none" : "1.2px solid #2B1D00" }} />
-              Verilo ↗
-            </button>
-          )}
+          {onGoVerilo && (() => {
+            // Hamesha Verilo Management page kholta hai. Sirf label/dot status batate hain:
+            //   live -> "● Verilo ↗" | off -> "Enable Verilo" | paused -> "Verilo Paused"
+            const vb = veriloButtonState(store);
+            const label = vb.status === "live" ? "Verilo ↗" : vb.status === "paused" ? "Verilo Paused" : "Enable Verilo";
+            return (
+              <button type="button" onClick={onGoVerilo} className="ddemo-btn"
+                title={vb.status === "live" ? "Verilo par aapki dukaan live hai — manage karein" : vb.status === "paused" ? "Verilo listing paused hai — dekhein kyun" : "Verilo par apni dukaan dikhayein"}
+                style={{
+                  display: "flex", alignItems: "center", gap: "4px", flexShrink: 0, cursor: "pointer", fontFamily: "inherit",
+                  background: "#D4A24C", color: "#2B1D00", border: "none", borderRadius: "999px", padding: "2px 8px 2px 6px",
+                  fontSize: "9.5px", fontWeight: 800, boxShadow: "0 1px 4px rgba(0,0,0,0.3)",
+                }}>
+                <span style={{ width: 6, height: 6, borderRadius: "50%", background: vb.status === "live" ? "#1F8A4C" : "transparent", border: vb.status === "live" ? "none" : "1.2px solid #2B1D00" }} />
+                {label}
+              </button>
+            );
+          })()}
         </div>
       </div>
     </div>

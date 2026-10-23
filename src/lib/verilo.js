@@ -41,3 +41,30 @@ export function validateVeriloSettings({ optIn, city, state, pincode, wasOptIn =
     },
   };
 }
+
+// Verilo ka public domain (ek jagah, taaki badalna ho to sirf yahan badle).
+export const VERILO_ORIGIN = "https://verilo-seven.vercel.app";
+
+// Dukaandar ke Verilo button + page ka status:
+//  - "off"    : opt-in band
+//  - "paused" : opt-in ON par subscription band, ya city/state/pincode adhoori (reasons me wajah)
+//  - "live"   : sab theek -> Verilo par us shehar ki shops wali public page (url)
+// reasons: "subscription" | "city" | "state" | "pincode"
+export function veriloButtonState(store, now = new Date()) {
+  if (!store || !store.verilo_opt_in) return { status: "off", url: null, reasons: [] };
+  const reasons = [];
+  const subActive = !!(store.subscription_expires_at && new Date(store.subscription_expires_at) > now);
+  if (!subActive) reasons.push("subscription");
+  const city = cleanCity(store.city);
+  const state = String(store.state ?? "").trim();
+  if (!city) reasons.push("city");
+  if (!state) reasons.push("state");
+  if (!/^[0-9]{6}$/.test(String(store.pincode ?? "").trim())) reasons.push("pincode");
+  if (reasons.length) return { status: "paused", url: null, reasons };
+  return { status: "live", url: veriloShopsUrl(city, state), reasons: [] };
+}
+
+// Verilo par us shehar ki shops wali page (location parameters ke saath).
+export function veriloShopsUrl(city, state) {
+  return `${VERILO_ORIGIN}/city/${encodeURIComponent(cleanCity(city))}/shops?state=${encodeURIComponent(String(state ?? "").trim())}`;
+}

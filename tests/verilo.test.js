@@ -54,3 +54,21 @@ describe("state list matches Verilo's list", () => {
     expect([...INDIAN_STATES].sort()).toEqual([...verilo].sort());
   });
 });
+
+import { veriloButtonState } from "../src/lib/verilo.js";
+describe("veriloButtonState", () => {
+  const future = new Date(Date.now() + 864e5).toISOString();
+  it("off when opt-in is off", () => {
+    expect(veriloButtonState({ verilo_opt_in: false, subscription_expires_at: future })).toEqual({ status: "off", url: null, reasons: [] });
+  });
+  it("live -> shops page url with encoded city/state", () => {
+    const r = veriloButtonState({ verilo_opt_in: true, subscription_expires_at: future, city: "Anuppur", state: "Madhya Pradesh", pincode: "484224" });
+    expect(r.status).toBe("live");
+    expect(r.url).toBe("https://verilo-seven.vercel.app/city/Anuppur/shops?state=Madhya%20Pradesh");
+  });
+  it("paused when subscription expired or location missing", () => {
+    expect(veriloButtonState({ verilo_opt_in: true, subscription_expires_at: null, city: "A", state: "B", pincode: "484224" })).toMatchObject({ status: "paused", reasons: ["subscription"] });
+    expect(veriloButtonState({ verilo_opt_in: true, subscription_expires_at: future, city: "", state: "B", pincode: "484224" })).toMatchObject({ status: "paused", reasons: ["city"] });
+    expect(veriloButtonState({ verilo_opt_in: true, subscription_expires_at: future, city: "A", state: "B", pincode: "" }).reasons).toEqual(["pincode"]);
+  });
+});
