@@ -9,6 +9,7 @@ import { friendlyError } from "../lib/errors";
 import { useLang } from "../lib/i18n";
 import LangToggle from "./LangToggle";
 import ShareAppButton from "./ShareAppButton";
+import ComboDetailModal from "./ComboDetailModal";
 const PENDING_UPI_KEY = "dukaan_pending_upi_checkout";
 
 // Order place hone ke baad uska number is device par (customer ke apne
@@ -82,6 +83,7 @@ const CustomerView = forwardRef(function CustomerView({ store, products, onOrder
   const [bookingProduct, setBookingProduct] = useState(null); // jis service ka booking flow chal raha hai
   const [bookingConfirmed, setBookingConfirmed] = useState(null);
   const [detailProduct, setDetailProduct] = useState(null);
+  const [comboDetailId, setComboDetailId] = useState(null); // combo card par tap -> uski saari cheezein
   const [activeCategory, setActiveCategory] = useState("All");
   const [activeSub, setActiveSub] = useState("All");
   const [search, setSearch] = useState("");
@@ -600,6 +602,7 @@ const CustomerView = forwardRef(function CustomerView({ store, products, onOrder
                 qty={comboCart[combo.id] || 0}
                 onAdd={() => addComboToCart(combo.id)}
                 onDec={() => decComboFromCart(combo.id)}
+                onOpen={() => setComboDetailId(combo.id)}
                 theme={theme}
               />
             ))}
@@ -696,6 +699,19 @@ const CustomerView = forwardRef(function CustomerView({ store, products, onOrder
 
       {variantPicker && !bookingMode && (
         <VariantPickerModal product={variantPicker} cart={cart} addToCart={addToCart} decFromCart={decFromCart} theme={theme} onClose={() => setVariantPicker(null)} triggerFlyToCart={triggerFlyToCart} cartCount={cartCount} cartTotal={cartTotal} onGoToCart={() => { setVariantPicker(null); setDetailProduct(null); setCartOpen(true); }} />
+      )}
+
+      {comboDetailId && comboIndex[comboDetailId] && !bookingMode && (
+        <ComboDetailModal
+          combo={comboIndex[comboDetailId]}
+          qty={comboCart[comboDetailId] || 0}
+          maxQty={getComboMaxQty(comboIndex[comboDetailId])}
+          onAdd={() => addComboToCart(comboDetailId)}
+          onDec={() => decComboFromCart(comboDetailId)}
+          onClose={() => setComboDetailId(null)}
+          onGoToCart={() => { setComboDetailId(null); setDetailProduct(null); setVariantPicker(null); setCartOpen(true); }}
+          theme={theme}
+        />
       )}
 
       {detailProduct && !bookingMode && (
@@ -1078,14 +1094,17 @@ function Row({ label, value }) {
 // ============================================================
 // COMBO CARD — horizontal-scroll strip mein ek combo ki tile.
 // ============================================================
-function ComboCard({ combo, qty, onAdd, onDec, theme }) {
+function ComboCard({ combo, qty, onAdd, onDec, onOpen, theme }) {
   const { t, lang } = useLang();
   const maxQty = getComboMaxQty(combo);
   const soldOut = maxQty <= 0;
   const itemsLabel = (combo.combo_items || []).map((ci) => ci.variants?.products?.name).filter(Boolean).join(" + ");
 
   return (
-    <div style={{ flexShrink: 0, width: "150px", background: "white", border: "1px solid #E3DECF", borderRadius: "12px", overflow: "hidden" }}>
+    <div
+      role="button" tabIndex={0} aria-label={combo.name} onClick={onOpen}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen && onOpen(); } }}
+      style={{ flexShrink: 0, width: "150px", background: "white", border: "1px solid #E3DECF", borderRadius: "12px", overflow: "hidden", cursor: "pointer" }}>
       <div style={{ width: "100%", height: "96px", background: combo.image_url ? undefined : "linear-gradient(135deg, #F3ECDC 0%, #E9DFC0 100%)", display: "flex", alignItems: "center", justifyContent: "center" }}>
         {combo.image_url
           ? <img src={combo.image_url} alt={combo.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
@@ -1094,18 +1113,19 @@ function ComboCard({ combo, qty, onAdd, onDec, theme }) {
       </div>
       <div style={{ padding: "8px 10px 10px" }}>
         <div style={{ fontWeight: 700, fontSize: "12.5px", marginBottom: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{combo.name}</div>
-        <div style={{ fontSize: "10px", color: "#8B8576", marginBottom: "6px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{itemsLabel}</div>
+        <div style={{ fontSize: "10px", color: "#8B8576", marginBottom: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{itemsLabel}</div>
+        <div style={{ fontSize: "10px", fontWeight: 800, color: theme.primary, marginBottom: "6px" }}>{t("See all items ›")}</div>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <span style={{ fontWeight: 800, fontSize: "13.5px", color: theme.primary }}>₹{combo.combo_price}</span>
           {soldOut ? (
             <span style={{ fontSize: "10px", color: "#B3261E", fontWeight: 700 }}>{t("Sold Out")}</span>
           ) : qty === 0 ? (
-            <button onClick={onAdd} className="ddemo-add-btn" style={{ background: theme.primary, color: "white", border: "none", borderRadius: "7px", padding: "5px 12px", fontSize: "11.5px", fontWeight: 700, cursor: "pointer" }}>{t("Add")}</button>
+            <button onClick={(e) => { e.stopPropagation(); onAdd(); }} className="ddemo-add-btn" style={{ background: theme.primary, color: "white", border: "none", borderRadius: "7px", padding: "5px 12px", fontSize: "11.5px", fontWeight: 700, cursor: "pointer" }}>{t("Add")}</button>
           ) : (
             <div style={{ display: "flex", alignItems: "center", gap: "6px", background: theme.primary, borderRadius: "7px", padding: "3px 6px" }}>
-              <button onClick={onDec} style={{ background: "none", border: "none", color: "white", cursor: "pointer", display: "flex", padding: 0 }}><Minus size={13} /></button>
+              <button onClick={(e) => { e.stopPropagation(); onDec(); }} style={{ background: "none", border: "none", color: "white", cursor: "pointer", display: "flex", padding: 0 }}><Minus size={13} /></button>
               <span style={{ color: "white", fontWeight: 700, fontSize: "12px", minWidth: "12px", textAlign: "center" }}>{qty}</span>
-              <button onClick={onAdd} disabled={qty >= maxQty} style={{ background: "none", border: "none", color: "white", cursor: qty >= maxQty ? "not-allowed" : "pointer", opacity: qty >= maxQty ? 0.5 : 1, display: "flex", padding: 0 }}><Plus size={13} /></button>
+              <button onClick={(e) => { e.stopPropagation(); onAdd(); }} disabled={qty >= maxQty} style={{ background: "none", border: "none", color: "white", cursor: qty >= maxQty ? "not-allowed" : "pointer", opacity: qty >= maxQty ? 0.5 : 1, display: "flex", padding: 0 }}><Plus size={13} /></button>
             </div>
           )}
         </div>
