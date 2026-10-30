@@ -30,6 +30,14 @@ export function setLang(l) {
 function subscribe(f) { listeners.add(f); return () => listeners.delete(f); }
 
 export const HI = {
+  "CLOSED": "बंद",
+  "Dukaan abhi band hai": "दुकान अभी बंद है",
+  "Sorry, we're closed right now. Please come back during our opening hours.": "माफ़ कीजिए, दुकान अभी बंद है। कृपया खुलने के समय पर आइए।",
+  "SHOP TIMINGS": "दुकान का समय",
+  "Opens": "खुलती है",
+  "Closes": "बंद होती है",
+  "Call": "कॉल करें",
+  "I wanted to ask about an order.": "मुझे ऑर्डर के बारे में पूछना था।",
   // storefront
   "Search products...": "सामान खोजें...",
   "🔥 Combo Deals": "🔥 कॉम्बो ऑफ़र",

@@ -37,6 +37,7 @@ import { friendlyError } from "./lib/errors";
 import { veriloButtonState } from "./lib/verilo";
 import OwnerToolsBar from "./components/OwnerToolsBar";
 import VeriloManager from "./components/VeriloManager";
+import StoreGate from "./components/ClosedShopScreen";
 export default function App() {
   // Deployment mein VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY set nahi hain —
   // pehle ye poori app ko blank white page bana ke crash kar deta tha. Ab
@@ -370,7 +371,9 @@ function CustomerStorefrontPage({ slug }) {
           <span style={{ fontSize: "11.5px", fontWeight: 600, color: theme.primaryDark }}>{theme.description}</span>
         </div>
       )}
-      <CustomerView ref={customerViewRef} store={store} products={products} onOrderPlaced={() => load(true)} />
+      <StoreGate store={store} primary={theme.primary}>
+        <CustomerView ref={customerViewRef} store={store} products={products} onOrderPlaced={() => load(true)} />
+      </StoreGate>
     </div>
   );
 }
@@ -670,7 +673,9 @@ function OwnerArea() {
             <span style={{ fontSize: "11.5px", fontWeight: 600, color: previewTheme.primaryDark }}>{previewTheme.description}</span>
           </div>
         )}
-        <CustomerView ref={previewCustomerViewRef} store={store} products={products} onOrderPlaced={() => loadStoreData(true)} />
+        <StoreGate store={store} primary={previewTheme.primary}>
+          <CustomerView ref={previewCustomerViewRef} store={store} products={products} onOrderPlaced={() => loadStoreData(true)} />
+        </StoreGate>
       </div>
     );
   }
