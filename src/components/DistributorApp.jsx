@@ -3,6 +3,8 @@ import { Users, Mail, Lock, Eye, EyeOff, LogOut, Copy, Check, TrendingUp, Loader
 import { signUp, signIn, signOut, onAuthChange, claimDistributorAccount, fetchDistributorDashboard, registerDistributorNominee, fetchDistributorProfile, fetchDistributorReferredShops, fetchDistributorCommissionHistory } from "../lib/api";
 
 import { friendlyError } from "../lib/errors";
+import CentralDeliveryPanel from "./CentralDeliveryPanel";
+import { fetchMyDeliveryPartner } from "../lib/api";
 // ============================================================
 // ROOT — /distributor route. Login/signup gate, phir apna dashboard.
 // Store-owner ke AuthGate se bilkul alag flow hai (alag role, alag
@@ -184,6 +186,8 @@ function DistributorDashboard({ user }) {
   const [profile, setProfile] = useState(null);
   const [shops, setShops] = useState(null);
   const [history, setHistory] = useState(null);
+  const [delivery, setDelivery] = useState(null);   // Super Admin ne Delivery chalu ki ho to object
+  const [view, setView] = useState("home");
 
   const load = () => {
     setData(undefined);
@@ -194,6 +198,7 @@ function DistributorDashboard({ user }) {
         fetchDistributorProfile().then(setProfile).catch(() => {});
         fetchDistributorReferredShops(100, 0).then(setShops).catch(() => setShops([]));
         fetchDistributorCommissionHistory(12).then(setHistory).catch(() => setHistory([]));
+        fetchMyDeliveryPartner().then((p) => setDelivery(p && p.enabled ? p : null)).catch(() => setDelivery(null));
       })
       .catch(() => setData(null)); // "Not a registered distributor" — claim form dikhao
   };
@@ -252,7 +257,20 @@ function DistributorDashboard({ user }) {
         </button>
       </div>
 
-      <div style={{ padding: "18px 20px 40px", maxWidth: "600px", margin: "0 auto" }}>
+      {delivery && (
+        <div style={{ display: "flex", gap: "6px", padding: "12px 20px 0", maxWidth: "600px", margin: "0 auto" }}>
+          {[["home", "Dashboard"], ["delivery", "Delivery"]].map(([k, l]) => (
+            <button key={k} onClick={() => setView(k)} style={{ border: `1px solid ${view === k ? "#6B2D5C" : "#E3DECF"}`, background: view === k ? "#6B2D5C" : "white", color: view === k ? "white" : "#5C5747", borderRadius: "999px", padding: "7px 16px", fontSize: "12.5px", fontWeight: 700, cursor: "pointer" }}>{l}</button>
+          ))}
+        </div>
+      )}
+      {delivery && view === "delivery" && (
+        <div style={{ padding: "14px 20px 40px", maxWidth: "700px", margin: "0 auto" }}>
+          <div style={{ fontSize: "12px", color: "#8B8576", marginBottom: "10px" }}>{delivery.market_name ? `${delivery.market_name} · ` : ""}Central Delivery — aapke riders aur aapki dukaanein</div>
+          <CentralDeliveryPanel />
+        </div>
+      )}
+      <div style={{ padding: "18px 20px 40px", maxWidth: "600px", margin: "0 auto", display: delivery && view === "delivery" ? "none" : "block" }}>
         {/* Referral link — sabse zaroori cheez, sabse upar */}
         <div style={{ background: "white", border: "1px solid #E3DECF", borderRadius: "12px", padding: "16px", marginBottom: "14px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>

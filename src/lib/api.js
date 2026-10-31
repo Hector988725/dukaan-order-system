@@ -1298,3 +1298,89 @@ export async function setProductAvailabilityRpc(productId, available) {
   const { error } = await supabase.rpc("set_product_availability", { p_product_id: productId, p_available: !!available });
   if (error) throw error;
 }
+
+// ============================================================
+// CENTRAL DELIVERY (LOCAL_PARTNER) — migration_central_delivery.sql
+// Sab kuch RPC se; permission/isolation server par check hota hai.
+// ============================================================
+// ---- Dukaandar ----
+export async function fetchCentralDeliveryAllowed(storeId) {
+  const { data, error } = await supabase.rpc("get_central_delivery_status", { p_store_id: storeId });
+  if (error) throw error;
+  return !!data;
+}
+export async function requestCentralDelivery(orderId) {
+  const { data, error } = await supabase.rpc("request_central_delivery", { p_order_id: orderId });
+  if (error) throw error;
+  return data;
+}
+export async function cancelCentralDelivery(orderId) {
+  const { error } = await supabase.rpc("cancel_central_delivery", { p_order_id: orderId });
+  if (error) throw error;
+}
+export async function fetchStoreCentralDeliveries(storeId) {
+  const { data, error } = await supabase.rpc("get_store_central_deliveries", { p_store_id: storeId });
+  if (error) throw error;
+  return data || [];
+}
+
+// ---- Central rider app (/rider) ----
+export async function claimCentralRiderInvite(code) {
+  const { data, error } = await supabase.rpc("claim_central_rider_invite", { p_code: code });
+  if (error) throw error;
+  return data;
+}
+export async function fetchMyCentralRiderProfile() {
+  const { data, error } = await supabase.rpc("get_my_central_rider_profile");
+  if (error) throw error;
+  return (data && data[0]) || null;
+}
+export async function fetchCentralPool() {
+  const { data, error } = await supabase.rpc("get_central_pool");
+  if (error) throw error;
+  return data || [];
+}
+export async function centralAccept(assignmentId) {
+  const { error } = await supabase.rpc("central_accept", { p_assignment_id: assignmentId });
+  if (error) throw error;
+}
+export async function centralRelease(assignmentId) {
+  const { error } = await supabase.rpc("central_release", { p_assignment_id: assignmentId });
+  if (error) throw error;
+}
+export async function fetchMyCentralDeliveries(scope = "active", from = null, to = null) {
+  const { data, error } = await supabase.rpc("get_my_central_deliveries", { p_scope: scope, p_from: from, p_to: to });
+  if (error) throw error;
+  return data || [];
+}
+export async function centralUpdateStatus(assignmentId, newStatus) {
+  const { data, error } = await supabase.rpc("central_update_status", { p_assignment_id: assignmentId, p_new_status: newStatus });
+  if (error) throw error;
+  return data;
+}
+
+// ---- Partner (distributor) + Super Admin: apne scope ka central delivery ----
+// scope = { partner: uuid|null, head: bool } — server khud check karta hai ki caller ko kya dikhna chahiye.
+async function partnerRpc(name, args) {
+  const { data, error } = await supabase.rpc(name, args || {});
+  if (error) throw error;
+  return data;
+}
+const sc = (scope) => ({ p_partner: scope?.partner || null, p_head_office: !!scope?.head });
+export const fetchMyDeliveryPartner = () => partnerRpc("get_my_delivery_partner").then((d) => (d && d[0]) || null);
+export const fetchScopePartners = () => partnerRpc("partner_list_scope_partners").then((d) => d || []);
+export const fetchPartnerOverview = (scope) => partnerRpc("partner_central_overview", sc(scope));
+export const fetchPartnerDeliveries = (scope, status = null, limit = 200) => partnerRpc("partner_list_central_deliveries", { p_status: status, p_limit: limit, ...sc(scope) }).then((d) => d || []);
+export const fetchPartnerRiders = (scope) => partnerRpc("partner_list_central_riders", sc(scope)).then((d) => d || []);
+export const addPartnerRider = (name, phone, vehicleType, vehicleNumber, partnerId = null) => partnerRpc("partner_add_central_rider", { p_name: name, p_phone: phone, p_vehicle_type: vehicleType || "Bike", p_vehicle_number: vehicleNumber || null, p_partner: partnerId || null });
+export const updatePartnerRider = (id, name, phone, vehicleType, vehicleNumber, isActive) => partnerRpc("partner_update_central_rider", { p_id: id, p_name: name, p_phone: phone, p_vehicle_type: vehicleType, p_vehicle_number: vehicleNumber || null, p_is_active: isActive });
+export const generatePartnerRiderInvite = (id) => partnerRpc("partner_generate_central_invite", { p_rider_id: id });
+export const revokePartnerRiderLogin = (id) => partnerRpc("partner_revoke_central_login", { p_rider_id: id });
+export const fetchPartnerStores = (query, scope) => partnerRpc("partner_list_central_stores", { p_query: query || null, ...sc(scope) }).then((d) => d || []);
+export const setPartnerStoreAllowed = (storeId, allowed) => partnerRpc("partner_set_store_central_allowed", { p_store_id: storeId, p_allowed: allowed });
+export const assignPartnerRider = (assignmentId, riderId) => partnerRpc("partner_assign_central_rider", { p_assignment_id: assignmentId, p_rider_id: riderId || null });
+export const cancelPartnerDelivery = (assignmentId) => partnerRpc("partner_cancel_central_delivery", { p_assignment_id: assignmentId });
+export const markPartnerCodSettled = (assignmentId) => partnerRpc("partner_mark_cod_settled", { p_assignment_id: assignmentId });
+// Sirf Super Admin
+export const fetchDeliveryPartnersAdmin = () => partnerRpc("admin_list_delivery_partners").then((d) => d || []);
+export const setDeliveryPartnerAdmin = (distributorId, enabled, parentId = null, marketName = null) => partnerRpc("admin_set_delivery_partner", { p_distributor_id: distributorId, p_enabled: enabled, p_parent: parentId || null, p_market_name: marketName || null });

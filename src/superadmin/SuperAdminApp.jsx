@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Loader2, ShieldCheck, LogOut, Mail, Lock, Store, Package, TrendingUp, Users, CreditCard, X, Eye, EyeOff, Plus, Copy, Check } from "lucide-react";
+import { Loader2, ShieldCheck, LogOut, Mail, Lock, Store, Package, TrendingUp, Users, CreditCard, X, Eye, EyeOff, Plus, Copy, Check, Bike } from "lucide-react";
 import { signIn, signOut, onAuthChange } from "../lib/api";
 import {
   checkIsSuperAdmin, fetchAdminOverview, fetchAdminStoresPage, fetchStoreOrders,
@@ -10,6 +10,7 @@ import {
   adminGenerateClaimCode, fetchDistributorClaimStatus,
 } from "./api";
 import CatalogManager from "./CatalogManager";
+import CentralDeliveryPanel from "../components/CentralDeliveryPanel";
 
 import { friendlyError } from "../lib/errors";
 // ============================================================
@@ -127,6 +128,7 @@ function SuperAdminDashboard({ user }) {
           { id: "orders", label: "Orders", icon: <Package size={14} /> },
           { id: "payments", label: "Payments", icon: <CreditCard size={14} /> },
           { id: "distributors", label: "Distributors", icon: <Users size={14} /> },
+          { id: "delivery", label: "Delivery", icon: <Bike size={14} /> },
           { id: "catalog", label: "Categories & Catalog", icon: <Package size={14} /> },
         ].map((t) => (
           <button key={t.id} onClick={() => setTab(t.id)} style={{
@@ -145,6 +147,7 @@ function SuperAdminDashboard({ user }) {
         {tab === "orders" && <OrdersTab />}
         {tab === "payments" && <PaymentsTab />}
         {tab === "distributors" && <DistributorsTab />}
+        {tab === "delivery" && <CentralDeliveryPanel isAdmin />}
         {tab === "catalog" && <CatalogManager />}
       </div>
     </div>

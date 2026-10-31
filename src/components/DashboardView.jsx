@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { TrendingUp, Bell, Package, Receipt, MessageCircle, AlertCircle, Minus, Plus, BookText, X, Trash2 } from "lucide-react";
-import { updateOrderStatus, updatePaymentStatus, adjustVariantStock, assignDeliveryBoy, fetchTodaysKhataCollection, deleteOrder } from "../lib/api";
+import { updateOrderStatus, updatePaymentStatus, adjustVariantStock, assignDeliveryBoy, fetchTodaysKhataCollection, deleteOrder,
+  fetchCentralDeliveryAllowed, requestCentralDelivery, cancelCentralDelivery, fetchStoreCentralDeliveries } from "../lib/api";
 
 import { friendlyError } from "../lib/errors";
 // Order Status flow (extend hui hai — existing column/values nahi badle,
@@ -62,16 +63,36 @@ function isToday(dateStr) {
   return d.getDate() === now.getDate() && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
 }
 
+const CENTRAL_OPTION = "__central__";
+
 export default function DashboardView({ store, products, orders, deliveryBoys, hasMoreOrders, loadingMoreOrders, onLoadMoreOrders, onRefresh }) {
   const [tab, setTab] = useState("orders");
   const [statusFilter, setStatusFilter] = useState(null);
   const [khataCollection, setKhataCollection] = useState(0);
+  // Central Delivery: sirf Super Admin ne allow ki hui dukaanon ko dikhta hai.
+  // Migration nahi chali / allow nahi hai => error aata hai => option chhupa rehta hai.
+  const [central, setCentral] = useState({ allowed: false, byOrder: {} });
 
   // "Aaj ka Khata Collection" — orders refresh hote hi yeh bhi dobara
   // fetch ho jaata hai (dono ek doosre se related hain, ek hi refresh
   // cycle mein up-to-date rehte hain).
   useEffect(() => {
     fetchTodaysKhataCollection(store.id).then(setKhataCollection).catch(() => {});
+  }, [store.id, orders]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const allowed = await fetchCentralDeliveryAllowed(store.id);
+        if (!allowed) { if (!cancelled) setCentral({ allowed: false, byOrder: {} }); return; }
+        const rows = await fetchStoreCentralDeliveries(store.id);
+        const byOrder = {};
+        for (const r of rows) byOrder[r.order_id] = r;
+        if (!cancelled) setCentral({ allowed: true, byOrder });
+      } catch (e) { if (!cancelled) setCentral({ allowed: false, byOrder: {} }); }
+    })();
+    return () => { cancelled = true; };
   }, [store.id, orders]);
 
   const todaysOrders = orders.filter((o) => isToday(o.created_at));
@@ -96,9 +117,16 @@ export default function DashboardView({ store, products, orders, deliveryBoys, h
     // boy assign hona zaroori hai — warna customer ko pata hi nahi
     // chalega kaun saaman le kar aa raha hai. Pickup/Appointment/Dine In
     // mein yeh step hai hi nahi, isliye unpe yeh check lagu nahi hota.
+    const centralRow = central.byOrder[order.id];
     if (order.status === "Ready" && !noDeliveryNeeded(order) && !order.delivery_boy_id) {
-      alert("Pehle Delivery Boy assign karein, phir 'Out for Delivery' mark karein.");
-      return;
+      if (!centralRow) {
+        alert("Pehle Delivery Boy ya Central Delivery chunein, phir 'Out for Delivery' mark karein.");
+        return;
+      }
+      if (centralRow.status === "REQUESTED") {
+        alert("Central Delivery ke liye abhi koi rider ne order accept nahi kiya. Rider ke accept karne ka wait karein.");
+        return;
+      }
     }
     try {
       await updateOrderStatus(order.id, next);
@@ -110,7 +138,14 @@ export default function DashboardView({ store, products, orders, deliveryBoys, h
 
   const handleAssignDeliveryBoy = async (order, deliveryBoyId) => {
     try {
-      await assignDeliveryBoy(order.id, deliveryBoyId || null);
+      const centralRow = central.byOrder[order.id];
+      if (deliveryBoyId === CENTRAL_OPTION) {
+        await requestCentralDelivery(order.id);
+      } else if (!deliveryBoyId && centralRow && centralRow.status === "REQUESTED") {
+        await cancelCentralDelivery(order.id);
+      } else {
+        await assignDeliveryBoy(order.id, deliveryBoyId || null);
+      }
       onRefresh();
     } catch (e) {
       alert("Delivery boy assign nahi ho paaya: " + friendlyError(e));
@@ -224,6 +259,8 @@ export default function DashboardView({ store, products, orders, deliveryBoys, h
                 order={o}
                 store={store}
                 deliveryBoys={deliveryBoys || []}
+                centralAllowed={central.allowed}
+                centralRow={central.byOrder[o.id]}
                 onAdvance={() => handleAdvance(o)}
                 onPaymentConfirm={() => handlePaymentConfirm(o)}
                 onAssignDeliveryBoy={(id) => handleAssignDeliveryBoy(o, id)}
@@ -298,7 +335,7 @@ function StatCard({ icon, label, value, highlight }) {
   );
 }
 
-function OrderCard({ order, store, deliveryBoys, onAdvance, onPaymentConfirm, onAssignDeliveryBoy, onDelete }) {
+function OrderCard({ order, store, deliveryBoys, centralAllowed, centralRow, onAdvance, onPaymentConfirm, onAssignDeliveryBoy, onDelete }) {
   const meta = statusMeta[order.status] || statusMeta.New;
   const payMeta = paymentStatusMeta[order.payment_status] || paymentStatusMeta["Cash on Delivery"];
   const needsPaymentVerification = order.payment_method === "UPI" && order.payment_status === "Pending Verification";
@@ -422,6 +459,9 @@ function OrderCard({ order, store, deliveryBoys, onAdvance, onPaymentConfirm, on
         ) : (
           <InfoPill label="Type" value={isPickup ? "Pickup se Milega" : "Delivery"} color={isPickup ? "#9A6B00" : "#1B4332"} bg={isPickup ? "#FFF4DB" : "#E7F0EA"} />
         )}
+        {centralRow && centralRow.status !== "REASSIGNED" && (
+          <InfoPill label="Central Delivery" value={centralRow.status === "REQUESTED" ? "Rider ka intezaar" : centralRow.status === "DELIVERED" ? `Delivered by ${centralRow.rider_name || "rider"}` : `${centralRow.rider_name || "Rider"} · ${String(centralRow.status).replace(/_/g, " ").toLowerCase()}`} color="#1F5FA8" bg="#E4EEF9" />
+        )}
         {assignedBoy && <InfoPill label="Delivery" value={order.status === "Delivered" ? `Delivered by ${assignedBoy.name}` : order.status === "Out for Delivery" ? `Out for Delivery · ${assignedBoy.name}` : `Assigned to ${assignedBoy.name}`} color="#1B4332" bg="#E7F0EA" />}
       </div>
 
@@ -440,11 +480,12 @@ function OrderCard({ order, store, deliveryBoys, onAdvance, onPaymentConfirm, on
         <div style={{ marginBottom: "10px" }}>
           <div style={{ fontSize: "11px", fontWeight: 700, color: "#5C5747", marginBottom: "5px" }}>Assign Delivery</div>
           <select
-            value={order.delivery_boy_id || ""}
+            value={centralRow && centralRow.status !== "REASSIGNED" && centralRow.status !== "DELIVERED" ? CENTRAL_OPTION : (order.delivery_boy_id || "")}
             onChange={(e) => onAssignDeliveryBoy(e.target.value || null)}
             style={{ width: "100%", border: "1px solid #E3DECF", borderRadius: "8px", padding: "9px 10px", fontSize: "12.5px", fontFamily: "inherit", background: "white" }}
           >
             <option value="">— Chunein —</option>
+            {centralAllowed && <option value={CENTRAL_OPTION}>🚚 Central Delivery (rider pool)</option>}
             {(deliveryBoys || []).filter((b) => b.is_active).map((b) => (
               <option key={b.id} value={b.id}>{b.name} ({b.phone})</option>
             ))}

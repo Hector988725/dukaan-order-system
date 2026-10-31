@@ -33,6 +33,7 @@ import SuperAdminApp from "./superadmin/SuperAdminApp";
 import DistributorApp from "./components/DistributorApp";
 
 import StaffApp from "./components/StaffApp";
+import RiderApp from "./components/RiderApp";
 import { friendlyError } from "./lib/errors";
 import { veriloButtonState } from "./lib/verilo";
 import OwnerToolsBar from "./components/OwnerToolsBar";
@@ -68,6 +69,15 @@ export default function App() {
       <div style={shellStyle}>
         <GlobalStyles />
         <LoadingScreen text="Redirecting..." />
+      </div>
+    );
+  }
+  if (path === "rider") {
+    // Central Delivery riders ka alag app — sirf apna pool + apni deliveries
+    return (
+      <div style={shellStyle}>
+        <GlobalStyles />
+        <RiderApp />
       </div>
     );
   }
