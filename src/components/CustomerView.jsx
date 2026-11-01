@@ -10,6 +10,7 @@ import { useLang } from "../lib/i18n";
 import LangToggle from "./LangToggle";
 import ShareAppButton from "./ShareAppButton";
 import ComboDetailModal from "./ComboDetailModal";
+import OfferStrip from "./OfferStrip";
 const PENDING_UPI_KEY = "dukaan_pending_upi_checkout";
 
 // Order place hone ke baad uska number is device par (customer ke apne
@@ -521,6 +522,8 @@ const CustomerView = forwardRef(function CustomerView({ store, products, onOrder
           animation: ddemoFlyToCart 0.55s cubic-bezier(0.3, 0, 0.6, 1) forwards;
         }
       `}</style>
+      {/* Chalti hui SALE patti — sirf tab jab koi offer/combo chal raha ho */}
+      <OfferStrip products={products} combos={combos} onTap={() => { const el = document.getElementById(combos.length ? "ddemo-combos" : "ddemo-products"); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }} />
       {/* Search + categories */}
       <div style={{ padding: "16px 18px 0" }}>
         <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "8px" }}><LangToggle /></div>
@@ -592,7 +595,7 @@ const CustomerView = forwardRef(function CustomerView({ store, products, onOrder
           chips jaisa hi feel deta hai. Sirf tab dikhta hai jab dukaandar
           ne kam se kam ek active combo banaya ho. */}
       {combos.length > 0 && (
-        <div style={{ padding: "6px 18px 4px" }}>
+        <div id="ddemo-combos" style={{ padding: "6px 18px 4px", scrollMarginTop: "8px" }}>
           <div style={{ fontSize: "13px", fontWeight: 700, marginBottom: "10px", fontFamily: "'Fraunces', serif" }}>{t("🔥 Combo Deals")}</div>
           <div style={{ display: "flex", gap: "10px", overflowX: "auto", paddingBottom: "6px" }}>
             {combos.map((combo) => (
@@ -616,7 +619,7 @@ const CustomerView = forwardRef(function CustomerView({ store, products, onOrder
           ab bhi ek jaisi "photo tile" design follow karte hain (gradient +
           bada emoji), sirf height/aspect deliberately alag hai taaki grid
           Pinterest jaisa saaf-sundar dikhe. */}
-      <div className="ddemo-masonry" style={{ padding: "8px 18px 90px" }}>
+      <div id="ddemo-products" className="ddemo-masonry" style={{ padding: "8px 18px 90px" }}>
         {filtered.length === 0 && (
           <div style={{ textAlign: "center", padding: "40px 0", color: "#8B8576", fontSize: "13px" }}>
             {t("No products found.")}

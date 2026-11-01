@@ -41,6 +41,13 @@ export const HI = {
   // storefront
   "Search products...": "सामान खोजें...",
   "🔥 Combo Deals": "🔥 कॉम्बो ऑफ़र",
+  "SALE LIVE": "सेल चालू है",
+  "Up to": "अधिकतम",
+  "OFF": "छूट",
+  "Limited Time Deals": "लिमिटेड टाइम ऑफ़र",
+  "ends": "खत्म",
+  "Combo Offers": "कॉम्बो ऑफ़र",
+  "Buy More, Save More": "ज़्यादा लो, ज़्यादा बचाओ",
   "No products found.": "कोई सामान नहीं मिला।",
   "Get Directions": "रास्ता देखें",
   "FOLLOW US": "हमें फॉलो करें",
