@@ -15,7 +15,7 @@ import { DELIVERY_STATUS_META, NEXT_DELIVERY_ACTION, mapsUrl } from "../lib/deli
 // phone, poora address NAHI). Accept karne ke baad hi customer details
 // milti hain. Sab kuch RPC se; server har action par check karta hai.
 // ============================================================
-const G = "#1F4E8C", GOLD = "#D4A24C", BORDER = "#E3DECF", MUTED = "#8B8576";
+const G = "#D9650B", GOLD = "#D4A24C", BORDER = "#E3DECF", MUTED = "#8B8576";
 const input = { width: "100%", border: `1px solid ${BORDER}`, borderRadius: 9, padding: "11px 12px", fontSize: 14, fontFamily: "inherit", outline: "none", boxSizing: "border-box" };
 const btn = (primary, disabled) => ({
   width: "100%", border: primary ? "none" : `1px solid ${BORDER}`, borderRadius: 10, padding: "12px 0", fontSize: 14, fontWeight: 700,
@@ -225,9 +225,9 @@ export function PoolCard({ p, onChanged, onAccepted }) {
       </div>
       <div style={{ fontSize: 12, color: "#5C5747", margin: "8px 0", display: "flex", gap: 5 }}><MapPin size={13} style={{ flexShrink: 0, marginTop: 2 }} />Pickup: {p.store_address || "—"}{p.store_city ? `, ${p.store_city}` : ""}</div>
       <div style={{ fontSize: 12, color: "#5C5747", marginBottom: 8 }}>Drop ilaka (pincode): <b>{p.drop_pincode || "—"}</b></div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: cod ? "#FFF4DB" : "#E4EEF9", borderRadius: 9, padding: "8px 11px", marginBottom: 10 }}>
-        <div style={{ fontSize: 11.5, fontWeight: 700, color: cod ? "#7A5400" : G }}>{cod ? "COD — Customer se lena hai" : "PAID ONLINE"}</div>
-        <div style={{ fontFamily: "'Fraunces', serif", fontWeight: 800, fontSize: 16, color: cod ? "#7A5400" : G }}>₹{cod ? p.amount_to_collect : 0}</div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: cod ? "#FFF4DB" : "#E6F2E9", borderRadius: 9, padding: "8px 11px", marginBottom: 10 }}>
+        <div style={{ fontSize: 11.5, fontWeight: 700, color: cod ? "#7A5400" : "#1B4332" }}>{cod ? "COD — Customer se lena hai" : "PAID ONLINE"}</div>
+        <div style={{ fontFamily: "'Fraunces', serif", fontWeight: 800, fontSize: 16, color: cod ? "#7A5400" : "#1B4332" }}>₹{cod ? p.amount_to_collect : 0}</div>
       </div>
       <button disabled={busy} onClick={accept} style={btn(true, busy)}>{busy ? "Ruko..." : "Yeh Delivery Lein (Accept)"}</button>
     </div>
@@ -276,9 +276,9 @@ export function DeliveryCard({ d, onChanged }) {
       ) : (
         <>
           <div style={{ fontSize: 12, color: "#5C5747", margin: "8px 0", display: "flex", gap: 5 }}><MapPin size={13} style={{ flexShrink: 0, marginTop: 2 }} />{d.address}{d.landmark && String(d.landmark).trim().toLowerCase() !== String(d.address || "").trim().toLowerCase() ? ` (${d.landmark})` : ""} – {d.pincode}</div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: cod ? "#FFF4DB" : "#E4EEF9", borderRadius: 9, padding: "8px 11px", marginBottom: 10 }}>
-            <div style={{ fontSize: 11.5, fontWeight: 700, color: cod ? "#7A5400" : G }}>{cod ? "Amount to Collect (COD)" : "PAID ONLINE"}</div>
-            <div style={{ fontFamily: "'Fraunces', serif", fontWeight: 800, fontSize: 16, color: cod ? "#7A5400" : G }}>₹{cod ? d.amount_to_collect : 0}</div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: cod ? "#FFF4DB" : "#E6F2E9", borderRadius: 9, padding: "8px 11px", marginBottom: 10 }}>
+            <div style={{ fontSize: 11.5, fontWeight: 700, color: cod ? "#7A5400" : "#1B4332" }}>{cod ? "Amount to Collect (COD)" : "PAID ONLINE"}</div>
+            <div style={{ fontFamily: "'Fraunces', serif", fontWeight: 800, fontSize: 16, color: cod ? "#7A5400" : "#1B4332" }}>₹{cod ? d.amount_to_collect : 0}</div>
           </div>
           <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
             <a href={`tel:${d.customer_phone}`} style={linkBtn}><Phone size={14} /> Call</a>
