@@ -1,6 +1,32 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Bike, Store, RefreshCw, Copy, AlertTriangle } from "lucide-react";
-import { friendlyError } from "../lib/errors";
+import { friendlyError as baseFriendlyError } from "../lib/errors";
+
+// Server ke Hinglish messages ko English mein badalna (is panel mein sab English).
+const EN_ERRORS = [
+  ["Delivery service aapke liye abhi chalu nahi hai", "Delivery service is not enabled for you yet. Please contact head office."],
+  ["Rider ka naam sahi likhein", "Please enter a valid rider name."],
+  ["Phone number sahi likhein", "Please enter a valid phone number."],
+  ["Rider nahi mila", "Rider not found."],
+  ["Is rider ka login pehle se linked hai", "This rider's login is already linked."],
+  ["Dukaan nahi mili", "Shop not found."],
+  ["Delivery nahi mili", "Delivery not found."],
+  ["Saman uth chuka hai", "The order has already been picked up, so the rider can no longer be changed."],
+  ["Yeh rider available nahi hai", "This rider is not available."],
+  ["Yeh rider is dukaan ke partner ka nahi hai", "This rider does not belong to this shop's partner."],
+  ["Delivered delivery cancel nahi ho sakti", "A delivered order cannot be cancelled."],
+  ["COD settle nahi ho sakta", "COD cannot be settled (already settled, or not a COD order)."],
+  ["Parent partner nahi mila", "Parent partner not found."],
+  ["Partner nahi mila", "Partner not found."],
+  ["Partner apna hi parent nahi ho sakta", "A partner cannot be its own parent."],
+  ["Sirf 2 level", "Only 2 levels are allowed: a market partner's parent cannot itself be a market partner."],
+  ["already market partners hain", "This partner already has market partners under it. Remove them first."],
+];
+function friendlyError(e) {
+  const raw = String((e && e.message) || e || "");
+  for (const [k, v] of EN_ERRORS) if (raw.includes(k)) return v;
+  return baseFriendlyError(e, "en");
+}
 import {
   fetchScopePartners, fetchPartnerOverview, fetchPartnerDeliveries, fetchPartnerRiders, addPartnerRider, updatePartnerRider,
   generatePartnerRiderInvite, revokePartnerRiderLogin, fetchPartnerStores, setPartnerStoreAllowed,
@@ -19,7 +45,7 @@ const G = "#1B4332", BORDER = "#E3DECF", MUTED = "#8B8576";
 const card = { background: "white", border: `1px solid ${BORDER}`, borderRadius: 12, padding: 14 };
 const inp = { border: `1px solid ${BORDER}`, borderRadius: 8, padding: "8px 10px", fontSize: 13, fontFamily: "inherit", boxSizing: "border-box" };
 const smallBtn = (primary, danger) => ({ border: primary ? "none" : `1px solid ${danger ? "#E5B5B0" : BORDER}`, background: primary ? G : "white", color: primary ? "white" : danger ? "#B3261E" : "#5C5747", borderRadius: 8, padding: "6px 11px", fontSize: 12, fontWeight: 700, cursor: "pointer" });
-const STATUS_LABEL = { REQUESTED: "Pool mein", ACCEPTED: "Accepted", PICKED_UP: "Picked up", OUT_FOR_DELIVERY: "Out for delivery", DELIVERED: "Delivered" };
+const STATUS_LABEL = { REQUESTED: "In pool", ACCEPTED: "Accepted", PICKED_UP: "Picked up", OUT_FOR_DELIVERY: "Out for delivery", DELIVERED: "Delivered" };
 const STATUS_COLOR = { REQUESTED: ["#9A6B00", "#FFF4DB"], ACCEPTED: ["#1F5FA8", "#E4EEF9"], PICKED_UP: ["#5B2A5E", "#F3E6F0"], OUT_FOR_DELIVERY: [G, "#E7F0EA"], DELIVERED: [G, "#D5EBDD"] };
 const when = (t) => (t ? new Date(t).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "—");
 
@@ -37,7 +63,7 @@ export default function CentralDeliveryPanel({ isAdmin = false }) {
   useEffect(() => { fetchScopePartners().then(setPartners).catch(() => setPartners([])); }, []);
   const scope = scopeFromValue(scopeVal);
   const showScope = isAdmin || partners.length > 1;
-  const tabs = [["live", "Live Deliveries"], ["riders", "Riders"], ["shops", "Dukaanein"], ...(isAdmin ? [["partners", "Partners"]] : [])];
+  const tabs = [["live", "Live Deliveries"], ["riders", "Riders"], ["shops", "Shops"], ...(isAdmin ? [["partners", "Partners"]] : [])];
   return (
     <div>
       <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap", alignItems: "center" }}>
@@ -47,10 +73,10 @@ export default function CentralDeliveryPanel({ isAdmin = false }) {
       </div>
       {showScope && sub !== "partners" && (
         <div style={{ marginBottom: 12 }}>
-          <select aria-label="Partner chunein" value={scopeVal} onChange={(e) => setScopeVal(e.target.value)} style={{ ...inp, width: "100%" }}>
-            <option value="all">{isAdmin ? "Sab partners + Head office" : "Mera + mere market partners"}</option>
-            {isAdmin && <option value="head">Head office (bina partner wali dukaanein)</option>}
-            {partners.map((p) => <option key={p.distributor_id} value={p.distributor_id}>{p.name}{p.market_name ? ` — ${p.market_name}` : ""}{p.enabled ? "" : " (delivery band)"}</option>)}
+          <select aria-label="Choose partner" value={scopeVal} onChange={(e) => setScopeVal(e.target.value)} style={{ ...inp, width: "100%" }}>
+            <option value="all">{isAdmin ? "All partners + Head office" : "Me + my market partners"}</option>
+            {isAdmin && <option value="head">Head office (shops without a partner)</option>}
+            {partners.map((p) => <option key={p.distributor_id} value={p.distributor_id}>{p.name}{p.market_name ? ` — ${p.market_name}` : ""}{p.enabled ? "" : " (delivery off)"}</option>)}
           </select>
         </div>
       )}
@@ -92,28 +118,28 @@ function LiveTab({ scope }) {
     try { await fn(); await load(); } catch (e) { alert(friendlyError(e)); }
   };
   if (err && !ov) return <div style={{ ...card, color: "#B3261E", fontSize: 13 }}>{err}</div>;
-  if (!ov) return <div style={{ color: MUTED, fontSize: 13 }}>Load ho raha hai...</div>;
+  if (!ov) return <div style={{ color: MUTED, fontSize: 13 }}>Loading...</div>;
   const available = riders.filter((r) => r.is_active && r.login_linked);
   const late = Number(ov.late_pool) + Number(ov.late_active);
   return (
     <>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))", gap: 8, marginBottom: 14 }}>
-        <Stat label="Pool mein (wait)" value={ov.pool} color="#9A6B00" bg="#FFF4DB" />
-        <Stat label="Chal rahi" value={ov.active} color="#1F5FA8" bg="#E4EEF9" />
-        <Stat label="Delivered aaj" value={ov.delivered_today} />
+        <Stat label="Waiting in pool" value={ov.pool} color="#9A6B00" bg="#FFF4DB" />
+        <Stat label="In progress" value={ov.active} color="#1F5FA8" bg="#E4EEF9" />
+        <Stat label="Delivered today" value={ov.delivered_today} />
         <Stat label="Late" value={late} color={late ? "#B3261E" : G} bg={late ? "#FDECEA" : "#E7F0EA"} />
-        <Stat label={`COD baaki (${ov.cod_pending_count})`} value={`₹${ov.cod_pending_amount}`} color="#7A5400" bg="#FFF4DB" />
+        <Stat label={`COD pending (${ov.cod_pending_count})`} value={`₹${ov.cod_pending_amount}`} color="#7A5400" bg="#FFF4DB" />
       </div>
 
       <div style={{ display: "flex", gap: 6, marginBottom: 10, overflowX: "auto", alignItems: "center" }}>
-        {[["", "Sab"], ["REQUESTED", "Pool"], ["ACCEPTED", "Accepted"], ["OUT_FOR_DELIVERY", "Raaste mein"], ["DELIVERED", "Delivered"]].map(([k, l]) => (
+        {[["", "All"], ["REQUESTED", "Pool"], ["ACCEPTED", "Accepted"], ["OUT_FOR_DELIVERY", "On the way"], ["DELIVERED", "Delivered"]].map(([k, l]) => (
           <button key={k} onClick={() => setFilter(k)} style={{ border: `1px solid ${filter === k ? G : BORDER}`, background: filter === k ? G : "white", color: filter === k ? "white" : "#5C5747", borderRadius: 999, padding: "5px 12px", fontSize: 12, fontWeight: 700, whiteSpace: "nowrap", cursor: "pointer" }}>{l}</button>
         ))}
         <button onClick={load} aria-label="Refresh" style={{ ...smallBtn(false), display: "flex", alignItems: "center", gap: 4 }}><RefreshCw size={12} /></button>
       </div>
 
-      {rows === null ? <div style={{ color: MUTED, fontSize: 13 }}>Load ho raha hai...</div> : rows.length === 0 ? (
-        <div style={{ ...card, color: MUTED, fontSize: 13, textAlign: "center" }}>Koi central delivery nahi hai</div>
+      {rows === null ? <div style={{ color: MUTED, fontSize: 13 }}>Loading...</div> : rows.length === 0 ? (
+        <div style={{ ...card, color: MUTED, fontSize: 13, textAlign: "center" }}>No central deliveries</div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {rows.map((r) => {
@@ -129,21 +155,21 @@ function LiveTab({ scope }) {
                   <span style={{ alignSelf: "flex-start", background: bg, color: c, fontSize: 10.5, fontWeight: 700, padding: "4px 9px", borderRadius: 999, whiteSpace: "nowrap" }}>{STATUS_LABEL[r.status] || r.status}</span>
                 </div>
                 <div style={{ fontSize: 11.5, color: "#5C5747", margin: "6px 0" }}>
-                  Rider: <b>{r.rider_name || "— koi nahi —"}</b> · Maanga: {when(r.requested_at)}{r.delivered_at ? ` · Delivered: ${when(r.delivered_at)}` : ""}
+                  Rider: <b>{r.rider_name || "— none —"}</b> · Requested: {when(r.requested_at)}{r.delivered_at ? ` · Delivered: ${when(r.delivered_at)}` : ""}
                   {r.is_late && <span style={{ color: "#B3261E", fontWeight: 700 }}> · <AlertTriangle size={11} style={{ verticalAlign: "-1px" }} /> Late</span>}
                 </div>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
                   {canReassign && (
                     <select defaultValue="" onChange={(e) => { const v = e.target.value; e.target.value = ""; if (v !== "") act(() => assignPartnerRider(r.assignment_id, v === "__pool__" ? null : v)); }} style={{ ...inp, padding: "6px 8px", fontSize: 12 }}>
-                      <option value="">Rider assign...</option>
+                      <option value="">Assign rider...</option>
                       {available.map((x) => <option key={x.id} value={x.id}>{x.name}{x.partner_name ? ` (${x.partner_name})` : ""}</option>)}
-                      {r.status === "ACCEPTED" && <option value="__pool__">↩ Pool mein wapas</option>}
+                      {r.status === "ACCEPTED" && <option value="__pool__">↩ Back to pool</option>}
                     </select>
                   )}
-                  {r.status !== "DELIVERED" && <button onClick={() => act(() => cancelPartnerDelivery(r.assignment_id), "Is central delivery ko cancel karein? Dukaan dobara maang sakti hai.")} style={smallBtn(false, true)}>Cancel</button>}
+                  {r.status !== "DELIVERED" && <button onClick={() => act(() => cancelPartnerDelivery(r.assignment_id), "Cancel this central delivery? The shop can request it again.")} style={smallBtn(false, true)}>Cancel</button>}
                   {r.status === "DELIVERED" && Number(r.cod_collected) > 0 && (
                     r.cod_settled_at ? <span style={{ fontSize: 11.5, color: G, fontWeight: 700 }}>COD ₹{r.cod_collected} settled ✓</span>
-                      : <button onClick={() => act(() => markPartnerCodSettled(r.assignment_id), `COD ₹${r.cod_collected} dukaan ko mil gaya / settle ho gaya?`)} style={smallBtn(true)}>COD ₹{r.cod_collected} settle</button>
+                      : <button onClick={() => act(() => markPartnerCodSettled(r.assignment_id), `Confirm COD ₹${r.cod_collected} has been settled with the shop?`)} style={smallBtn(true)}>COD ₹{r.cod_collected} settle</button>
                   )}
                 </div>
               </div>
@@ -154,10 +180,10 @@ function LiveTab({ scope }) {
 
       {Array.isArray(ov.shops) && ov.shops.length > 0 && (
         <div style={{ ...card, marginTop: 14 }}>
-          <div style={{ fontWeight: 700, fontSize: 13.5, marginBottom: 8 }}>Dukaan-wise</div>
+          <div style={{ fontWeight: 700, fontSize: 13.5, marginBottom: 8 }}>By shop</div>
           {ov.shops.map((s) => (
             <div key={s.store_id} style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, padding: "5px 0", borderTop: `1px solid ${BORDER}` }}>
-              <span>{s.name}</span><span style={{ color: MUTED }}>wait {s.waiting} · chal rahi {s.in_progress} · total delivered {s.delivered_total}</span>
+              <span>{s.name}</span><span style={{ color: MUTED }}>waiting {s.waiting} · in progress {s.in_progress} · total delivered {s.delivered_total}</span>
             </div>
           ))}
         </div>
@@ -190,23 +216,23 @@ function RidersTab({ scope, isAdmin, partners }) {
   return (
     <>
       <div style={{ ...card, marginBottom: 14 }}>
-        <div style={{ fontWeight: 700, fontSize: 13.5, marginBottom: 8 }}>Naya Rider Jodein</div>
+        <div style={{ fontWeight: 700, fontSize: 13.5, marginBottom: 8 }}>Add a New Rider</div>
         {targetOptions.length > 1 && (
-          <select style={{ ...inp, width: "100%", marginBottom: 8 }} value={target} onChange={(e) => setTarget(e.target.value)} aria-label="Kis partner ka rider">
-            {targetOptions.map(([v, l]) => <option key={v || "self"} value={v}>Rider kis ke liye: {l}</option>)}
+          <select style={{ ...inp, width: "100%", marginBottom: 8 }} value={target} onChange={(e) => setTarget(e.target.value)} aria-label="Which partner this rider is for">
+            {targetOptions.map(([v, l]) => <option key={v || "self"} value={v}>Rider for: {l}</option>)}
           </select>
         )}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 8 }}>
-          <input style={inp} placeholder="Naam" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          <input style={inp} placeholder="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           <input style={inp} placeholder="Mobile" inputMode="numeric" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value.replace(/[^\d+ ]/g, "") })} />
           <select style={inp} value={form.vehicle_type} onChange={(e) => setForm({ ...form, vehicle_type: e.target.value })}>{["Bike", "Scooter", "Cycle", "Walking", "Other"].map((v) => <option key={v}>{v}</option>)}</select>
-          <input style={inp} placeholder="Gaadi number (optional)" value={form.vehicle_number} onChange={(e) => setForm({ ...form, vehicle_number: e.target.value })} />
+          <input style={inp} placeholder="Vehicle number (optional)" value={form.vehicle_number} onChange={(e) => setForm({ ...form, vehicle_number: e.target.value })} />
         </div>
-        <button disabled={busy || form.name.trim().length < 2 || form.phone.replace(/\D/g, "").length < 10} onClick={add} style={{ ...smallBtn(true), marginTop: 10, opacity: busy ? 0.6 : 1 }}>{busy ? "Ruko..." : "Rider Add Karein"}</button>
-        <div style={{ fontSize: 11.5, color: MUTED, marginTop: 8 }}>Rider ka app link: <b>{link}</b> — rider apna account banakar neeche wala 8-akshar ka code wahan daalega.</div>
+        <button disabled={busy || form.name.trim().length < 2 || form.phone.replace(/\D/g, "").length < 10} onClick={add} style={{ ...smallBtn(true), marginTop: 10, opacity: busy ? 0.6 : 1 }}>{busy ? "Please wait..." : "Add Rider"}</button>
+        <div style={{ fontSize: 11.5, color: MUTED, marginTop: 8 }}>Rider app link: <b>{link}</b> — the rider creates an account there and enters the 8-character login code shown below.</div>
       </div>
       {err && <div style={{ color: "#B3261E", fontSize: 12.5, marginBottom: 8 }}>{err}</div>}
-      {rows === null ? <div style={{ color: MUTED, fontSize: 13 }}>Load ho raha hai...</div> : rows.length === 0 ? <div style={{ ...card, color: MUTED, fontSize: 13, textAlign: "center" }}>Abhi koi rider nahi hai</div> : (
+      {rows === null ? <div style={{ color: MUTED, fontSize: 13 }}>Loading...</div> : rows.length === 0 ? <div style={{ ...card, color: MUTED, fontSize: 13, textAlign: "center" }}>No riders yet</div> : (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {rows.map((r) => {
             const shown = code[r.id] || (r.invite_expires_at && new Date(r.invite_expires_at) > new Date() ? r.invite_code : null);
@@ -214,15 +240,15 @@ function RidersTab({ scope, isAdmin, partners }) {
               <div key={r.id} style={{ ...card, opacity: r.is_active ? 1 : 0.6 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
                   <div><div style={{ fontWeight: 700 }}><Bike size={14} style={{ verticalAlign: "-2px" }} /> {r.name} <span style={{ color: MUTED, fontWeight: 500, fontSize: 12 }}>· {r.phone} · {r.vehicle_type}{r.vehicle_number ? ` ${r.vehicle_number}` : ""}</span></div>
-                    <div style={{ fontSize: 11.5, color: MUTED, marginTop: 2 }}>{r.partner_name ? `Partner: ${r.partner_name} · ` : "Head office · "}{r.login_linked ? "Login linked ✓" : "Login abhi nahi"} · chal rahi {r.active_now} · total delivered {r.delivered_total}</div></div>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: r.is_active ? G : "#B3261E" }}>{r.is_active ? "Active" : "Band"}</span>
+                    <div style={{ fontSize: 11.5, color: MUTED, marginTop: 2 }}>{r.partner_name ? `Partner: ${r.partner_name} · ` : "Head office · "}{r.login_linked ? "Login linked ✓" : "Not linked yet"} · in progress {r.active_now} · total delivered {r.delivered_total}</div></div>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: r.is_active ? G : "#B3261E" }}>{r.is_active ? "Active" : "Off"}</span>
                 </div>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8, alignItems: "center" }}>
-                  {!r.login_linked && <button onClick={() => invite(r.id)} style={smallBtn(true)}>Login Code Banayein</button>}
+                  {!r.login_linked && <button onClick={() => invite(r.id)} style={smallBtn(true)}>Generate Login Code</button>}
                   {shown && !r.login_linked && <span style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#FFF4DB", borderRadius: 8, padding: "5px 10px", fontFamily: "monospace", fontWeight: 800, letterSpacing: 2 }}>{shown}
                     <button aria-label="Copy" onClick={() => navigator.clipboard?.writeText(shown)} style={{ background: "none", border: "none", cursor: "pointer", color: "#7A5400", display: "flex" }}><Copy size={13} /></button></span>}
-                  {r.login_linked && <button onClick={() => confirm("Is rider ka login hata dein?") && run(() => revokePartnerRiderLogin(r.id))} style={smallBtn(false, true)}>Login Hatayein</button>}
-                  <button onClick={() => run(() => updatePartnerRider(r.id, r.name, r.phone, r.vehicle_type, r.vehicle_number, !r.is_active))} style={smallBtn(false, r.is_active)}>{r.is_active ? "Band Karein" : "Chalu Karein"}</button>
+                  {r.login_linked && <button onClick={() => confirm("Remove this rider's login?") && run(() => revokePartnerRiderLogin(r.id))} style={smallBtn(false, true)}>Remove Login</button>}
+                  <button onClick={() => run(() => updatePartnerRider(r.id, r.name, r.phone, r.vehicle_type, r.vehicle_number, !r.is_active))} style={smallBtn(false, r.is_active)}>{r.is_active ? "Deactivate" : "Activate"}</button>
                 </div>
               </div>
             );
@@ -245,16 +271,16 @@ function ShopsTab({ scope }) {
   };
   return (
     <>
-      <div style={{ fontSize: 12.5, color: MUTED, marginBottom: 8 }}>Jis dukaan ko yahan "Allow" karoge, sirf wahi Central Delivery use kar sakegi. Yahan sirf wahi dukaanein hain jo aapne judwayi hain.</div>
-      <input style={{ ...inp, width: "100%", marginBottom: 10 }} placeholder="Dukaan ka naam khojein..." value={q} onChange={(e) => setQ(e.target.value)} />
+      <div style={{ fontSize: 12.5, color: MUTED, marginBottom: 8 }}>Only shops you allow here can use Central Delivery. This list only shows shops you enrolled.</div>
+      <input style={{ ...inp, width: "100%", marginBottom: 10 }} placeholder="Search shop name..." value={q} onChange={(e) => setQ(e.target.value)} />
       {err && <div style={{ color: "#B3261E", fontSize: 12.5, marginBottom: 8 }}>{err}</div>}
-      {rows === null ? <div style={{ color: MUTED, fontSize: 13 }}>Load ho raha hai...</div> : rows.length === 0 ? <div style={{ ...card, color: MUTED, fontSize: 13, textAlign: "center" }}>Koi dukaan nahi mili</div> : (
+      {rows === null ? <div style={{ color: MUTED, fontSize: 13 }}>Loading...</div> : rows.length === 0 ? <div style={{ ...card, color: MUTED, fontSize: 13, textAlign: "center" }}>No shops found</div> : (
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {rows.map((s) => (
             <div key={s.store_id} style={{ ...card, display: "flex", alignItems: "center", gap: 10, padding: "10px 14px" }}>
               <Store size={15} color={MUTED} />
               <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontWeight: 700, fontSize: 13.5 }}>{s.name}</div><div style={{ fontSize: 11.5, color: MUTED }}>{s.city || "—"} · {s.partner_name ? `Partner: ${s.partner_name}` : "Head office"}</div></div>
-              <button onClick={() => toggle(s)} style={smallBtn(!s.allowed, s.allowed)}>{s.allowed ? "Allowed ✓ (band karein)" : "Allow karein"}</button>
+              <button onClick={() => toggle(s)} style={smallBtn(!s.allowed, s.allowed)}>{s.allowed ? "Allowed ✓ (turn off)" : "Allow"}</button>
             </div>
           ))}
         </div>
@@ -277,11 +303,11 @@ function PartnersTab() {
   return (
     <>
       <div style={{ fontSize: 12.5, color: MUTED, marginBottom: 10 }}>
-        Partner = aapka distributor. "Delivery chalu" karne par wo apne riders aur apni dukaanon ke liye Central Delivery chala sakta hai.
-        Market/gaon ka partner banane ke liye usse kisi district partner ke neeche jodein (sirf 2 level).
+        A partner is one of your distributors. Once "Delivery on" is set, they can run Central Delivery with their own riders and shops.
+        To make someone a market/village partner, put them under a district partner (2 levels only).
       </div>
       {err && <div style={{ color: "#B3261E", fontSize: 12.5, marginBottom: 8 }}>{err}</div>}
-      {rows === null ? <div style={{ color: MUTED, fontSize: 13 }}>Load ho raha hai...</div> : rows.length === 0 ? <div style={{ ...card, color: MUTED, fontSize: 13, textAlign: "center" }}>Abhi koi distributor nahi hai</div> : (
+      {rows === null ? <div style={{ color: MUTED, fontSize: 13 }}>Loading...</div> : rows.length === 0 ? <div style={{ ...card, color: MUTED, fontSize: 13, textAlign: "center" }}>No distributors yet</div> : (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {rows.map((r) => (
             <PartnerRow key={r.distributor_id} r={r} all={rows} onSave={save} />
@@ -301,16 +327,16 @@ function PartnerRow({ r, all, onSave }) {
       <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "flex-start" }}>
         <div>
           <div style={{ fontWeight: 700 }}>{r.name} <span style={{ color: MUTED, fontWeight: 500, fontSize: 12 }}>· {r.status}</span></div>
-          <div style={{ fontSize: 11.5, color: MUTED }}>{r.shops} dukaanein · {r.riders} riders{r.parent_name ? ` · ${r.parent_name} ke neeche` : ""}</div>
+          <div style={{ fontSize: 11.5, color: MUTED }}>{r.shops} shops · {r.riders} riders{r.parent_name ? ` · under ${r.parent_name}` : ""}</div>
         </div>
-        <button onClick={() => onSave(r, { enabled: !r.enabled })} style={smallBtn(!r.enabled, r.enabled)}>{r.enabled ? "Delivery chalu ✓ (band karein)" : "Delivery chalu karein"}</button>
+        <button onClick={() => onSave(r, { enabled: !r.enabled })} style={smallBtn(!r.enabled, r.enabled)}>{r.enabled ? "Delivery on ✓ (turn off)" : "Turn delivery on"}</button>
       </div>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
         <select style={{ ...inp, flex: 1, minWidth: 150 }} value={r.parent_distributor_id || ""} onChange={(e) => onSave(r, { parent: e.target.value || null })}>
-          <option value="">District partner (koi parent nahi)</option>
-          {parents.map((p) => <option key={p.distributor_id} value={p.distributor_id}>Market partner — {p.name} ke neeche</option>)}
+          <option value="">District partner (no parent)</option>
+          {parents.map((p) => <option key={p.distributor_id} value={p.distributor_id}>Market partner — under {p.name}</option>)}
         </select>
-        <input style={{ ...inp, flex: 1, minWidth: 150 }} placeholder="Market / ilaake ka naam" value={market} onChange={(e) => setMarket(e.target.value)} onBlur={() => market !== (r.market_name || "") && onSave(r, { market })} />
+        <input style={{ ...inp, flex: 1, minWidth: 150 }} placeholder="Market / area name" value={market} onChange={(e) => setMarket(e.target.value)} onBlur={() => market !== (r.market_name || "") && onSave(r, { market })} />
       </div>
     </div>
   );

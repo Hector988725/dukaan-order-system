@@ -266,7 +266,7 @@ function DistributorDashboard({ user }) {
       )}
       {delivery && view === "delivery" && (
         <div style={{ padding: "14px 20px 40px", maxWidth: "700px", margin: "0 auto" }}>
-          <div style={{ fontSize: "12px", color: "#8B8576", marginBottom: "10px" }}>{delivery.market_name ? `${delivery.market_name} · ` : ""}Central Delivery — aapke riders aur aapki dukaanein</div>
+          <div style={{ fontSize: "12px", color: "#8B8576", marginBottom: "10px" }}>{delivery.market_name ? `${delivery.market_name} · ` : ""}Central Delivery — your riders and your shops</div>
           <CentralDeliveryPanel />
         </div>
       )}
