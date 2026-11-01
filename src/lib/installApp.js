@@ -23,6 +23,7 @@ export function roleFromPath() {
   if (typeof window === "undefined") return "owner";
   const p = window.location.pathname || "/";
   if (p.startsWith("/staff")) return "staff";
+  if (p.startsWith("/rider")) return "rider";
   if (p.startsWith("/distributor")) return "distributor";
   return "owner";
 }

@@ -10,6 +10,7 @@ const base = readFileSync(src, "utf8");
 const pages = [
   { file: "dist/staff.html", manifest: "/manifest-staff.json", title: "Dukaan Staff", short: "Dukaan Staff", color: "#1F4E8C" },
   { file: "dist/distributor.html", manifest: "/manifest-distributor.json", title: "Dukaan Partner", short: "Dukaan Partner", color: "#6B2D5C" },
+  { file: "dist/rider.html", manifest: "/manifest-rider.json", title: "Dukaan Rider", short: "Dukaan Rider", color: "#1F4E8C" },
   { file: "dist/superadmin.html", manifest: "/manifest-superadmin.json", title: "Dukaan Super Admin", short: "Super Admin", color: "#9B1C31", icon: "/icon-superadmin-192.png", apple: "/apple-touch-icon-superadmin.png" },
 ];
 for (const p of pages) {

@@ -6,6 +6,7 @@ import {
   claimCentralRiderInvite, fetchMyCentralRiderProfile, fetchCentralPool, centralAccept, centralRelease,
   fetchMyCentralDeliveries, centralUpdateStatus,
 } from "../lib/api";
+import InstallAppButton from "./InstallAppButton";
 import { DELIVERY_STATUS_META, NEXT_DELIVERY_ACTION, mapsUrl } from "../lib/deliveryMethods";
 
 // ============================================================
@@ -167,6 +168,9 @@ function Home({ profile }) {
           <div style={{ fontSize: 11, opacity: 0.8 }}>{profile.name}</div>
         </div>
         <button onClick={() => signOut()} aria-label="Logout" style={{ background: "rgba(255,255,255,0.12)", border: "none", borderRadius: 8, color: "white", padding: "7px 9px", cursor: "pointer", display: "flex" }}><LogOut size={15} /></button>
+      </div>
+      <div style={{ padding: "10px 14px 0" }}>
+        <InstallAppButton role="rider" appName="Dukaan Rider" label="Install Rider App" helpTitle="Install Rider App" color={G} compact />
       </div>
       <div style={{ display: "flex", gap: 6, padding: "12px 14px 0" }}>
         {tabs.map(([k, label, Icon, n]) => (
