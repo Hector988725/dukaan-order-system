@@ -4,6 +4,8 @@ import { signUp, signIn, createStore, checkSlugAvailable, resetPasswordForEmail,
 import { BUSINESS_TYPE_LIST } from "../lib/theme";
 
 import { friendlyError } from "../lib/errors";
+import PasswordMeter from "./PasswordMeter";
+import { passwordError } from "../lib/password";
 const BUSINESS_TYPES = BUSINESS_TYPE_LIST;
 
 export function slugify(text) {
@@ -165,7 +167,7 @@ export function ResetPasswordScreen({ onDone }) {
 
   const handleSubmit = async () => {
     setError("");
-    if (password.length < 6) { setError("Password kam se kam 6 letters ka hona chahiye."); return; }
+    { const pe = passwordError(password); if (pe) { setError(pe); return; } }
     if (password !== confirm) { setError("Dono password match nahi kar rahe."); return; }
     setLoading(true);
     try {
@@ -196,7 +198,8 @@ export function ResetPasswordScreen({ onDone }) {
           </>
         ) : (
           <>
-            <IconField icon={<Lock size={15} />} type="password" value={password} onChange={setPassword} placeholder="Naya Password (kam se kam 6 letters)" />
+            <IconField icon={<Lock size={15} />} type="password" value={password} onChange={setPassword} placeholder="New password" />
+            <PasswordMeter password={password} />
             <IconField icon={<Lock size={15} />} type="password" value={confirm} onChange={setConfirm} placeholder="Naya Password Dobara Likhein" />
             {error && <div style={{ color: "#B3261E", fontSize: "12px" }}>{error}</div>}
             <button
@@ -225,7 +228,7 @@ function SignupForm({ onAuthed, onGoLogin }) {
 
   const handleCreateAccount = async () => {
     setError("");
-    if (password.length < 6) { setError("Password kam se kam 6 letters ka hona chahiye."); return; }
+    { const pe = passwordError(password, { email }); if (pe) { setError(pe); return; } }
     setLoading(true);
     try {
       const data = await signUp(email, password);
@@ -279,7 +282,8 @@ function SignupForm({ onAuthed, onGoLogin }) {
   return (
     <div style={{ background: "white", border: "1px solid #E3DECF", borderRadius: "12px", padding: "18px", display: "flex", flexDirection: "column", gap: "10px" }}>
       <IconField icon={<Mail size={15} />} type="email" value={email} onChange={setEmail} placeholder="Email" />
-      <IconField icon={<Lock size={15} />} type="password" value={password} onChange={setPassword} placeholder="Password (kam se kam 6 letters)" />
+      <IconField icon={<Lock size={15} />} type="password" value={password} onChange={setPassword} placeholder="Create a strong password" />
+      <PasswordMeter password={password} email={email} />
       {error && <div style={{ color: "#B3261E", fontSize: "12px" }}>{error}</div>}
       <button
         onClick={handleCreateAccount}

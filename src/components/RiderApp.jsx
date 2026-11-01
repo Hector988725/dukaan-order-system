@@ -8,6 +8,8 @@ import {
 } from "../lib/api";
 import InstallAppButton from "./InstallAppButton";
 import { DELIVERY_STATUS_META, NEXT_DELIVERY_ACTION, mapsUrl } from "../lib/deliveryMethods";
+import PasswordMeter from "./PasswordMeter";
+import { passwordError } from "../lib/password";
 
 // ============================================================
 // CENTRAL RIDER APP (/rider) — mobile-first.
@@ -68,12 +70,13 @@ function LoginCard() {
   const submit = async () => {
     setBusy(true); setMsg("");
     try {
+      if (mode === "signup") { const pe = passwordError(password, { email }); if (pe) { setMsg(pe); setBusy(false); return; } }
       if (mode === "login") await signIn(email.trim(), password);
       else { const r = await signUp(email.trim(), password, "/rider"); if (!r.session) setSent(true); }
     } catch (e) { setMsg(friendlyError(e)); }
     setBusy(false);
   };
-  const off = busy || !email || password.length < 6;
+  const off = busy || !email || !password;
   if (sent) {
     return (
       <Centered>
@@ -94,7 +97,8 @@ function LoginCard() {
         <div style={{ fontSize: 12.5, color: MUTED, marginBottom: 18 }}>{mode === "login" ? "Apne email aur password se login karein" : "Naya account banayein, phir support ka diya code daalein"}</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 10, textAlign: "left" }}>
           <input style={input} type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
-          <input style={input} type="password" placeholder="Password (min 6)" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={mode === "login" ? "current-password" : "new-password"} />
+          <input style={input} type="password" placeholder={mode === "signup" ? "Create a strong password" : "Password"} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={mode === "login" ? "current-password" : "new-password"} />
+          {mode === "signup" && <PasswordMeter password={password} email={email} />}
           {msg && <div style={{ fontSize: 12, color: "#B3261E" }}>{msg}</div>}
           <button disabled={off} onClick={submit} style={btn(true, off)}>{busy ? "Ruko..." : mode === "signup" ? "Account Banayein" : "Login"}</button>
           <button onClick={() => { setMode(mode === "login" ? "signup" : "login"); setMsg(""); }} style={{ background: "none", border: "none", color: G, fontWeight: 700, fontSize: 12.5, cursor: "pointer" }}>

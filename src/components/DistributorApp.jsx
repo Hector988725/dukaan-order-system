@@ -5,6 +5,8 @@ import { signUp, signIn, signOut, onAuthChange, claimDistributorAccount, fetchDi
 import { friendlyError } from "../lib/errors";
 import CentralDeliveryPanel from "./CentralDeliveryPanel";
 import { fetchMyDeliveryPartner } from "../lib/api";
+import PasswordMeter from "./PasswordMeter";
+import { passwordError } from "../lib/password";
 // ============================================================
 // ROOT — /distributor route. Login/signup gate, phir apna dashboard.
 // Store-owner ke AuthGate se bilkul alag flow hai (alag role, alag
@@ -71,6 +73,7 @@ function DistributorAuthGate({ onAuthed }) {
   // aur dashboard khud claim-form dikha dega.
   const handleClaim = async () => {
     if (!referralCode.trim() || !claimCode.trim()) { setError("Please enter your Referral Code and Claim Code."); return; }
+    { const pe = passwordError(password, { email }); if (pe) { setError(pe); return; } }
     setError("");
     setInfo("");
     setLoading(true);
@@ -158,6 +161,7 @@ function DistributorAuthGate({ onAuthed }) {
           <input type={show ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" style={{ border: "none", outline: "none", fontSize: "13px", width: "100%" }} />
           <button onClick={() => setShow((s) => !s)} style={{ border: "none", background: "none", cursor: "pointer", color: "#8B8576", display: "flex" }}>{show ? <EyeOff size={15} /> : <Eye size={15} />}</button>
         </div>
+        {mode === "claim" && <PasswordMeter password={password} email={email} />}
         {error && <div style={{ color: "#B3261E", fontSize: "12px" }}>{error}</div>}
         {info && <div style={{ color: "#1B4332", background: "#E7F0EA", borderRadius: "8px", padding: "9px 11px", fontSize: "12px", lineHeight: 1.5 }}>{info}</div>}
         <button

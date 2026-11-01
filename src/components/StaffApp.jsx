@@ -7,6 +7,8 @@ import {
   claimShopStaffInvite, fetchMyStaffContext, staffFetchOrders, setOrderStatusRpc, confirmOrderPaymentRpc,
   fetchMyDeliveryProfile, fetchProducts, updateVariantStock, setVariantPriceRpc, setProductAvailabilityRpc,
 } from "../lib/api";
+import PasswordMeter from "./PasswordMeter";
+import { passwordError } from "../lib/password";
 
 // ============================================================
 // SHOP STAFF APP (/staff) — mobile-first, limited. Sab kuch RPC se; server
@@ -71,14 +73,14 @@ function LoginCard() {
         // dukaandar ka diya password hamesha bade akshar + bina dash ke hota hai
         await signIn(staffEmailFromPhone(phone), password.replace(/[\s-]/g, "").toUpperCase());
       } else if (mode === "login") await signIn(email.trim(), password);
-      else { const r = await signUp(email.trim(), password, "/staff"); if (!r.session) setSent(true); }
+      else { { const pe = passwordError(password, { email }); if (pe) { setMsg(pe); setBusy(false); return; } } const r = await signUp(email.trim(), password, "/staff"); if (!r.session) setSent(true); }
     } catch (e) {
       const m = String(e.message || "");
       setMsg(isMobile && /invalid login/i.test(m) ? "Mobile number ya password galat hai. Dukaandar se poochein." : friendlyError(e));
     }
     setBusy(false);
   };
-  const off = busy || (isMobile ? phone.length !== 10 || password.replace(/[\s-]/g, "").length < 6 : !email || password.length < 6);
+  const off = busy || (isMobile ? phone.length !== 10 || password.replace(/[\s-]/g, "").length < 6 : !email ||  !password);
   if (sent) {
     return (
       <Centered>
@@ -113,7 +115,8 @@ function LoginCard() {
           ) : (
             <>
               <input style={input} type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
-              <input style={input} type="password" placeholder="Password (min 6)" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={mode === "login" ? "current-password" : "new-password"} />
+              <input style={input} type="password" placeholder={mode === "signup" ? "Create a strong password" : "Password"} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={mode === "login" ? "current-password" : "new-password"} />
+              {mode === "signup" && <PasswordMeter password={password} email={email} />}
             </>
           )}
           {msg && <div style={{ fontSize: 12, color: "#B3261E" }}>{msg}</div>}

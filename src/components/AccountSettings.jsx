@@ -1,3 +1,5 @@
+import PasswordMeter from "./PasswordMeter";
+import { checkPassword, passwordError } from "../lib/password";
 import React, { useState } from "react";
 import { Mail, Lock, Eye, EyeOff, Check, AlertCircle, Loader2 } from "lucide-react";
 import { verifyCurrentPassword, changeEmail, changePassword } from "../lib/api";
@@ -94,13 +96,13 @@ function ChangePasswordCard({ user }) {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
 
-  const valid = currentPassword.trim() && newPassword.length >= 6 && newPassword === confirmPassword;
+  const valid = currentPassword.trim() && checkPassword(newPassword, { email: user && user.email }).ok && newPassword === confirmPassword;
 
   const handleSave = async () => {
     setError("");
     setSuccess(false);
     if (!currentPassword.trim()) { setError("Current password daalein."); return; }
-    if (newPassword.length < 6) { setError("Naya password kam se kam 6 characters ka hona chahiye."); return; }
+    { const pe = passwordError(newPassword, { email: user && user.email }); if (pe) { setError(pe); return; } }
     if (newPassword !== confirmPassword) { setError("Naya password aur confirm password match nahi kar rahe."); return; }
     setLoading(true);
     try {
@@ -130,7 +132,8 @@ function ChangePasswordCard({ user }) {
 
       <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
         <PasswordField label="Current Password" value={currentPassword} onChange={setCurrentPassword} show={showPw} onToggleShow={() => setShowPw(!showPw)} />
-        <PasswordField label="Naya Password (kam se kam 6 characters)" value={newPassword} onChange={setNewPassword} show={showPw} />
+        <PasswordField label="New Password" value={newPassword} onChange={setNewPassword} show={showPw} />
+        <PasswordMeter password={newPassword} email={user && user.email} />
         <PasswordField label="Naya Password Dobara Likhein" value={confirmPassword} onChange={setConfirmPassword} show={showPw} />
       </div>
 
