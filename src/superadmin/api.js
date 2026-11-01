@@ -352,3 +352,35 @@ export async function fetchAdminStoresPage({ search = "", limit = 30, offset = 0
   if (error) throw error;
   return { total: data?.total ?? 0, rows: data?.rows ?? [] };
 }
+
+// ============================================================
+// ASSIGN SHOPS TO A DISTRIBUTOR (migration_assign_shops.sql)
+// ============================================================
+export async function fetchStoreAreaSummary() {
+  const { data, error } = await supabase.rpc("admin_store_area_summary");
+  if (error) throw error;
+  return data || [];
+}
+export async function fetchStoresForAssignment({ state = "", city = "", pincode = "", search = "", filter = "all", limit = 50, offset = 0 } = {}) {
+  const { data, error } = await supabase.rpc("admin_list_stores_for_assignment", {
+    p_state: state || null, p_city: city || null, p_pincode: pincode || null, p_search: search || null,
+    p_filter: filter, p_distributor: null, p_limit: limit, p_offset: offset,
+  });
+  if (error) throw error;
+  return { total: data?.total ?? 0, rows: data?.rows ?? [] };
+}
+export async function assignStores(storeIds, distributorId, reason, enableCentral) {
+  const { data, error } = await supabase.rpc("admin_assign_stores", {
+    p_store_ids: storeIds, p_distributor: distributorId || null, p_reason: reason || null, p_enable_central: !!enableCentral,
+  });
+  if (error) throw error;
+  return data;
+}
+export async function assignStoresByArea({ state, city, pincode, onlyUnassigned, distributorId, reason, enableCentral }) {
+  const { data, error } = await supabase.rpc("admin_assign_stores_by_area", {
+    p_state: state || null, p_city: city || null, p_pincode: pincode || null, p_only_unassigned: !!onlyUnassigned,
+    p_distributor: distributorId || null, p_reason: reason || null, p_enable_central: !!enableCentral,
+  });
+  if (error) throw error;
+  return data;
+}
