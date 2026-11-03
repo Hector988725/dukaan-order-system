@@ -9,6 +9,7 @@ import {
 } from "../lib/api";
 import PasswordMeter from "./PasswordMeter";
 import { passwordError } from "../lib/password";
+import PushToggle from "./PushToggle";
 
 // ============================================================
 // SHOP STAFF APP (/staff) — mobile-first, limited. Sab kuch RPC se; server
@@ -186,6 +187,7 @@ function Home({ ctx }) {
         <button onClick={() => signOut()} aria-label="Logout" style={{ background: "rgba(255,255,255,0.12)", border: "none", borderRadius: 8, width: 36, height: 36, color: "white", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><LogOut size={16} /></button>
       </div>
       <div style={{ padding: "14px 14px 0" }}>
+        <div style={{ marginBottom: 10 }}><PushToggle role="staff" color={G} compact /></div>
         {tabs.length === 0 && <div style={{ textAlign: "center", padding: 40, color: MUTED, fontSize: 13 }}>Abhi aapko koi kaam allow nahi hai. Dukaandar se baat karein.</div>}
         {tab === "orders" && canOrders && <OrdersTab ctx={ctx} canPay={!!perms.payment_verify} />}
         {tab === "delivery" && canDelivery && <DeliveryTab />}

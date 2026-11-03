@@ -4,6 +4,7 @@ import { updateOrderStatus, updatePaymentStatus, adjustVariantStock, assignDeliv
   fetchCentralDeliveryAllowed, requestCentralDelivery, cancelCentralDelivery, fetchStoreCentralDeliveries } from "../lib/api";
 
 import { friendlyError } from "../lib/errors";
+import PushToggle from "./PushToggle";
 // Order Status flow (extend hui hai — existing column/values nahi badle,
 // bas ek naya intermediate "Ready" status add kiya hai):
 // New → Accepted → Preparing (UI mein "Packing" dikhta hai) → Ready →
@@ -183,6 +184,7 @@ export default function DashboardView({ store, products, orders, deliveryBoys, h
 
   return (
     <div style={{ maxWidth: "900px", margin: "0 auto" }}>
+      <div style={{ padding: "12px 18px 0" }}><PushToggle role="owner" compact /></div>
       {/* Hero numbers — sabse zaroori 2 cheezein, sabse bada/prominent */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", padding: "16px 18px 0" }}>
         <HeroCard icon={<TrendingUp size={18} />} label="Aaj ki Sale" value={`₹${todaysSales.toLocaleString("en-IN")}`} accent="#1B4332" />

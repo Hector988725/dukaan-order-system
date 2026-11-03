@@ -7,6 +7,7 @@ import CentralDeliveryPanel from "./CentralDeliveryPanel";
 import { fetchMyDeliveryPartner } from "../lib/api";
 import PasswordMeter from "./PasswordMeter";
 import { passwordError } from "../lib/password";
+import PushToggle from "./PushToggle";
 // ============================================================
 // ROOT — /distributor route. Login/signup gate, phir apna dashboard.
 // Store-owner ke AuthGate se bilkul alag flow hai (alag role, alag
@@ -260,6 +261,8 @@ function DistributorDashboard({ user }) {
           <LogOut size={13} /> Logout
         </button>
       </div>
+
+      <div style={{ padding: "10px 20px 0" }}><PushToggle role="distributor" color="#6B2D5C" compact /></div>
 
       {delivery && (
         <div style={{ display: "flex", gap: "6px", padding: "12px 20px 0", maxWidth: "600px", margin: "0 auto" }}>

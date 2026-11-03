@@ -11,6 +11,7 @@ import LangToggle from "./LangToggle";
 import ShareAppButton from "./ShareAppButton";
 import ComboDetailModal from "./ComboDetailModal";
 import OfferStrip from "./OfferStrip";
+import PushToggle from "./PushToggle";
 const PENDING_UPI_KEY = "dukaan_pending_upi_checkout";
 
 // Order place hone ke baad uska number is device par (customer ke apne
@@ -1983,6 +1984,11 @@ function OrderConfirmedModal({ order, storeName, whatsapp, theme, onClose, store
           </div>
         </a>
 
+        {store && getTrackPhone(store.id) && (
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: "10px" }}>
+            <PushToggle color={theme?.primary || "#1B4332"} customer={{ storeId: store.id, orderNumber: order.order_number, phone: getTrackPhone(store.id) }} />
+          </div>
+        )}
         {store && (
           <button onClick={() => setShowTracking(true)} className="ddemo-btn" style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", background: "white", border: `1.5px solid ${theme?.primary || "#1B4332"}`, color: theme?.primary || "#1B4332", fontWeight: 700, fontSize: "12.5px", borderRadius: "9px", padding: "10px 0", cursor: "pointer", marginBottom: "10px" }}>
             {t("📦 Track Your Order")}

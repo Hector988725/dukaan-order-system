@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { pushOnLogout } from "./push";
 
 // ============================================================
 // AUTH
@@ -18,6 +19,8 @@ export async function signIn(email, password) {
 }
 
 export async function signOut() {
+  // is device par us account ka push band (agla user apne naam se dobara on karega)
+  try { await Promise.race([pushOnLogout(), new Promise((r) => setTimeout(r, 1500))]); } catch { /* ignore */ }
   const { error } = await supabase.auth.signOut();
   if (error) throw error;
 }

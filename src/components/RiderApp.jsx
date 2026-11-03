@@ -10,6 +10,7 @@ import InstallAppButton from "./InstallAppButton";
 import { DELIVERY_STATUS_META, NEXT_DELIVERY_ACTION, mapsUrl } from "../lib/deliveryMethods";
 import PasswordMeter from "./PasswordMeter";
 import { passwordError } from "../lib/password";
+import PushToggle from "./PushToggle";
 
 // ============================================================
 // CENTRAL RIDER APP (/rider) — mobile-first.
@@ -174,6 +175,7 @@ function Home({ profile }) {
         <button onClick={() => signOut()} aria-label="Logout" style={{ background: "rgba(255,255,255,0.12)", border: "none", borderRadius: 8, color: "white", padding: "7px 9px", cursor: "pointer", display: "flex" }}><LogOut size={15} /></button>
       </div>
       <div style={{ padding: "10px 14px 0" }}>
+        <div style={{ marginBottom: 8 }}><PushToggle role="rider" color={G} compact /></div>
         <InstallAppButton role="rider" appName="Dukaan Rider" label="Install Rider App" helpTitle="Install Rider App" color={G} compact />
       </div>
       <div style={{ display: "flex", gap: 6, padding: "12px 14px 0" }}>

@@ -29,3 +29,36 @@ self.addEventListener("fetch", (event) => {
   }
   event.respondWith(fetch(event.request));
 });
+
+
+// ============================================================
+// WEB PUSH — server (edge function `send-push`) se aaya notification dikhana
+// ============================================================
+self.addEventListener("push", (event) => {
+  let d = {};
+  try { d = event.data ? event.data.json() : {}; } catch (e) { d = { body: event.data ? event.data.text() : "" }; }
+  const title = d.title || "Dukaan";
+  event.waitUntil(self.registration.showNotification(title, {
+    body: d.body || "",
+    tag: d.tag || undefined,
+    renotify: !!d.tag,
+    icon: "/icon-192.png",
+    badge: "/icon-192.png",
+    data: { url: d.url || "/" },
+  }));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = new URL((event.notification.data && event.notification.data.url) || "/", self.location.origin).href;
+  event.waitUntil((async () => {
+    const list = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    for (const c of list) {
+      if (c.url.startsWith(self.location.origin) && "focus" in c) {
+        try { if ("navigate" in c && c.url !== url) await c.navigate(url); } catch (e) { /* ignore */ }
+        return c.focus();
+      }
+    }
+    return self.clients.openWindow(url);
+  })());
+});
