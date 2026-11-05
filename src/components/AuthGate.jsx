@@ -21,7 +21,10 @@ export function slugify(text) {
 // LOGIN / SIGNUP CHOOSER
 // ============================================================
 export function AuthGate({ onAuthed }) {
-  const [mode, setMode] = useState("login"); // 'login' | 'signup' | 'forgot'
+  // ?signup=1 (ads landing page se) par seedha "Naya Account" tab khulta hai
+  const [mode, setMode] = useState(() => {
+    try { return new URLSearchParams(window.location.search).get("signup") === "1" ? "signup" : "login"; } catch { return "login"; }
+  }); // 'login' | 'signup' | 'forgot'
 
   return (
     <div style={{ maxWidth: "380px", margin: "60px auto", padding: "0 18px" }}>
@@ -321,7 +324,7 @@ export function StoreDetailsForm({ user, onDone }) {
     if (!slugTouched) setSlug(slugify(v));
   };
 
-  const RESERVED_SLUGS = new Set(["superadmin", "signup", "login", "create-store", "admin", "api", "order", "staff", "delivery", "distributor", "dop-partner", "demo", "demos", "terms", "privacy", "refund-policy"]);
+  const RESERVED_SLUGS = new Set(["superadmin", "signup", "login", "create-store", "admin", "api", "order", "staff", "delivery", "distributor", "dop-partner", "demo", "demos", "aao", "terms", "privacy", "refund-policy"]);
 
   const handleSlugBlur = async () => {
     if (!slug) return;

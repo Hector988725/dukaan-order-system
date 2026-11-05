@@ -34,6 +34,7 @@ import DistributorApp from "./components/DistributorApp";
 
 import StaffApp from "./components/StaffApp";
 import RiderApp from "./components/RiderApp";
+import AdsLanding from "./components/AdsLanding";
 import { friendlyError } from "./lib/errors";
 import { veriloButtonState } from "./lib/verilo";
 import OwnerToolsBar from "./components/OwnerToolsBar";
@@ -109,6 +110,15 @@ export default function App() {
       <div style={shellStyle}>
         <GlobalStyles />
         <LoadingScreen text="Redirecting..." />
+      </div>
+    );
+  }
+  if (path === "aao") {
+    // Ads landing page (?c=anuppur se sheher ka naam dikhta hai)
+    return (
+      <div style={shellStyle}>
+        <GlobalStyles />
+        <AdsLanding />
       </div>
     );
   }
