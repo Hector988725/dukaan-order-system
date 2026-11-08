@@ -34,6 +34,44 @@ function findLogo() {
   }
   return null;
 }
+// Kya is rectangle par asli content (button, text, image) hai? Jitne zyada points par content, utna kharab jagah.
+const CONTENT_TAGS = /^(BUTTON|A|INPUT|SELECT|TEXTAREA|LABEL|IMG|SVG|VIDEO|CANVAS|H1|H2|H3|H4|H5|H6|P|SPAN|LI|TD|TH|STRONG|B|I|EM|SMALL|PATH|CIRCLE|RECT|TEXT)$/;
+function hasOwnText(e) {
+  for (const n of e.childNodes) if (n.nodeType === 3 && n.nodeValue.trim().length > 0) return true;
+  return false;
+}
+function busyScore(x, y, w, h) {
+  let bad = 0;
+  const cols = 8, rows = 4;
+  const vw = window.innerWidth, vh = window.innerHeight;
+  for (let i = 0; i < cols; i++) {
+    for (let j = 0; j < rows; j++) {
+      const px = x + ((i + 0.5) / cols) * w, py = y + ((j + 0.5) / rows) * h;
+      if (px < 0 || py < 0 || px > vw - 1 || py > vh - 1) { bad += 1; continue; }
+      const e = document.elementFromPoint(px, py);
+      if (!e || e === document.body || e === document.documentElement) continue;
+      if (CONTENT_TAGS.test(e.tagName.toUpperCase()) || hasOwnText(e) || e.closest("button,a,input,select,textarea,[role=button],[role=tab]")) bad += 1;
+    }
+  }
+  return bad;
+}
+function officeSpots(logo) {
+  const vw = window.innerWidth, vh = window.innerHeight;
+  const maxX = Math.max(0, vw - 104);
+  const list = [];
+  if (logo) list.push({ kind: "logo", x: clamp(logo.right - 4, 0, maxX), y: Math.max(2, logo.bottom + 3 - H) });
+  list.push(
+    { kind: "tr", x: maxX, y: 6 },
+    { kind: "br", x: maxX, y: Math.max(6, vh - H - 16) },
+    { kind: "bl", x: 6, y: Math.max(6, vh - H - 16) },
+    { kind: "tl", x: 6, y: 6 },
+    { kind: "mr", x: maxX, y: Math.round(vh * 0.5) },
+    { kind: "ml", x: 6, y: Math.round(vh * 0.5) },
+  );
+  return list;
+}
+const OFFICE_W = 98;
+
 // safai ke liye upar ke 3 button/tab (logo ke alawa)
 function tourTargets(logo) {
   const out = [];
@@ -294,6 +332,9 @@ const MASCOT_CSS = `
           .mc-sleep .mc-head{transform:rotate(34deg) translate(1px,1.5px)}
           @keyframes mgZ{0%{opacity:0;transform:translateY(4px)}30%{opacity:1}100%{opacity:0;transform:translateY(-12px)}}
           .mg-z{position:absolute;font-weight:800;font-size:10px;color:#6B7FB0;text-shadow:0 0 3px #fff;animation:mgZ 2.4s ease-in-out infinite}
+          .mc-hold .mc-l-arm{transform:rotate(150deg)}.mc-hold .mc-r-arm{transform:rotate(-150deg)}
+          .mc-hold .mc-l-leg{animation:mcSwing 1.1s ease-in-out infinite alternate}.mc-hold .mc-r-leg{animation:mcSwing 1.1s ease-in-out infinite alternate-reverse}
+          .mc-hold .mc-bob{animation:none}
           .mg-spark{position:absolute;color:#F2B83C;font-size:11px;line-height:1;animation:mcTwinkle 1.4s ease-in-out infinite}
           .mg-chip{position:absolute;pointer-events:auto;cursor:pointer;background:rgba(255,255,255,.95);color:#2A241B;font-size:11px;line-height:1.3;font-weight:600;font-family:inherit;padding:6px 10px;border-radius:12px;box-shadow:0 3px 12px rgba(40,30,20,.18);animation:mgPop .25s ease-out}
           .mg-emoji{position:absolute;left:50%;margin-left:-14px;width:28px;text-align:center;font-size:22px;line-height:1;animation:mgBounce .7s ease-out}
@@ -327,7 +368,16 @@ export default function MascotGuide({ name = "Hector", brand = "Dukaan" }) {
   const [left, setLeft] = useState(true);
   const [moving, setMoving] = useState(false);
   const [hidden, setHidden] = useState(false);
-  const [office, setOffice] = useState(null); // { x, y } office ka kona
+  const [office, setOffice] = useState(null); // target: { x, y, kind }
+  const [shown, setShown] = useState(null); // abhi dikhta office
+  const [fade, setFade] = useState(false);
+  const [manual, setManual] = useState(null); // haath se rakhi jagah { fx, fy }
+  const [dragging, setDragging] = useState(false);
+  const manualRef = useRef(null);
+  const officeRef = useRef(null);
+  const atLogoRef = useRef(false);
+  const dragRef = useRef(null);
+  const lastTap = useRef(0);
   const [logoBox, setLogoBox] = useState(null);
   const [act, setAct] = useState("work");
   const [tourBox, setTourBox] = useState(null);
@@ -352,39 +402,75 @@ export default function MascotGuide({ name = "Hector", brand = "Dukaan" }) {
     moveTimer.current = setTimeout(() => setMoving(false), reduce ? 0 : MOVE_MS);
   }, [reduce]);
 
-  useEffect(() => { setMounted(true); }, []);
-
-  // logo ke paas office ki jagah ka pata rakho (scroll/resize/late load)
   useEffect(() => {
-    function place() {
-      if (document.visibilityState !== "visible") return;
-      const r = findLogo();
-      if (r) {
-        setHidden(false);
-        setLogoBox({ left: r.left, top: r.top, width: r.width, height: r.height });
-        setOffice({ x: clamp(r.right - 4, 0, Math.max(0, window.innerWidth - 98)), y: Math.max(2, r.bottom + 3 - H) });
-      } else if (window.scrollY < 60) {
-        setHidden(false); setLogoBox(null); setOffice({ x: 8, y: 2 });
-      } else {
-        setHidden(true);
-      }
-    }
-    place();
-    const id = setInterval(place, 500);
-    window.addEventListener("resize", place);
-    return () => { clearInterval(id); window.removeEventListener("resize", place); };
+    try {
+      const m = JSON.parse(localStorage.getItem("mascot_home") || "null");
+      if (m && typeof m.fx === "number" && typeof m.fy === "number") { setManual(m); manualRef.current = m; }
+    } catch (e) { /* ignore */ }
+    setMounted(true);
   }, []);
 
-  // kahan khada hona hai: chair par, logo ke paas, ya kisi button ke paas safai ke liye
+  // office ki sahi jagah: jahan content (button/text) na ho. Logo ke paas khali ho to wahin, warna koi khali kona.
   useEffect(() => {
-    if (!office) return;
+    function tick() {
+      if (document.visibilityState !== "visible" || dragRef.current) return;
+      const vw = window.innerWidth, vh = window.innerHeight;
+      const mn = manualRef.current;
+      if (mn) {
+        const o = { kind: "manual", x: clamp(mn.fx * vw, 0, Math.max(0, vw - OFFICE_W)), y: clamp(mn.fy * vh, 2, Math.max(2, vh - H - 4)) };
+        atLogoRef.current = false; setLogoBox(null); officeRef.current = o; setOffice(o);
+        return;
+      }
+      const r = findLogo();
+      const logo = r && r.bottom > 0 && r.top < vh ? r : null;
+      setLogoBox(logo ? { left: r.left, top: r.top, width: r.width, height: r.height } : null);
+      const spots = officeSpots(logo);
+      const cur = officeRef.current;
+      let pick = null;
+      if (cur && cur.kind !== "manual") {
+        const same = spots.find((sp) => sp.kind === cur.kind);
+        if (same && busyScore(same.x, same.y, OFFICE_W, H + 4) <= 1) pick = same; // abhi ki jagah theek hai
+      }
+      if (!pick) {
+        let best = null;
+        for (const sp of spots) {
+          const sc = busyScore(sp.x, sp.y, OFFICE_W, H + 4);
+          if (sc === 0) { best = { sp, sc }; break; }
+          if (!best || sc < best.sc) best = { sp, sc };
+        }
+        pick = best.sp;
+      }
+      atLogoRef.current = pick.kind === "logo";
+      officeRef.current = pick;
+      setOffice((o) => (o && o.kind === pick.kind && Math.abs(o.x - pick.x) < 1 && Math.abs(o.y - pick.y) < 1 ? o : pick));
+    }
+    tick();
+    const id = setInterval(tick, 1200);
+    window.addEventListener("resize", tick);
+    return () => { clearInterval(id); window.removeEventListener("resize", tick); };
+  }, [manual]);
+
+  // office naye jagah jaye to pehle ojhal, phir wahan; chhote khiskav par seedha
+  useEffect(() => {
+    if (!office) return undefined;
+    if (!shown) { setShown(office); return undefined; }
+    const far = Math.abs(shown.x - office.x) + Math.abs(shown.y - office.y) > 60;
+    if (!far || reduce) { setShown(office); return undefined; }
+    setFade(true);
+    const t1 = setTimeout(() => { setShown(office); setFade(false); }, 450);
+    return () => clearTimeout(t1);
+  }, [office, shown, reduce]);
+
+  // kahan khada hona hai: chair par, office ke paas, ya kisi button ke paas safai ke liye
+  useEffect(() => {
+    if (!shown || dragging) return;
     let t;
     if (act === "tour" && tourBox) t = { x: clamp(tourBox.right - 4, 0, window.innerWidth - W), y: Math.max(2, tourBox.bottom + 3 - H) };
-    else if (isSit(act)) t = { x: office.x + 22, y: office.y + 8.5 };
-    else t = { x: office.x, y: office.y };
+    else if (isSit(act)) t = { x: shown.x + 22, y: shown.y + 8.5 };
+    else t = { x: shown.x, y: shown.y };
     if (posRef.current.x === 0 && posRef.current.y === 0) { setPos(t); posRef.current = t; setLeft(!isSit(act)); return; }
     moveTo(t.x, t.y);
-  }, [office, act, tourBox, moveTo]);
+  }, [shown, act, tourBox, moveTo, dragging]);
 
   // dhool: waqt ke saath halki badhti hai
   useEffect(() => {
@@ -423,11 +509,11 @@ export default function MascotGuide({ name = "Hector", brand = "Dukaan" }) {
     function clean() {
       setAct("sweep");
       later(() => setAct("mop"), 6500);
-      later(() => { setAct("wipe"); setDust((d) => ({ ...d, wipe: true })); }, 13000);
+      later(() => { setAct("wipe"); if (atLogoRef.current) setDust((d) => ({ ...d, wipe: true })); }, 13000);
       later(() => {
         markClean();
         setDust({ op: 0, wipe: false });
-        const targets = tourTargets(findLogo());
+        const targets = atLogoRef.current ? tourTargets(findLogo()) : [];
         if (targets.length) tour(targets, 0); else work();
       }, 18500);
     }
@@ -435,12 +521,50 @@ export default function MascotGuide({ name = "Hector", brand = "Dukaan" }) {
     return () => { alive = false; timers.forEach(clearTimeout); };
   }, []);
 
-  // mascot par dabao: bas khush hokar haath hilata hai (entertainment)
-  function onTap() {
-    if (isSit(act)) return;
-    setReact({ kind: "cheer", id: Date.now() });
-    setEmoji("👋");
-    setTimeout(() => { setReact(null); setEmoji(null); }, 1800);
+  // dabao = haath hilata hai; pakad kar kheencho = jahan chaho wahan rakho; do baar dabao = wapas apni jagah
+  function say(e, text, kind) { setEmoji(e); setReact(kind ? { kind, id: Date.now() } : null); setTimeout(() => { setEmoji(null); setReact(null); }, 1800); }
+  function onDown(e) {
+    if (e.button !== undefined && e.button !== 0) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    dragRef.current = { id: e.pointerId, sx: e.clientX, sy: e.clientY, ox: posRef.current.x, oy: posRef.current.y, moved: false };
+  }
+  function onMove(e) {
+    const d = dragRef.current;
+    if (!d || d.id !== e.pointerId) return;
+    const dx = e.clientX - d.sx, dy = e.clientY - d.sy;
+    if (!d.moved && Math.hypot(dx, dy) < 6) return;
+    if (!d.moved) { d.moved = true; setDragging(true); setMoving(false); }
+    const x = clamp(d.ox + dx, 0, window.innerWidth - W), y = clamp(d.oy + dy, 0, window.innerHeight - H);
+    posRef.current = { x, y }; setPos({ x, y });
+  }
+  function onUp(e) {
+    const d = dragRef.current;
+    if (!d || d.id !== e.pointerId) return;
+    dragRef.current = null;
+    if (d.moved) {
+      const vw = window.innerWidth, vh = window.innerHeight;
+      const x = clamp(posRef.current.x - (isSit(act) ? 22 : 0), 0, Math.max(0, vw - OFFICE_W));
+      const y = clamp(posRef.current.y - (isSit(act) ? 8.5 : 0), 2, Math.max(2, vh - H - 4));
+      const m = { fx: x / vw, fy: y / vh };
+      manualRef.current = m; setManual(m);
+      try { localStorage.setItem("mascot_home", JSON.stringify(m)); } catch (err) { /* ignore */ }
+      const o = { kind: "manual", x, y };
+      officeRef.current = o; setOffice(o); setShown(o);
+      setDragging(false);
+      say("📍");
+      return;
+    }
+    const now = Date.now();
+    if (now - lastTap.current < 380) { // do baar dabana: wapas apni (khali) jagah
+      lastTap.current = 0;
+      manualRef.current = null; setManual(null);
+      try { localStorage.removeItem("mascot_home"); } catch (err) { /* ignore */ }
+      officeRef.current = null;
+      say("🏠");
+      return;
+    }
+    lastTap.current = now;
+    if (!isSit(act)) say("👋", "", "cheer");
   }
 
   // toast message par khush/udaas (sirf jahan khada hai wahin, kahin jaata nahi)
@@ -476,11 +600,11 @@ export default function MascotGuide({ name = "Hector", brand = "Dukaan" }) {
 
   const standing = !isSit(act);
   const rainy = wx.kind === "rain" && standing;
-  const sitting = isSit(act) && !moving;
+  const sitting = isSit(act) && !moving && !dragging;
   const reactKind = standing && react ? react.kind : null;
-  const pose = moving ? "walk" : reactKind || act === "tour" ? (reactKind || "wipe") : act;
-  const flip = moving ? left : !isSit(act);
-  const showSparks = !moving && (act === "wipe" || act === "tour");
+  const pose = dragging ? "hold" : moving ? "walk" : reactKind || act === "tour" ? (reactKind || "wipe") : act;
+  const flip = moving || dragging ? left : !isSit(act);
+  const showSparks = !moving && !dragging && (act === "wipe" || act === "tour");
   const above = pos.y > 70;
 
   return (
@@ -488,7 +612,7 @@ export default function MascotGuide({ name = "Hector", brand = "Dukaan" }) {
       <WeatherSky kind={wx.kind} day={wx.day} />
       <style>{MASCOT_CSS}</style>
       {/* logo par dhool: Hector ke ponchne par haath ki taraf se saaf hoti hai */}
-      {logoBox && dust.op > 0 && (
+      {logoBox && atLogoRef.current && !manual && dust.op > 0 && (
         <div aria-hidden="true" style={{
           position: "fixed", left: logoBox.left, top: logoBox.top, width: logoBox.width, height: logoBox.height, pointerEvents: "none", zIndex: 8000,
           backgroundImage: DUST_BG, backgroundSize: "9px 9px, 13px 13px, 7px 7px, auto", opacity: dust.op,
@@ -496,12 +620,12 @@ export default function MascotGuide({ name = "Hector", brand = "Dukaan" }) {
         }} />
       )}
       {/* office: logo ke paas */}
-      {office && !hidden && (
+      {shown && !hidden && (
         <>
-          <div aria-hidden="true" style={{ position: "fixed", left: office.x, top: office.y, width: W, height: H, zIndex: 8998, pointerEvents: "none" }}>
+          <div aria-hidden="true" style={{ position: "fixed", left: shown.x, top: shown.y, width: W, height: H, zIndex: 8998, pointerEvents: "none", opacity: fade ? 0 : 1, transition: "opacity .4s" }}>
             <OfficeBack show bucket={act === "mop"} />
           </div>
-          <div aria-hidden="true" style={{ position: "fixed", left: office.x, top: office.y, width: W, height: H, zIndex: 9001, pointerEvents: "none" }}>
+          <div aria-hidden="true" style={{ position: "fixed", left: shown.x, top: shown.y, width: W, height: H, zIndex: 9001, pointerEvents: "none", opacity: fade ? 0 : 1, transition: "opacity .4s" }}>
             <OfficeFront show working={sitting && act === "work"} brand={brand} />
           </div>
         </>
@@ -509,7 +633,7 @@ export default function MascotGuide({ name = "Hector", brand = "Dukaan" }) {
       <div data-mascot="1" style={{
         position: "fixed", left: 0, top: 0, zIndex: 9000, pointerEvents: "none",
         transform: `translate(${pos.x}px, ${pos.y}px)`,
-        transition: reduce ? "none" : `transform ${MOVE_MS}ms cubic-bezier(.45,.05,.3,1), opacity .3s`,
+        transition: reduce || dragging ? "none" : `transform ${MOVE_MS}ms cubic-bezier(.45,.05,.3,1), opacity .3s`,
         opacity: hidden ? 0 : 1, width: W, height: H,
       }}>
         {emoji && <div className="mg-emoji" style={above ? { bottom: H + 2 + (rainy ? 16 : 0) } : { top: H + 2 }}>{emoji}</div>}
@@ -533,8 +657,8 @@ export default function MascotGuide({ name = "Hector", brand = "Dukaan" }) {
         <div style={{ filter: "drop-shadow(0 3px 4px rgba(30,30,60,.2))" }}>
           <Character pose={sitting ? act : pose} flip={sitting ? false : flip} rainy={rainy} brand={brand} />
         </div>
-        <button data-mascot="1" onClick={onTap} aria-label={name}
-          style={{ position: "absolute", left: 2, top: 2, width: W - 4, height: H - 4, padding: 0, border: "none", background: "transparent", cursor: "pointer", pointerEvents: "auto", WebkitTapHighlightColor: "transparent" }} />
+        <button data-mascot="1" aria-label={name} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}
+          style={{ position: "absolute", left: 2, top: 2, width: W - 4, height: H - 4, padding: 0, border: "none", background: "transparent", cursor: dragging ? "grabbing" : "grab", pointerEvents: "auto", touchAction: "none", WebkitTapHighlightColor: "transparent" }} />
       </div>
     </>
   );
