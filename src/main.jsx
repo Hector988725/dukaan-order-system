@@ -10,7 +10,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <ErrorBoundary><App /></ErrorBoundary>
     <BrandSplash letter="D" name="Dukaan Order System" />
-    <MascotGuide name="Dukaan Saathi" accent="#F28A1E" />
+    <MascotGuide name="Dukaan Saathi" brand="Dukaan" accent="#F28A1E" weatherApi="https://verilo.officialhector365.workers.dev" />
   </React.StrictMode>
 );
 
