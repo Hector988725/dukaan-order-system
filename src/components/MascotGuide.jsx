@@ -86,50 +86,19 @@ const COAT = "#F6C21B";
 /* ---------- mausam ---------- */
 const isDayNow = () => { const h = new Date().getHours(); return h >= 6 && h < 18; };
 
-// Visitor ke shehar ka mausam: Verilo ke server (/api/weather) se, jo MET Norway se leta hai aur cache karta hai.
-function getPlace() {
-  try {
-    const m = window.location.pathname.match(/^\/city\/([^/]+)/);
-    if (m) return { city: decodeURIComponent(m[1]), state: new URLSearchParams(window.location.search).get("state") || "" };
-    const c = JSON.parse(localStorage.getItem("verilo_last_city") || "null");
-    if (c && c.city) return { city: c.city, state: c.state || "" };
-  } catch (e) { /* ignore */ }
-  return null;
-}
-function useWeather(api) {
+// Mausam: koi bahari API nahi. Din/raat ghadi se; test ke liye ?wx=rain | cloud | part | clear | night
+function useWeather() {
   const [w, setW] = useState({ kind: "clear", day: isDayNow() });
   useEffect(() => {
-    let dead = false;
     let forced = null;
     try { forced = new URLSearchParams(window.location.search).get("wx"); } catch (e) { /* ignore */ }
-    if (forced) { // test: ?wx=rain | clear | cloud | part | night
+    if (forced) {
       setW({ kind: forced === "night" ? "clear" : forced, day: forced !== "night" });
       return undefined;
     }
-    let lastKey = null;
-    async function load() {
-      const place = getPlace();
-      const key = place ? `${place.city}|${place.state}` : "_";
-      lastKey = key;
-      try {
-        const c = JSON.parse(sessionStorage.getItem("mascot_wx_" + key) || "null");
-        if (c && Date.now() - c.t < 15 * 60 * 1000) { if (!dead) setW(c.w); return; }
-      } catch (e) { /* ignore */ }
-      try {
-        const qs = place ? `?city=${encodeURIComponent(place.city)}&state=${encodeURIComponent(place.state)}` : "";
-        const r = await fetch(`${api}/api/weather${qs}`);
-        if (!r.ok) throw new Error("wx");
-        const j = await r.json();
-        const nw = { kind: j.kind || "clear", day: typeof j.day === "boolean" ? j.day : isDayNow() };
-        try { sessionStorage.setItem("mascot_wx_" + key, JSON.stringify({ t: Date.now(), w: nw })); } catch (e) { /* ignore */ }
-        if (!dead) setW(nw);
-      } catch (e) { if (!dead) setW((p) => ({ ...p, day: isDayNow() })); }
-    }
-    load();
-    const id = setInterval(load, 15 * 60 * 1000);
-    const id2 = setInterval(() => { const pl = getPlace(); const k = pl ? `${pl.city}|${pl.state}` : "_"; if (k !== lastKey) load(); }, 3000);
-    return () => { dead = true; clearInterval(id); clearInterval(id2); };
-  }, [api]);
+    const id = setInterval(() => setW((p) => (p.day === isDayNow() ? p : { ...p, day: isDayNow() })), 60000);
+    return () => clearInterval(id);
+  }, []);
   return w;
 }
 
@@ -227,6 +196,30 @@ function describeScreen(before, after, screens) {
   const head = after.title ? `Ab aap "${after.title}" me ho.` : "Ab aap naye screen par ho.";
   const list = after.opts.length ? ` Yaha ye options milenge: ${after.opts.join(", ")}.` : "";
   return (welcome + head + list).slice(0, 190);
+}
+
+const OK_RE = /(success|successful|safal|placed|confirmed|ho gaya|ho gayi|hogaya|dhanyavaad|thank you|badhai|saved|submitted)/i;
+const BAD_RE = /(error|failed|failure|galat|nahi ho|nahi mil|invalid|wrong|try again|not found)/i;
+const TOAST_SEL = '[role=alert],[role=status],[class*="toast" i],[class*="snack" i],[class*="notif" i],[class*="alert" i]';
+function looksLikeToast(el) {
+  try {
+    if (el.matches(TOAST_SEL) || el.querySelector(TOAST_SEL)) return true;
+    return window.getComputedStyle(el).position === "fixed";
+  } catch (e) { return false; }
+}
+const COLORS = ["#F28A1E", "#F6C21B", "#3D7FD9", "#E4572E", "#2FA36B", "#9B5DE5"];
+const CONFETTI = Array.from({ length: 18 }, (_, i) => ({
+  dx: Math.round(Math.cos((i / 18) * Math.PI * 2) * (24 + (i % 4) * 9)),
+  dy: Math.round(-14 - Math.abs(Math.sin((i / 18) * Math.PI * 2)) * (26 + (i % 3) * 10)),
+  c: COLORS[i % COLORS.length], r: (i * 47) % 360,
+}));
+function compactScreen(screens) {
+  const a = snapshot();
+  const hay = `${a.path} ${a.title}`.toLowerCase();
+  for (const [re, msg] of screens) if (re.test(hay)) return msg;
+  const head = a.title || "Ye screen";
+  const list = a.opts.slice(0, 4).join(" · ");
+  return (list ? `${head} — ${list}` : head).slice(0, 90);
 }
 
 /* ---------- mascot ---------- */
@@ -337,7 +330,7 @@ function OfficeFront({ show, working, brand }) {
   );
 }
 
-export default function MascotGuide({ name = "Saathi", brand = "Dukaan", accent = "#F28A1E", rules = NO_RULES, screens = NO_RULES, weatherApi = "" }) {
+export default function MascotGuide({ name = "Saathi", brand = "Dukaan", accent = "#F28A1E", rules = NO_RULES, screens = NO_RULES, autoGuide = false, whatsapp = "" }) {
   const [mounted, setMounted] = useState(false);
   const [on, setOn] = useState(true);
   const [pos, setPos] = useState({ x: 0, y: 0 });
@@ -348,7 +341,11 @@ export default function MascotGuide({ name = "Saathi", brand = "Dukaan", accent 
   const [typed, setTyped] = useState("");
   const [act, setAct] = useState("sweep");
   const [stepping, setStepping] = useState(false);
-  const wx = useWeather(weatherApi);
+  const [menu, setMenu] = useState(false);
+  const [react, setReact] = useState(null); // { kind: cheer | sad, id }
+  const mountAt = useRef(Date.now());
+  const lastReact = useRef(0);
+  const wx = useWeather();
   const lastMut = useRef(0);
   const clickId = useRef(0);
   const posRef = useRef(pos);
@@ -390,9 +387,12 @@ export default function MascotGuide({ name = "Saathi", brand = "Dukaan", accent 
     try { greeted = sessionStorage.getItem("mascot_greeted") === "1"; } catch (e) { /* ignore */ }
     const t1 = setTimeout(() => moveTo(home().x, home().y), 2600);
     const t2 = setTimeout(() => {
-      if (greeted || !onRef.current) return;
+      if (!onRef.current) return;
+      const today = new Date().toDateString();
+      let seen = false;
+      try { seen = localStorage.getItem("mascot_hello_day") === today; localStorage.setItem("mascot_hello_day", today); } catch (e) { /* ignore */ }
+      if (!seen && !greeted) say("Namaste 👋", 3200, "chip");
       try { sessionStorage.setItem("mascot_greeted", "1"); } catch (e) { /* ignore */ }
-      say(`Namaste! Main ${name} hoon. Kahin bhi dabao, main wahan aakar samjha dunga.`, 6500);
     }, 3700);
     return () => { clearTimeout(t1); clearTimeout(t2); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -411,6 +411,7 @@ export default function MascotGuide({ name = "Saathi", brand = "Dukaan", accent 
   }, [bubble, reduce]);
 
   useEffect(() => {
+    if (!autoGuide) return undefined;
     async function onClick(e) {
       if (!onRef.current) return;
       const t = e.target;
@@ -446,15 +447,44 @@ export default function MascotGuide({ name = "Saathi", brand = "Dukaan", accent 
     }
     document.addEventListener("click", onClick, true);
     return () => document.removeEventListener("click", onClick, true);
-  }, [moveTo, say, reduce, rules, screens]);
+  }, [moveTo, say, reduce, rules, screens, autoGuide]);
 
   useEffect(() => {
     const mo = new MutationObserver((list) => {
       for (const m of list) { const n = m.target; if (!(n.nodeType === 1 && n.closest && n.closest("[data-mascot]")) && !(n.parentElement && n.parentElement.closest && n.parentElement.closest("[data-mascot]"))) { lastMut.current = Date.now(); return; } }
     });
     mo.observe(document.body, { childList: true, subtree: true, attributes: true, characterData: true });
-    return () => mo.disconnect();
+    // toast/message dikhe to mascot khush ya udaas hota hai
+    const ro = new MutationObserver((list) => {
+      if (!onRef.current || Date.now() - mountAt.current < 3500 || Date.now() - lastReact.current < 6000) return;
+      for (const m of list) {
+        for (const n of m.addedNodes) {
+          if (n.nodeType !== 1 || n.closest("[data-mascot]") || !looksLikeToast(n)) continue;
+          const txt = tidy(n.innerText);
+          if (txt.length < 4 || txt.length > 140) continue;
+          const kind = BAD_RE.test(txt) ? "sad" : OK_RE.test(txt) ? "cheer" : null;
+          if (!kind) continue;
+          lastReact.current = Date.now();
+          setReact({ kind, id: Date.now() });
+          setMenu(false);
+          setBubble({ text: kind === "cheer" ? "🎉" : "😟", kind: "emoji" });
+          clearTimeout(hideTimer.current);
+          hideTimer.current = setTimeout(() => setBubble(null), 2400);
+          setTimeout(() => setReact((r) => (r && r.kind === kind ? null : r)), 2400);
+          return;
+        }
+      }
+    });
+    ro.observe(document.body, { childList: true, subtree: true });
+    return () => { mo.disconnect(); ro.disconnect(); };
   }, []);
+
+  useEffect(() => {
+    if (!menu) return undefined;
+    const close = (e) => { if (!(e.target instanceof Element) || !e.target.closest("[data-mascot]")) setMenu(false); };
+    document.addEventListener("click", close, true);
+    return () => document.removeEventListener("click", close, true);
+  }, [menu]);
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -519,8 +549,8 @@ export default function MascotGuide({ name = "Saathi", brand = "Dukaan", accent 
   }, [on, moveTo, reduce]);
 
   function turnOff() {
-    setOn(false); persist(false);
-    say("Theek hai! Main logo ke paas ja raha hoon. Mujhe dabaoge to wapas guide karunga.", 3800, "note");
+    setOn(false); persist(false); setMenu(false);
+    say("👍", 1800, "emoji");
   }
 
   function turnOn() {
@@ -529,17 +559,33 @@ export default function MascotGuide({ name = "Saathi", brand = "Dukaan", accent 
     setBubble(null);
     const h = home();
     moveTo(h.x, h.y);
-    setTimeout(() => say("Main wapas aa gaya! Kahin bhi dabao, main wahan aakar samjha dunga."), reduce ? 0 : MOVE_MS - 100);
+    setTimeout(() => say("👋", 1800, "emoji"), reduce ? 0 : MOVE_MS - 100);
   }
 
   function onMascotClick() {
     if (!on) {
       if (bubble && bubble.kind === "ask") { setBubble(null); return; }
-      say("Kya main aapko guide karun?", 9000, "ask");
+      say("Guide karun?", 8000, "ask");
       return;
     }
-    if (bubble) { setBubble(null); return; }
-    say("Kisi bhi button ya link ko dabao, main wahan aakar batata hoon ki wo kya karta hai.");
+    setBubble(null);
+    setMenu((m) => !m);
+  }
+
+  function explain() { setMenu(false); say(compactScreen(screens), 6500, "chip"); }
+  async function share() {
+    setMenu(false);
+    const url = window.location.origin + window.location.pathname;
+    try {
+      if (navigator.share) { await navigator.share({ title: document.title, url }); return; }
+      await navigator.clipboard.writeText(url);
+      say("Link copy ho gaya ✓", 2400, "chip");
+    } catch (e) { /* user ne cancel kiya */ }
+  }
+  function help() {
+    setMenu(false);
+    const num = String(whatsapp).replace(/\D/g, "");
+    if (num) window.open(`https://wa.me/${num}?text=${encodeURIComponent("Namaste, mujhe madad chahiye: " + window.location.href)}`, "_blank", "noopener");
   }
 
   if (!mounted) return null;
@@ -548,12 +594,21 @@ export default function MascotGuide({ name = "Saathi", brand = "Dukaan", accent 
   const activity = act;
   const sitting = !on && isSit(activity) && !moving;
   const vw = typeof window !== "undefined" ? window.innerWidth : 360;
-  const bw = Math.min(205, vw - 20);
+  const bw = Math.min(170, vw - 20);
   const bx = clamp(pos.x + W / 2 - bw / 2, 10, vw - bw - 10) - pos.x;
   const above = pos.y > 110;
-  const pose = (moving || stepping) ? "walk" : on ? (bubble ? "talk" : "idle") : (bubble ? "talk" : activity);
+  const reactKind = on && react ? react.kind : null;
+  const pose = (moving || stepping) ? "walk" : reactKind ? reactKind : on ? (bubble && bubble.kind !== "emoji" ? "talk" : "idle") : (bubble && bubble.kind !== "emoji" ? "talk" : activity);
   const flip = on ? left : (moving || stepping ? left : !isSit(activity));
   const showSparks = !on && !bubble && activity === "wipe";
+  const items = [
+    { ic: "💡", lb: "Samjhao", fn: explain },
+    { ic: "📤", lb: "Share", fn: share },
+    ...(String(whatsapp).replace(/\D/g, "") ? [{ ic: "💬", lb: "Madad", fn: help }] : []),
+    { ic: "😴", lb: "Chhutti", fn: turnOff },
+  ];
+  const mw = items.length * 42;
+  const mx = clamp(pos.x + W / 2 - mw / 2, 8, vw - mw - 8) - pos.x;
   const chip = { whiteSpace: "nowrap", border: "none", borderRadius: 999, padding: "3px 10px", fontWeight: 700, fontSize: 11, cursor: "pointer" };
   const halo = "0 0 2px #fff,0 0 2px #fff,0 0 4px #fff,0 0 6px #fff,0 0 9px rgba(255,255,255,.9)";
 
@@ -620,28 +675,51 @@ export default function MascotGuide({ name = "Saathi", brand = "Dukaan", accent 
           @keyframes mgZ{0%{opacity:0;transform:translateY(4px)}30%{opacity:1}100%{opacity:0;transform:translateY(-12px)}}
           .mg-z{position:absolute;font-weight:800;font-size:10px;color:#6B7FB0;text-shadow:0 0 3px #fff;animation:mgZ 2.4s ease-in-out infinite}
           .mg-spark{position:absolute;color:#F2B83C;font-size:11px;line-height:1;animation:mcTwinkle 1.4s ease-in-out infinite}
-          .mg-cap{position:absolute;pointer-events:auto;color:#201C17;font-size:12px;line-height:1.35;font-weight:600;font-family:inherit}
+          .mg-chip{position:absolute;pointer-events:auto;cursor:pointer;background:rgba(255,255,255,.95);color:#2A241B;font-size:11px;line-height:1.3;font-weight:600;font-family:inherit;padding:6px 10px;border-radius:12px;box-shadow:0 3px 12px rgba(40,30,20,.18);animation:mgPop .25s ease-out}
+          .mg-emoji{position:absolute;left:50%;margin-left:-14px;width:28px;text-align:center;font-size:22px;line-height:1;animation:mgBounce .7s ease-out}
+          .mg-menu{position:absolute;display:flex;justify-content:center;gap:6px;pointer-events:auto;animation:mgPop .2s ease-out}
+          .mg-menu button{all:unset;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;width:36px}
+          .mg-ic{width:30px;height:30px;border-radius:50%;background:#fff;box-shadow:0 3px 10px rgba(40,30,20,.22);display:flex;align-items:center;justify-content:center;font-size:15px}
+          .mg-lb{font-size:8.5px;font-weight:700;color:#2A241B;text-shadow:0 0 3px #fff,0 0 3px #fff,0 0 5px #fff}
+          .mg-conf{position:absolute;left:50%;top:30%;width:5px;height:8px;border-radius:1px;opacity:0;pointer-events:none;animation:mgConf 1.3s ease-out forwards}
+          @keyframes mgPop{from{opacity:0;transform:scale(.85)}to{opacity:1;transform:scale(1)}}
+          @keyframes mgBounce{0%{opacity:0;transform:translateY(8px) scale(.6)}60%{opacity:1;transform:translateY(-4px) scale(1.15)}100%{opacity:1;transform:translateY(0) scale(1)}}
+          @keyframes mgConf{0%{opacity:1;transform:translate(0,0) rotate(0)}100%{opacity:0;transform:translate(var(--dx),calc(var(--dy) + 46px)) rotate(var(--r))}}
+          @keyframes mcJump{0%,100%{transform:translateY(0)}45%{transform:translateY(-7px)}}
+          @keyframes mcShake{0%,100%{transform:rotate(14deg)}25%{transform:rotate(7deg)}75%{transform:rotate(20deg)}}
+          .mc-cheer .mc-bob{animation:mcJump .5s ease-out 4}
+          .mc-cheer .mc-r-arm{transform:rotate(-152deg)}.mc-cheer .mc-l-arm{transform:rotate(152deg)}
+          .mc-cheer .mc-head{animation:mcNod .3s ease-in-out infinite alternate}
+          .mc-sad .mc-head{animation:mcShake .5s ease-in-out 3}
           @media (prefers-reduced-motion: reduce){.mc *,.mg-spark{animation:none!important}}
         `}</style>
         <OfficeBack show={!on} bucket={!on && activity === "mop"} />
-        {bubble && (
-          <div data-mascot="1" className="mg-cap" style={{
-            left: bx, width: bw, textShadow: halo,
-            ...(above ? { bottom: H + 6 + (rainy ? 16 : 0) } : { top: H + 6 }),
+        {bubble && bubble.kind === "emoji" && (
+          <div className="mg-emoji" style={above ? { bottom: H + 2 + (rainy ? 16 : 0) } : { top: H + 2 }}>{bubble.text}</div>
+        )}
+        {bubble && bubble.kind !== "emoji" && (
+          <div data-mascot="1" className="mg-chip" onClick={() => bubble.kind !== "ask" && setBubble(null)} style={{
+            left: bx, width: bw, ...(above ? { bottom: H + 6 + (rainy ? 16 : 0) } : { top: H + 6 }),
           }}>
-            <div style={{ position: "relative", paddingRight: bubble.kind === "note" ? 0 : 20 }}>
-              <span style={{ visibility: "hidden" }}>{bubble.text}</span>
-              <span style={{ position: "absolute", left: 0, top: 0, right: bubble.kind === "note" ? 0 : 20 }}>{typed}</span>
-              {bubble.kind !== "note" && (
-                <button data-mascot="1" aria-label="Band karo" onClick={() => (bubble.kind === "ask" ? setBubble(null) : turnOff())}
-                  style={{ position: "absolute", right: 0, top: 0, width: 16, height: 16, borderRadius: 999, border: "none", background: "rgba(255,255,255,.85)", boxShadow: "0 1px 3px rgba(0,0,0,.25)", color: "#555", fontSize: 11, lineHeight: "16px", padding: 0, cursor: "pointer", textShadow: "none" }}>×</button>
-              )}
-            </div>
+            <span style={{ visibility: "hidden" }}>{bubble.text}</span>
+            <span style={{ position: "absolute", left: 10, top: 6, right: 10 }}>{typed}</span>
             {bubble.kind === "ask" && (
-              <button data-mascot="1" onClick={turnOn} style={{ ...chip, marginTop: 5, background: accent, color: "#fff", textShadow: "none" }}>Haan</button>
+              <button data-mascot="1" onClick={turnOn} style={{ ...chip, marginLeft: 8, background: accent, color: "#fff" }}>Haan</button>
             )}
           </div>
         )}
+        {menu && on && (
+          <div data-mascot="1" className="mg-menu" style={{ left: mx, width: mw, ...(above ? { bottom: H + 6 + (rainy ? 16 : 0) } : { top: H + 6 }) }}>
+            {items.map((it) => (
+              <button key={it.lb} data-mascot="1" onClick={it.fn} aria-label={it.lb}>
+                <span className="mg-ic">{it.ic}</span><span className="mg-lb">{it.lb}</span>
+              </button>
+            ))}
+          </div>
+        )}
+        {reactKind === "cheer" && CONFETTI.map((c, i) => (
+          <span key={`${react.id}-${i}`} className="mg-conf" style={{ "--dx": `${c.dx}px`, "--dy": `${c.dy}px`, "--r": `${c.r}deg`, background: c.c, animationDelay: `${(i % 5) * 40}ms` }} />
+        ))}
         {showSparks && (
           <>
             <span className="mg-spark" style={{ left: -12, top: 18 }}>✦</span>
