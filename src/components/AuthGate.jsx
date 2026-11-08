@@ -29,7 +29,7 @@ export function AuthGate({ onAuthed }) {
   return (
     <div style={{ maxWidth: "380px", margin: "60px auto", padding: "0 18px" }}>
       <div style={{ textAlign: "center", marginBottom: "24px" }}>
-        <div style={{ width: 50, height: 50, borderRadius: "12px", background: "#D4A24C", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px" }}>
+        <div data-mascot-logo="1" style={{ width: 50, height: 50, borderRadius: "12px", background: "#D4A24C", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px" }}>
           <Store size={24} color="#123026" />
         </div>
         <div style={{ fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: "19px" }}>Dukaan Order System</div>

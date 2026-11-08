@@ -955,7 +955,7 @@ function StoreHeaderBrand({ store, editable, onToggleOpen, showTagline = true, o
     <div style={{ display: "flex", alignItems: "center", gap: "10px", flex: 1, minWidth: 0 }}>
       {/* Dukaan ka apna logo — primary identity, left mein (jahan pehle
           nazar jaati hai). Logo na ho to neutral placeholder tile. */}
-      <div style={{
+      <div data-mascot-logo="1" style={{
         width: 38, height: 38, borderRadius: "9px", flexShrink: 0, overflow: "hidden",
         display: "flex", alignItems: "center", justifyContent: "center",
         background: "white",
