@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-// Hector365 office mascot: sirf saaf-safai aur kaam karta dikhta hai (entertainment).
-// Na bolta hai, na beech screen me aata hai. Hamesha logo ke paas apne chhote office me rehta hai.
-// Kisi click ko rokta ya badalta nahi (pointer-events band).
+// Hector365 mascot: har ghante ek baar aata hai, screen ki khali jagah saaf karta hai aur wahan
+// 3D "Powered by Hector365" dheere dheere ubharta hai, phir chala jaata hai. Bolta nahi, click nahi rokta.
 
-const SCALE = 0.7; // mascot ka size: chhota/bada karna ho to sirf ye number badlo
+const SCALE = 0.95; // mascot ka size: chhota/bada karna ho to sirf ye number badlo
 const VB_W = 40;
 const VB_H = 74;
 const W = Math.round(VB_W * SCALE);
@@ -363,328 +362,142 @@ const DUST_BG = [
   "linear-gradient(rgba(150,132,108,.14), rgba(150,132,108,.14))",
 ].join(",");
 
+const LINES = [["Powered by", "Hector365"], ["Crafted by", "Hector365"], ["Made with ❤ by", "Hector365"]];
+const EXTRUDE = Array.from({ length: 7 }, (_, i) => `${i + 1}px ${i + 1}px 0 #B4530B`).join(",") + ",10px 14px 14px rgba(40,25,10,.35)";
+
 export default function MascotGuide({ name = "Hector", brand = "Dukaan" }) {
-  const [mounted, setMounted] = useState(false);
-  const [pos, setPos] = useState({ x: 0, y: 0 });
-  const [left, setLeft] = useState(true);
-  const [moving, setMoving] = useState(false);
-  const [hidden, setHidden] = useState(false);
-  const [office, setOffice] = useState(null); // target: { x, y, kind }
-  const [shown, setShown] = useState(null); // abhi dikhta office
-  const [fade, setFade] = useState(false);
-  const [manual, setManual] = useState(null); // haath se rakhi jagah { fx, fy }
-  const [dragging, setDragging] = useState(false);
-  const [away, setAway] = useState(false); // logo screen se bahar (scroll) to office bhi chhup jaye
+  const [pos, setPos] = useState({ x: -200, y: 0 });
+  const [pose, setPose] = useState("walk");
+  const [left, setLeft] = useState(false);
+  const [moveMs, setMoveMs] = useState(0);
+  const [on, setOn] = useState(false); // mascot screen par hai?
+  const [box, setBox] = useState(null); // { x, y, w, h, line }
+  const [p, setP] = useState(0); // 0..1 kitna saaf hua
+  const [fadeText, setFadeText] = useState(false);
   const [skySpot, setSkySpot] = useState(null);
   const skyRef = useRef(null);
-  const busyCount = useRef(0);
-  const startAt = useRef(Date.now());
-  const manualRef = useRef(null);
-  const officeRef = useRef(null);
-  const atLogoRef = useRef(false);
-  const dragRef = useRef(null);
-  const lastTap = useRef(0);
-  const [logoBox, setLogoBox] = useState(null);
-  const [act, setAct] = useState("work");
-  const [tourBox, setTourBox] = useState(null);
-  const [dust, setDust] = useState({ op: 0, wipe: false });
-  const [react, setReact] = useState(null); // { kind: cheer | sad, id }
-  const [emoji, setEmoji] = useState(null);
+  const busy = useRef(false);
   const wx = useWeather();
-  const posRef = useRef(pos);
-  const moveTimer = useRef(null);
-  const mountAt = useRef(Date.now());
-  const lastReact = useRef(0);
-  posRef.current = pos;
   const reduce = typeof window !== "undefined" && window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const rainy = wx.kind === "rain";
 
-  const moveTo = useCallback((x, y) => {
-    const cur = posRef.current;
-    if (Math.abs(x - cur.x) < 0.5 && Math.abs(y - cur.y) < 0.5) return;
-    if (x !== cur.x) setLeft(x < cur.x);
-    setPos({ x, y });
-    setMoving(true);
-    clearTimeout(moveTimer.current);
-    moveTimer.current = setTimeout(() => setMoving(false), reduce ? 0 : MOVE_MS);
+  // sooraj / chand: hamesha khali jagah par
+  useEffect(() => {
+    function sky() {
+      if (document.visibilityState !== "visible") return;
+      const vw = window.innerWidth, vh = window.innerHeight;
+      const cur = skyRef.current;
+      if (cur && busyScore(cur.x, cur.y, 32, 32) <= 2) return;
+      let best = null;
+      for (const y of [8, Math.round(vh * 0.5), vh - 48]) for (const x of [vw - 44, 10]) {
+        const sc = busyScore(x, y, 32, 32);
+        if (!best || sc < best.sc) best = { c: { x, y }, sc };
+        if (sc === 0) { skyRef.current = { x, y }; setSkySpot({ x, y }); return; }
+      }
+      skyRef.current = best.c; setSkySpot(best.c);
+    }
+    let t = 0;
+    const onScroll = () => { if (t) return; t = setTimeout(() => { t = 0; sky(); }, 250); };
+    const first = setTimeout(sky, 4000);
+    const id = setInterval(sky, 3000);
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", sky);
+    return () => { clearTimeout(first); clearTimeout(t); clearInterval(id); window.removeEventListener("scroll", onScroll, true); window.removeEventListener("resize", sky); };
+  }, []);
+
+  // har ghante ek visit
+  useEffect(() => {
+    let demo = false;
+    try { demo = /[?&]mascot=demo/.test(window.location.search); } catch (e) { /* ignore */ }
+    const every = demo ? 40000 : CLEAN_EVERY;
+    let alive = true;
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const later = (ms) => alive && wait(ms);
+
+    function pickBox() {
+      const vw = window.innerWidth, vh = window.innerHeight;
+      const w = Math.min(250, vw - 28), h = 78;
+      let best = null;
+      for (const fy of [0.82, 0.68, 0.55, 0.42, 0.3, 0.2]) {
+        const y = Math.round(vh * fy - h / 2);
+        const x = Math.round((vw - w) / 2);
+        const sc = busyScore(x, y, w, h);
+        if (!best || sc < best.sc) best = { x, y, w, h, sc };
+        if (sc <= 1) break;
+      }
+      return best && best.sc <= 8 ? best : null; // bahut bhari screen ho to aaj skip
+    }
+
+    async function visit() {
+      if (busy.current || document.visibilityState !== "visible") return false;
+      const b = pickBox();
+      if (!b) return false;
+      busy.current = true;
+      const vw = window.innerWidth;
+      const line = LINES[Math.floor(Math.random() * LINES.length)];
+      const standY = b.y + b.h - H + 8;
+      setBox({ ...b, line }); setP(0); setFadeText(false);
+      setPos({ x: -W - 10, y: standY }); setMoveMs(0); setPose("walk"); setLeft(false); setOn(true);
+      await later(120);
+      // andar aao (left se)
+      setMoveMs(reduce ? 0 : 1800); setPos({ x: b.x - W + 6, y: standY });
+      await later(reduce ? 50 : 1900);
+      // saaf karte hue text ubharta jaye
+      setMoveMs(0); setPose("wipe");
+      await later(250);
+      const dur = reduce ? 300 : 6000;
+      setP(1);
+      setMoveMs(dur); setPos({ x: b.x + b.w - W + 6, y: standY });
+      await later(dur + 200);
+      setPose("cheer"); await later(1700);
+      setPose("idle"); await later(3500); // 3D text dikhne do
+      setFadeText(true);
+      setLeft(false); setPose("walk"); setMoveMs(reduce ? 0 : 1800); setPos({ x: vw + 20, y: standY });
+      await later(reduce ? 50 : 2000);
+      setOn(false); setBox(null); setP(0);
+      try { localStorage.setItem(LAST_CLEAN, String(Date.now())); } catch (e) { /* ignore */ }
+      busy.current = false;
+      return true;
+    }
+
+    async function loop() {
+      await wait(demo ? 4000 : 9000); // splash ke baad
+      while (alive) {
+        let last = 0;
+        try { last = Number(localStorage.getItem(LAST_CLEAN) || 0); } catch (e) { /* ignore */ }
+        if (Date.now() - last >= every) { const ok = await visit(); if (!ok) await wait(30000); }
+        await wait(15000);
+      }
+    }
+    loop();
+    return () => { alive = false; };
   }, [reduce]);
 
-  useEffect(() => {
-    try {
-      const m = JSON.parse(localStorage.getItem("mascot_home") || "null");
-      if (m && typeof m.fx === "number" && typeof m.fy === "number") { setManual(m); manualRef.current = m; }
-    } catch (e) { /* ignore */ }
-    setMounted(true);
-  }, []);
-
-  // office ki sahi jagah: jahan content (button/text) na ho. Logo ke paas khali ho to wahin, warna koi khali kona.
-  useEffect(() => {
-    function tick() {
-      if (document.visibilityState !== "visible" || dragRef.current) return;
-      const vw = window.innerWidth, vh = window.innerHeight;
-      const mn = manualRef.current;
-      if (mn) {
-        const o = { kind: "manual", x: clamp(mn.fx * vw, 0, Math.max(0, vw - OFFICE_W)), y: clamp(mn.fy * vh, 2, Math.max(2, vh - H - 4)) };
-        atLogoRef.current = false; setLogoBox(null); setAway(false); officeRef.current = o; setOffice(o);
-        return;
-      }
-      const r = findLogo();
-      const logo = r && r.bottom > 0 && r.top < vh && r.top >= -4 ? r : null;
-      setLogoBox(logo ? { left: r.left, top: r.top, width: r.width, height: r.height } : null);
-      if (Date.now() - startAt.current < 6000 || (!logo && !officeRef.current && Date.now() - startAt.current < 15000)) return; // shuru me logo ka intezaar
-      if (!logo) { // logo scroll se nikal gaya: office bhi chala jaye, neeche tak na aaye
-        atLogoRef.current = false; setAway(true); return;
-      }
-      setAway(false);
-      const spots = officeSpots(logo);
-      const cur = officeRef.current;
-      const curSpot = cur && spots.find((sp) => sp.kind === cur.kind);
-      let pick = null;
-      if (curSpot) {
-        const sc = busyScore(curSpot.x, curSpot.y, OFFICE_W, H + 4);
-        if (sc <= 3) { busyCount.current = 0; pick = curSpot; }
-        else if (++busyCount.current < 4) pick = curSpot; // thodi der ruko, jhat se jagah mat badlo
-      }
-      if (!pick) {
-        busyCount.current = 0;
-        let best = null;
-        for (const sp of spots) {
-          const sc = busyScore(sp.x, sp.y, OFFICE_W, H + 4);
-          if (sc <= 1 && sp.kind === "logo") { best = { sp, sc }; break; }
-          if (!best || sc < best.sc) best = { sp, sc };
-        }
-        pick = best.sp;
-      }
-      atLogoRef.current = pick.kind === "logo";
-      officeRef.current = pick;
-      setOffice((o) => (o && o.kind === pick.kind && Math.abs(o.x - pick.x) < 1 && Math.abs(o.y - pick.y) < 1 ? o : pick));
-      // sooraj/chand: khali jagah par
-      const sx = [vw - 44, 10], sy = [8, Math.round(vh * 0.5), vh - 48];
-      const cands = []; for (const y of sy) for (const x of sx) cands.push({ x, y });
-      const sk = skyRef.current;
-      if (!sk || busyScore(sk.x, sk.y, 32, 32) > 2) {
-        let bs = null;
-        for (const c of cands) { const sc = busyScore(c.x, c.y, 32, 32); if (sc === 0) { bs = { c, sc }; break; } if (!bs || sc < bs.sc) bs = { c, sc }; }
-        skyRef.current = bs.c; setSkySpot(bs.c);
-      }
-    }
-    let raf = 0;
-    const onScroll = () => { if (raf) return; raf = setTimeout(() => { raf = 0; tick(); }, 200); };
-    window.addEventListener("scroll", onScroll, true);
-    const first = setTimeout(tick, 6500); // shuru me thoda ruko taaki page jam jaye
-    const id = setInterval(tick, 1500);
-    window.addEventListener("resize", tick);
-    return () => { clearTimeout(first); clearTimeout(raf); clearInterval(id); window.removeEventListener("resize", tick); window.removeEventListener("scroll", onScroll, true); };
-  }, [manual]);
-
-  // office naye jagah jaye to pehle ojhal, phir wahan; chhote khiskav par seedha
-  useEffect(() => {
-    if (!office) return undefined;
-    if (!shown) { setShown(office); return undefined; }
-    const far = Math.abs(shown.x - office.x) + Math.abs(shown.y - office.y) > 60;
-    if (!far || reduce) { setShown(office); return undefined; }
-    setFade(true);
-    const t1 = setTimeout(() => { setShown(office); setFade(false); }, 450);
-    return () => clearTimeout(t1);
-  }, [office, shown, reduce]);
-
-  // kahan khada hona hai: chair par, office ke paas, ya kisi button ke paas safai ke liye
-  useEffect(() => {
-    if (!shown || dragging) return;
-    let t;
-    if (act === "tour" && tourBox) t = { x: clamp(tourBox.right - 4, 0, window.innerWidth - W), y: Math.max(2, tourBox.bottom + 3 - H) };
-    else if (isSit(act)) t = { x: shown.x + 22, y: shown.y + 8.5 };
-    else t = { x: shown.x, y: shown.y };
-    if (posRef.current.x === 0 && posRef.current.y === 0) { setPos(t); posRef.current = t; setLeft(!isSit(act)); return; }
-    moveTo(t.x, t.y);
-  }, [shown, act, tourBox, moveTo, dragging]);
-
-  // dhool: waqt ke saath halki badhti hai
-  useEffect(() => {
-    function level() {
-      let last = 0;
-      try { last = Number(localStorage.getItem(LAST_CLEAN) || 0); } catch (e) { /* ignore */ }
-      const hrs = last ? (Date.now() - last) / 3600000 : 3;
-      return clamp(hrs * 0.08, 0.04, 0.22);
-    }
-    setDust((d) => (d.wipe ? d : { op: level(), wipe: false }));
-    const id = setInterval(() => setDust((d) => (d.wipe ? d : { op: level(), wipe: false })), 60000);
-    return () => clearInterval(id);
-  }, []);
-
-  // routine: safai (jhadu, pocha, logo ponchna, upar ke buttons ponchna) -> office me kaam / kabhi neend; 1 ghante baad phir safai
-  useEffect(() => {
-    const demo = /[?&]mascot=demo/.test(window.location.search);
-    const every = demo ? 70000 : CLEAN_EVERY;
-    let alive = true;
-    const timers = [];
-    const later = (fn, ms) => { timers.push(setTimeout(() => { if (alive) fn(); }, ms)); };
-    const lastClean = () => { try { return Number(localStorage.getItem(LAST_CLEAN) || 0); } catch (e) { return 0; } };
-    const markClean = () => { try { localStorage.setItem(LAST_CLEAN, String(Date.now())); } catch (e) { /* ignore */ } };
-    function work() {
-      setAct("work");
-      later(() => {
-        if (Date.now() - lastClean() >= every) { clean(); return; }
-        if (Math.random() < 0.3) { setAct("sleep"); later(work, demo ? rand(9000, 12000) : rand(40000, 75000)); } else work();
-      }, demo ? rand(7000, 10000) : rand(45000, 90000));
-    }
-    function tour(list, i) {
-      if (i >= list.length) { setTourBox(null); work(); return; }
-      setTourBox(list[i]); setAct("tour");
-      later(() => tour(list, i + 1), 4800);
-    }
-    function clean() {
-      setAct("sweep");
-      later(() => setAct("mop"), 6500);
-      later(() => { setAct("wipe"); if (atLogoRef.current) setDust((d) => ({ ...d, wipe: true })); }, 13000);
-      later(() => {
-        markClean();
-        setDust({ op: 0, wipe: false });
-        const targets = atLogoRef.current ? tourTargets(findLogo()) : [];
-        if (targets.length) tour(targets, 0); else work();
-      }, 18500);
-    }
-    later(() => { if (Date.now() - lastClean() >= every) clean(); else work(); }, 1200);
-    return () => { alive = false; timers.forEach(clearTimeout); };
-  }, []);
-
-  // dabao = haath hilata hai; pakad kar kheencho = jahan chaho wahan rakho; do baar dabao = wapas apni jagah
-  function say(e, text, kind) { setEmoji(e); setReact(kind ? { kind, id: Date.now() } : null); setTimeout(() => { setEmoji(null); setReact(null); }, 1800); }
-  function onDown(e) {
-    if (e.button !== undefined && e.button !== 0) return;
-    e.currentTarget.setPointerCapture(e.pointerId);
-    dragRef.current = { id: e.pointerId, sx: e.clientX, sy: e.clientY, ox: posRef.current.x, oy: posRef.current.y, moved: false };
-  }
-  function onMove(e) {
-    const d = dragRef.current;
-    if (!d || d.id !== e.pointerId) return;
-    const dx = e.clientX - d.sx, dy = e.clientY - d.sy;
-    if (!d.moved && Math.hypot(dx, dy) < 6) return;
-    if (!d.moved) { d.moved = true; setDragging(true); setMoving(false); }
-    const x = clamp(d.ox + dx, 0, window.innerWidth - W), y = clamp(d.oy + dy, 0, window.innerHeight - H);
-    posRef.current = { x, y }; setPos({ x, y });
-  }
-  function onUp(e) {
-    const d = dragRef.current;
-    if (!d || d.id !== e.pointerId) return;
-    dragRef.current = null;
-    if (d.moved) {
-      const vw = window.innerWidth, vh = window.innerHeight;
-      const x = clamp(posRef.current.x - (isSit(act) ? 22 : 0), 0, Math.max(0, vw - OFFICE_W));
-      const y = clamp(posRef.current.y - (isSit(act) ? 8.5 : 0), 2, Math.max(2, vh - H - 4));
-      const m = { fx: x / vw, fy: y / vh };
-      manualRef.current = m; setManual(m);
-      try { localStorage.setItem("mascot_home", JSON.stringify(m)); } catch (err) { /* ignore */ }
-      const o = { kind: "manual", x, y };
-      officeRef.current = o; setOffice(o); setShown(o);
-      setDragging(false);
-      say("📍");
-      return;
-    }
-    const now = Date.now();
-    if (now - lastTap.current < 380) { // do baar dabana: wapas apni (khali) jagah
-      lastTap.current = 0;
-      manualRef.current = null; setManual(null);
-      try { localStorage.removeItem("mascot_home"); } catch (err) { /* ignore */ }
-      officeRef.current = null;
-      say("🏠");
-      return;
-    }
-    lastTap.current = now;
-    if (!isSit(act)) say("👋", "", "cheer");
-  }
-
-  // toast message par khush/udaas (sirf jahan khada hai wahin, kahin jaata nahi)
-  useEffect(() => {
-    const OK = /(success|successful|safal|placed|confirmed|ho gaya|ho gayi|dhanyavaad|thank you|badhai|saved|submitted)/i;
-    const BAD = /(error|failed|failure|galat|nahi ho|invalid|wrong|try again)/i;
-    const SEL = '[role=alert],[role=status],[class*="toast" i],[class*="snack" i],[class*="notif" i]';
-    const ro = new MutationObserver((list) => {
-      if (Date.now() - mountAt.current < 3500 || Date.now() - lastReact.current < 6000) return;
-      for (const m of list) {
-        for (const n of m.addedNodes) {
-          if (n.nodeType !== 1 || n.closest("[data-mascot]")) continue;
-          let isToast = false;
-          try { isToast = n.matches(SEL) || !!n.querySelector(SEL) || window.getComputedStyle(n).position === "fixed"; } catch (e) { /* ignore */ }
-          if (!isToast) continue;
-          const txt = String(n.innerText || "").replace(/\s+/g, " ").trim();
-          if (txt.length < 4 || txt.length > 140) continue;
-          const kind = BAD.test(txt) ? "sad" : OK.test(txt) ? "cheer" : null;
-          if (!kind) continue;
-          lastReact.current = Date.now();
-          setReact({ kind, id: Date.now() });
-          setEmoji(kind === "cheer" ? "🎉" : "😟");
-          setTimeout(() => { setReact(null); setEmoji(null); }, 2400);
-          return;
-        }
-      }
-    });
-    ro.observe(document.body, { childList: true, subtree: true });
-    return () => ro.disconnect();
-  }, []);
-
-  if (!mounted) return null;
-
-  const standing = !isSit(act);
-  const rainy = wx.kind === "rain" && standing;
-  const sitting = isSit(act) && !moving && !dragging;
-  const reactKind = standing && react ? react.kind : null;
-  const pose = dragging ? "hold" : moving ? "walk" : reactKind || act === "tour" ? (reactKind || "wipe") : act;
-  const flip = moving || dragging ? left : !isSit(act);
-  const showSparks = !moving && !dragging && (act === "wipe" || act === "tour");
-  const above = pos.y > 70;
-
+  const rows = box ? box.line : null;
+  const fs = box ? Math.min(40, Math.floor(box.w / 6.4)) : 30;
   return (
     <>
       <WeatherSky kind={wx.kind} day={wx.day} spot={skySpot} />
       <style>{MASCOT_CSS}</style>
-      {/* logo par dhool: Hector ke ponchne par haath ki taraf se saaf hoti hai */}
-      {logoBox && atLogoRef.current && !manual && dust.op > 0 && (
-        <div aria-hidden="true" style={{
-          position: "fixed", left: logoBox.left, top: logoBox.top, width: logoBox.width, height: logoBox.height, pointerEvents: "none", zIndex: 8000,
-          backgroundImage: DUST_BG, backgroundSize: "9px 9px, 13px 13px, 7px 7px, auto", opacity: dust.op,
-          clipPath: dust.wipe ? "inset(0 100% 0 0)" : "inset(0 0 0 0)", transition: dust.wipe && !reduce ? "clip-path 5s linear" : "none",
-        }} />
-      )}
-      {/* office: logo ke paas */}
-      {shown && !hidden && !away && (
-        <>
-          <div aria-hidden="true" style={{ position: "fixed", left: shown.x, top: shown.y, width: W, height: H, zIndex: 8998, pointerEvents: "none", opacity: fade ? 0 : 1, transition: "opacity .4s" }}>
-            <OfficeBack show bucket={act === "mop"} />
+      {box && (
+        <div aria-hidden="true" style={{ position: "fixed", left: box.x, top: box.y, width: box.w, height: box.h, zIndex: 8999, pointerEvents: "none", opacity: fadeText ? 0 : 1, transition: "opacity 1.2s" }}>
+          {/* gandi (dhool wali) jagah: jaise jaise saaf hoti hai, hat'ti jaati hai */}
+          <div style={{ position: "absolute", inset: 0, borderRadius: 10, opacity: .7, background: "rgba(120,100,80,.08)", backgroundImage: DUST_BG, backgroundSize: "9px 9px, 13px 13px, 7px 7px, auto",
+            clipPath: p ? "inset(0 0 0 100%)" : "inset(0 0 0 0)", transition: p && !reduce ? "clip-path 6s linear .25s" : "none" }} />
+          {/* saaf jagah par 3D text */}
+          <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", lineHeight: 1,
+            clipPath: p ? "inset(0 0 0 0)" : "inset(0 100% 0 0)", transition: p && !reduce ? "clip-path 6s linear .25s" : "none" }}>
+            <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 2, color: "#6B5B4A", textTransform: "uppercase", marginBottom: 3 }}>{rows && rows[0]}</span>
+            <span style={{ fontSize: fs, fontWeight: 900, letterSpacing: 1, color: "#FFB347", textShadow: EXTRUDE, fontFamily: "system-ui, -apple-system, 'Segoe UI', sans-serif", transform: "perspective(300px) rotateX(14deg)" }}>{rows && rows[1]}</span>
           </div>
-          <div aria-hidden="true" style={{ position: "fixed", left: shown.x, top: shown.y, width: W, height: H, zIndex: 9001, pointerEvents: "none", opacity: fade ? 0 : 1, transition: "opacity .4s" }}>
-            <OfficeFront show working={sitting && act === "work"} brand={brand} />
-          </div>
-        </>
-      )}
-      <div data-mascot="1" style={{
-        position: "fixed", left: 0, top: 0, zIndex: 9000, pointerEvents: "none",
-        transform: `translate(${pos.x}px, ${pos.y}px)`,
-        transition: reduce || dragging ? "none" : `transform ${MOVE_MS}ms cubic-bezier(.45,.05,.3,1), opacity .3s`,
-        opacity: hidden || away || !shown ? 0 : 1, width: W, height: H,
-      }}>
-        {emoji && <div className="mg-emoji" style={above ? { bottom: H + 2 + (rainy ? 16 : 0) } : { top: H + 2 }}>{emoji}</div>}
-        {reactKind === "cheer" && CONFETTI.map((c, i) => (
-          <span key={`${react.id}-${i}`} className="mg-conf" style={{ "--dx": `${c.dx}px`, "--dy": `${c.dy}px`, "--r": `${c.r}deg`, background: c.c, animationDelay: `${(i % 5) * 40}ms` }} />
-        ))}
-        {showSparks && (
-          <>
-            <span className="mg-spark" style={{ left: -12, top: 18 }}>✦</span>
-            <span className="mg-spark" style={{ left: -22, top: 30, animationDelay: ".5s", fontSize: 9 }}>✦</span>
-            <span className="mg-spark" style={{ left: -6, top: 36, animationDelay: "1s", fontSize: 8 }}>✦</span>
-          </>
-        )}
-        {sitting && act === "sleep" && (
-          <>
-            <span className="mg-z" style={{ left: 22, top: -2 }}>z</span>
-            <span className="mg-z" style={{ left: 30, top: -10, animationDelay: ".8s", fontSize: 12 }}>z</span>
-            <span className="mg-z" style={{ left: 39, top: -19, animationDelay: "1.6s", fontSize: 14 }}>Z</span>
-          </>
-        )}
-        <div style={{ filter: "drop-shadow(0 3px 4px rgba(30,30,60,.2))" }}>
-          <Character pose={sitting ? act : pose} flip={sitting ? false : flip} rainy={rainy} brand={brand} />
         </div>
-        <button data-mascot="1" aria-label={name} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}
-          style={{ position: "absolute", left: 2, top: 2, width: W - 4, height: H - 4, padding: 0, border: "none", background: "transparent", cursor: dragging ? "grabbing" : "grab", pointerEvents: away || !shown ? "none" : "auto", touchAction: "none", WebkitTapHighlightColor: "transparent" }} />
+      )}
+      <div data-mascot="1" aria-hidden="true" style={{
+        position: "fixed", left: 0, top: 0, zIndex: 9000, pointerEvents: "none", width: W, height: H,
+        transform: `translate(${pos.x}px, ${pos.y}px)`, opacity: on ? 1 : 0,
+        transition: `transform ${moveMs}ms ${pose === "wipe" ? "linear" : "cubic-bezier(.45,.05,.3,1)"}`,
+      }}>
+        <Character pose={pose} flip={left} rainy={rainy} brand={brand} />
       </div>
     </>
   );
