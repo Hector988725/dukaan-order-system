@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 // Hector365 mascot: har ghante ek baar aata hai, screen ki khali jagah saaf karta hai aur wahan
 // 3D "Powered by Hector365" dheere dheere ubharta hai, phir chala jaata hai. Bolta nahi, click nahi rokta.
 
-const SCALE = 0.95; // mascot ka size: chhota/bada karna ho to sirf ye number badlo
+const SCALE = 0.6; // mascot ka size: chhota/bada karna ho to sirf ye number badlo
 const VB_W = 40;
 const VB_H = 74;
 const W = Math.round(VB_W * SCALE);
@@ -363,7 +363,7 @@ const DUST_BG = [
 ].join(",");
 
 const LINES = [["Powered by", "Hector365"], ["Crafted by", "Hector365"], ["Made with ❤ by", "Hector365"]];
-const EXTRUDE = Array.from({ length: 7 }, (_, i) => `${i + 1}px ${i + 1}px 0 #B4530B`).join(",") + ",10px 14px 14px rgba(40,25,10,.35)";
+const EXTRUDE = Array.from({ length: 4 }, (_, i) => `${i + 1}px ${i + 1}px 0 #B4530B`).join(",") + ",6px 8px 8px rgba(40,25,10,.35)";
 
 export default function MascotGuide({ name = "Hector", brand = "Dukaan" }) {
   const [pos, setPos] = useState({ x: -200, y: 0 });
@@ -372,7 +372,7 @@ export default function MascotGuide({ name = "Hector", brand = "Dukaan" }) {
   const [moveMs, setMoveMs] = useState(0);
   const [on, setOn] = useState(false); // mascot screen par hai?
   const [box, setBox] = useState(null); // { x, y, w, h, line }
-  const [p, setP] = useState(0); // 0..1 kitna saaf hua
+  const [c, setC] = useState(-16); // % jitna hissa saaf ho chuka
   const [fadeText, setFadeText] = useState(false);
   const [skySpot, setSkySpot] = useState(null);
   const skyRef = useRef(null);
@@ -416,16 +416,17 @@ export default function MascotGuide({ name = "Hector", brand = "Dukaan" }) {
 
     function pickBox() {
       const vw = window.innerWidth, vh = window.innerHeight;
-      const w = Math.min(250, vw - 28), h = 78;
+      const w = 152, h = 36;
+      if (vw < w + W * 2 + 30) return null;
       let best = null;
-      for (const fy of [0.82, 0.68, 0.55, 0.42, 0.3, 0.2]) {
-        const y = Math.round(vh * fy - h / 2);
-        const x = Math.round((vw - w) / 2);
-        const sc = busyScore(x, y, w, h);
+      // sirf footer/header ki khali jagah (beech me kabhi nahi); khali na ho to us ghante skip
+      for (const y of [vh - h - 14, 6, vh - h - 64, Math.round(vh * 0.14)]) { // footer, phir header, phir footer ke upar
+        const x = 12;
+        const sc = busyScore(x - 6, y - 12, w + W * 2 + 20, h + 16);
         if (!best || sc < best.sc) best = { x, y, w, h, sc };
-        if (sc <= 1) break;
+        if (sc === 0) break;
       }
-      return best && best.sc <= 8 ? best : null; // bahut bhari screen ho to aaj skip
+      return best && best.sc <= 2 ? best : null;
     }
 
     async function visit() {
@@ -435,26 +436,37 @@ export default function MascotGuide({ name = "Hector", brand = "Dukaan" }) {
       busy.current = true;
       const vw = window.innerWidth;
       const line = LINES[Math.floor(Math.random() * LINES.length)];
-      const standY = b.y + b.h - H + 8;
-      setBox({ ...b, line }); setP(0); setFadeText(false);
+      const standY = b.y + b.h - H + 6;
+      setBox({ ...b, line: null }); setC(-16); setFadeText(false);
       setPos({ x: -W - 10, y: standY }); setMoveMs(0); setPose("walk"); setLeft(false); setOn(true);
       await later(120);
-      // andar aao (left se)
-      setMoveMs(reduce ? 0 : 1800); setPos({ x: b.x - W + 6, y: standY });
-      await later(reduce ? 50 : 1900);
-      // saaf karte hue text ubharta jaye
+      // left se chal kar aao
+      setMoveMs(reduce ? 0 : 1500); setPos({ x: b.x - W * 0.55, y: standY });
+      await later(reduce ? 50 : 1600);
+      // pocha lagao: dhundh (fog) peeche hat'ti jaye, neeche saaf brand dikhe
       setMoveMs(0); setPose("wipe");
       await later(250);
-      const dur = reduce ? 300 : 6000;
-      setP(1);
-      setMoveMs(dur); setPos({ x: b.x + b.w - W + 6, y: standY });
-      await later(dur + 200);
+      const dur = reduce ? 300 : 4200;
+      setMoveMs(dur); setPos({ x: b.x + b.w - W * 0.45, y: standY });
+      const t0 = performance.now();
+      await new Promise((res) => {
+        const step = () => {
+          if (!alive) return res();
+          const t = Math.min(1, (performance.now() - t0) / dur);
+          setC(-16 + t * 132);
+          if (t < 1) requestAnimationFrame(step); else res();
+        };
+        step();
+      });
+      // thoda aage nikal kar khush ho, text dikhne do
+      setPose("walk"); setMoveMs(reduce ? 0 : 900); setPos({ x: b.x + b.w + 8, y: standY });
+      await later(reduce ? 50 : 1000);
       setPose("cheer"); await later(1700);
-      setPose("idle"); await later(3500); // 3D text dikhne do
+      setPose("idle"); await later(3500);
       setFadeText(true);
-      setLeft(false); setPose("walk"); setMoveMs(reduce ? 0 : 1800); setPos({ x: vw + 20, y: standY });
-      await later(reduce ? 50 : 2000);
-      setOn(false); setBox(null); setP(0);
+      setLeft(false); setPose("walk"); setMoveMs(reduce ? 0 : 2400); setPos({ x: vw + 20, y: standY });
+      await later(reduce ? 50 : 2500);
+      setOn(false); setBox(null); setC(-16);
       try { localStorage.setItem(LAST_CLEAN, String(Date.now())); } catch (e) { /* ignore */ }
       busy.current = false;
       return true;
@@ -473,22 +485,25 @@ export default function MascotGuide({ name = "Hector", brand = "Dukaan" }) {
     return () => { alive = false; };
   }, [reduce]);
 
-  const rows = box ? box.line : null;
-  const fs = box ? Math.min(40, Math.floor(box.w / 6.4)) : 30;
+  const fogMask = `linear-gradient(90deg, transparent ${c}%, #000 ${c + 16}%)`;
   return (
     <>
       <WeatherSky kind={wx.kind} day={wx.day} spot={skySpot} />
       <style>{MASCOT_CSS}</style>
       {box && (
         <div aria-hidden="true" style={{ position: "fixed", left: box.x, top: box.y, width: box.w, height: box.h, zIndex: 8999, pointerEvents: "none", opacity: fadeText ? 0 : 1, transition: "opacity 1.2s" }}>
-          {/* gandi (dhool wali) jagah: jaise jaise saaf hoti hai, hat'ti jaati hai */}
-          <div style={{ position: "absolute", inset: 0, borderRadius: 10, opacity: .7, background: "rgba(120,100,80,.08)", backgroundImage: DUST_BG, backgroundSize: "9px 9px, 13px 13px, 7px 7px, auto",
-            clipPath: p ? "inset(0 0 0 100%)" : "inset(0 0 0 0)", transition: p && !reduce ? "clip-path 6s linear .25s" : "none" }} />
-          {/* saaf jagah par 3D text */}
-          <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", lineHeight: 1,
-            clipPath: p ? "inset(0 0 0 0)" : "inset(0 100% 0 0)", transition: p && !reduce ? "clip-path 6s linear .25s" : "none" }}>
-            <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 2, color: "#6B5B4A", textTransform: "uppercase", marginBottom: 3 }}>{rows && rows[0]}</span>
-            <span style={{ fontSize: fs, fontWeight: 900, letterSpacing: 1, color: "#FFB347", textShadow: EXTRUDE, fontFamily: "system-ui, -apple-system, 'Segoe UI', sans-serif", transform: "perspective(300px) rotateX(14deg)" }}>{rows && rows[1]}</span>
+          {/* brand patti: halka 3D (neeche moti kinari + parchhai) */}
+          <div style={{ position: "absolute", inset: 0, borderRadius: 999, display: "flex", alignItems: "center", gap: 8, padding: "0 14px 0 6px", boxSizing: "border-box", overflow: "hidden",
+            background: "linear-gradient(#FFFFFF, #FCF1E2)", border: "1px solid rgba(242,138,30,.35)", boxShadow: "0 3px 0 #E6C48F, 0 8px 16px rgba(120,70,10,.22)" }}>
+            <span style={{ width: 24, height: 24, borderRadius: 8, flex: "none", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 900, fontSize: 14,
+              fontFamily: "system-ui, -apple-system, 'Segoe UI', sans-serif", background: "linear-gradient(145deg,#FFB347,#F07A12)", boxShadow: "0 2px 0 #B4530B, 0 3px 6px rgba(180,83,11,.4), inset 0 1px 0 rgba(255,255,255,.55)", textShadow: "0 1px 1px rgba(120,50,0,.5)" }}>H</span>
+            <span style={{ display: "flex", flexDirection: "column", lineHeight: 1.05, fontFamily: "system-ui, -apple-system, 'Segoe UI', sans-serif" }}>
+              <span style={{ fontSize: 7.5, fontWeight: 700, letterSpacing: 1.6, color: "#9A8A76", textTransform: "uppercase" }}>Powered by</span>
+              <span style={{ fontSize: 16, fontWeight: 800, color: NAVY, letterSpacing: -0.2, textShadow: "0 1px 0 #fff, 0 2px 3px rgba(27,42,92,.25)" }}>Hector<span style={{ color: ORANGE }}>365</span></span>
+            </span>
+            {/* dhundh: pochne par peeche se saaf hoti hai */}
+            <div style={{ position: "absolute", inset: 0, borderRadius: 999, background: "rgba(232,226,216,.96)", backdropFilter: "blur(5px)", WebkitBackdropFilter: "blur(5px)",
+              maskImage: fogMask, WebkitMaskImage: fogMask }} />
           </div>
         </div>
       )}
