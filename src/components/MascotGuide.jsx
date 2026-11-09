@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 // Na bolta hai, na beech screen me aata hai. Hamesha logo ke paas apne chhote office me rehta hai.
 // Kisi click ko rokta ya badalta nahi (pointer-events band).
 
-const SCALE = 0.85; // mascot ka size: chhota/bada karna ho to sirf ye number badlo
+const SCALE = 0.7; // mascot ka size: chhota/bada karna ho to sirf ye number badlo
 const VB_W = 40;
 const VB_H = 74;
 const W = Math.round(VB_W * SCALE);
@@ -123,7 +123,8 @@ function Cloud({ top, dur, delay, size, tone }) {
   );
 }
 
-function WeatherSky({ kind, day }) {
+function WeatherSky({ kind, day, spot }) {
+  const sp = spot || { x: Math.max(0, (typeof window !== "undefined" ? window.innerWidth : 360) - 42), y: 8 };
   const rain = kind === "rain";
   const cloudy = kind !== "clear";
   const tone = day ? (rain ? "#B9C3D6" : "#FFFFFF") : "#8E97B5";
@@ -141,7 +142,7 @@ function WeatherSky({ kind, day }) {
         @media (prefers-reduced-motion: reduce){.mg-cloud,.mg-drop,.mg-rays,.mg-star{animation:none!important}.mg-cloud{left:20px}}
       `}</style>
       {!rain && day && (
-        <svg className="mg-sun" width="30" height="30" viewBox="0 0 30 30" style={{ position: "absolute", top: 8, right: 12 }}>
+        <svg className="mg-sun" width="30" height="30" viewBox="0 0 30 30" style={{ position: "absolute", top: sp.y, left: sp.x, transition: "top .6s, left .6s" }}>
           <g className="mg-rays" stroke="#F5B731" strokeWidth="2" strokeLinecap="round">
             {Array.from({ length: 8 }).map((_, i) => <line key={i} x1="15" y1="2" x2="15" y2="5.5" transform={`rotate(${i * 45} 15 15)`} />)}
           </g>
@@ -149,7 +150,7 @@ function WeatherSky({ kind, day }) {
         </svg>
       )}
       {!day && (
-        <svg width="30" height="30" viewBox="0 0 30 30" style={{ position: "absolute", top: 8, right: 12 }}>
+        <svg width="30" height="30" viewBox="0 0 30 30" style={{ position: "absolute", top: sp.y, left: sp.x, transition: "top .6s, left .6s" }}>
           <path d="M20 4 A11 11 0 1 0 26 20 A9 9 0 1 1 20 4Z" fill="#F4E6A6" stroke="#E2CE78" strokeWidth=".8" />
           <circle className="mg-star" cx="5" cy="7" r="1.1" fill="#F4E6A6" /><circle className="mg-star" style={{ animationDelay: ".7s" }} cx="11" cy="24" r="1" fill="#F4E6A6" />
         </svg>
@@ -373,6 +374,11 @@ export default function MascotGuide({ name = "Hector", brand = "Dukaan" }) {
   const [fade, setFade] = useState(false);
   const [manual, setManual] = useState(null); // haath se rakhi jagah { fx, fy }
   const [dragging, setDragging] = useState(false);
+  const [away, setAway] = useState(false); // logo screen se bahar (scroll) to office bhi chhup jaye
+  const [skySpot, setSkySpot] = useState(null);
+  const skyRef = useRef(null);
+  const busyCount = useRef(0);
+  const startAt = useRef(Date.now());
   const manualRef = useRef(null);
   const officeRef = useRef(null);
   const atLogoRef = useRef(false);
@@ -418,24 +424,32 @@ export default function MascotGuide({ name = "Hector", brand = "Dukaan" }) {
       const mn = manualRef.current;
       if (mn) {
         const o = { kind: "manual", x: clamp(mn.fx * vw, 0, Math.max(0, vw - OFFICE_W)), y: clamp(mn.fy * vh, 2, Math.max(2, vh - H - 4)) };
-        atLogoRef.current = false; setLogoBox(null); officeRef.current = o; setOffice(o);
+        atLogoRef.current = false; setLogoBox(null); setAway(false); officeRef.current = o; setOffice(o);
         return;
       }
       const r = findLogo();
-      const logo = r && r.bottom > 0 && r.top < vh ? r : null;
+      const logo = r && r.bottom > 0 && r.top < vh && r.top >= -4 ? r : null;
       setLogoBox(logo ? { left: r.left, top: r.top, width: r.width, height: r.height } : null);
+      if (Date.now() - startAt.current < 6000 || (!logo && !officeRef.current && Date.now() - startAt.current < 15000)) return; // shuru me logo ka intezaar
+      if (!logo) { // logo scroll se nikal gaya: office bhi chala jaye, neeche tak na aaye
+        atLogoRef.current = false; setAway(true); return;
+      }
+      setAway(false);
       const spots = officeSpots(logo);
       const cur = officeRef.current;
+      const curSpot = cur && spots.find((sp) => sp.kind === cur.kind);
       let pick = null;
-      if (cur && cur.kind !== "manual") {
-        const same = spots.find((sp) => sp.kind === cur.kind);
-        if (same && busyScore(same.x, same.y, OFFICE_W, H + 4) <= 1) pick = same; // abhi ki jagah theek hai
+      if (curSpot) {
+        const sc = busyScore(curSpot.x, curSpot.y, OFFICE_W, H + 4);
+        if (sc <= 3) { busyCount.current = 0; pick = curSpot; }
+        else if (++busyCount.current < 4) pick = curSpot; // thodi der ruko, jhat se jagah mat badlo
       }
       if (!pick) {
+        busyCount.current = 0;
         let best = null;
         for (const sp of spots) {
           const sc = busyScore(sp.x, sp.y, OFFICE_W, H + 4);
-          if (sc === 0) { best = { sp, sc }; break; }
+          if (sc <= 1 && sp.kind === "logo") { best = { sp, sc }; break; }
           if (!best || sc < best.sc) best = { sp, sc };
         }
         pick = best.sp;
@@ -443,11 +457,23 @@ export default function MascotGuide({ name = "Hector", brand = "Dukaan" }) {
       atLogoRef.current = pick.kind === "logo";
       officeRef.current = pick;
       setOffice((o) => (o && o.kind === pick.kind && Math.abs(o.x - pick.x) < 1 && Math.abs(o.y - pick.y) < 1 ? o : pick));
+      // sooraj/chand: khali jagah par
+      const sx = [vw - 44, 10], sy = [8, Math.round(vh * 0.5), vh - 48];
+      const cands = []; for (const y of sy) for (const x of sx) cands.push({ x, y });
+      const sk = skyRef.current;
+      if (!sk || busyScore(sk.x, sk.y, 32, 32) > 2) {
+        let bs = null;
+        for (const c of cands) { const sc = busyScore(c.x, c.y, 32, 32); if (sc === 0) { bs = { c, sc }; break; } if (!bs || sc < bs.sc) bs = { c, sc }; }
+        skyRef.current = bs.c; setSkySpot(bs.c);
+      }
     }
-    tick();
-    const id = setInterval(tick, 1200);
+    let raf = 0;
+    const onScroll = () => { if (raf) return; raf = setTimeout(() => { raf = 0; tick(); }, 200); };
+    window.addEventListener("scroll", onScroll, true);
+    const first = setTimeout(tick, 6500); // shuru me thoda ruko taaki page jam jaye
+    const id = setInterval(tick, 1500);
     window.addEventListener("resize", tick);
-    return () => { clearInterval(id); window.removeEventListener("resize", tick); };
+    return () => { clearTimeout(first); clearTimeout(raf); clearInterval(id); window.removeEventListener("resize", tick); window.removeEventListener("scroll", onScroll, true); };
   }, [manual]);
 
   // office naye jagah jaye to pehle ojhal, phir wahan; chhote khiskav par seedha
@@ -609,7 +635,7 @@ export default function MascotGuide({ name = "Hector", brand = "Dukaan" }) {
 
   return (
     <>
-      <WeatherSky kind={wx.kind} day={wx.day} />
+      <WeatherSky kind={wx.kind} day={wx.day} spot={skySpot} />
       <style>{MASCOT_CSS}</style>
       {/* logo par dhool: Hector ke ponchne par haath ki taraf se saaf hoti hai */}
       {logoBox && atLogoRef.current && !manual && dust.op > 0 && (
@@ -620,7 +646,7 @@ export default function MascotGuide({ name = "Hector", brand = "Dukaan" }) {
         }} />
       )}
       {/* office: logo ke paas */}
-      {shown && !hidden && (
+      {shown && !hidden && !away && (
         <>
           <div aria-hidden="true" style={{ position: "fixed", left: shown.x, top: shown.y, width: W, height: H, zIndex: 8998, pointerEvents: "none", opacity: fade ? 0 : 1, transition: "opacity .4s" }}>
             <OfficeBack show bucket={act === "mop"} />
@@ -634,7 +660,7 @@ export default function MascotGuide({ name = "Hector", brand = "Dukaan" }) {
         position: "fixed", left: 0, top: 0, zIndex: 9000, pointerEvents: "none",
         transform: `translate(${pos.x}px, ${pos.y}px)`,
         transition: reduce || dragging ? "none" : `transform ${MOVE_MS}ms cubic-bezier(.45,.05,.3,1), opacity .3s`,
-        opacity: hidden ? 0 : 1, width: W, height: H,
+        opacity: hidden || away || !shown ? 0 : 1, width: W, height: H,
       }}>
         {emoji && <div className="mg-emoji" style={above ? { bottom: H + 2 + (rainy ? 16 : 0) } : { top: H + 2 }}>{emoji}</div>}
         {reactKind === "cheer" && CONFETTI.map((c, i) => (
@@ -658,7 +684,7 @@ export default function MascotGuide({ name = "Hector", brand = "Dukaan" }) {
           <Character pose={sitting ? act : pose} flip={sitting ? false : flip} rainy={rainy} brand={brand} />
         </div>
         <button data-mascot="1" aria-label={name} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}
-          style={{ position: "absolute", left: 2, top: 2, width: W - 4, height: H - 4, padding: 0, border: "none", background: "transparent", cursor: dragging ? "grabbing" : "grab", pointerEvents: "auto", touchAction: "none", WebkitTapHighlightColor: "transparent" }} />
+          style={{ position: "absolute", left: 2, top: 2, width: W - 4, height: H - 4, padding: 0, border: "none", background: "transparent", cursor: dragging ? "grabbing" : "grab", pointerEvents: away || !shown ? "none" : "auto", touchAction: "none", WebkitTapHighlightColor: "transparent" }} />
       </div>
     </>
   );
