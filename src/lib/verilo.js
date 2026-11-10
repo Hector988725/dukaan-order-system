@@ -43,7 +43,7 @@ export function validateVeriloSettings({ optIn, city, state, pincode, wasOptIn =
 }
 
 // Verilo ka public domain (ek jagah, taaki badalna ho to sirf yahan badle).
-export const VERILO_ORIGIN = "https://verilo-seven.vercel.app";
+export const VERILO_ORIGIN = "https://verilo.officialhector365.workers.dev";
 
 // Dukaandar ke Verilo button + page ka status:
 //  - "off"    : opt-in band

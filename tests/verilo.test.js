@@ -64,7 +64,7 @@ describe("veriloButtonState", () => {
   it("live -> shops page url with encoded city/state", () => {
     const r = veriloButtonState({ verilo_opt_in: true, subscription_expires_at: future, city: "Anuppur", state: "Madhya Pradesh", pincode: "484224" });
     expect(r.status).toBe("live");
-    expect(r.url).toBe("https://verilo-seven.vercel.app/city/Anuppur/shops?state=Madhya%20Pradesh");
+    expect(r.url).toBe("https://verilo.officialhector365.workers.dev/city/Anuppur/shops?state=Madhya%20Pradesh");
   });
   it("paused when subscription expired or location missing", () => {
     expect(veriloButtonState({ verilo_opt_in: true, subscription_expires_at: null, city: "A", state: "B", pincode: "484224" })).toMatchObject({ status: "paused", reasons: ["subscription"] });

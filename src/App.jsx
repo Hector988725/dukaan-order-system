@@ -22,7 +22,7 @@ import AdminPanel from "./components/AdminPanel";
 import QuickBill from "./components/QuickBill";
 import KitchenScreen from "./components/KitchenScreen";
 import PurchasePanel from "./components/PurchasePanel";
-import { TERMS_CONTENT, PRIVACY_CONTENT, REFUND_CONTENT, PLATFORM_NAME } from "./legalContent";
+import { TERMS_CONTENT, PRIVACY_CONTENT, REFUND_CONTENT, CONTACT_CONTENT, PLATFORM_NAME, OPERATOR_NAME, LAST_UPDATED } from "./legalContent";
 import KhataPanel from "./components/KhataPanel";
 import CustomerKhataButton from "./components/CustomerKhata";
 import OrderTrackingButton from "./components/OrderTracking";
@@ -146,6 +146,14 @@ export default function App() {
       </div>
     );
   }
+  if (path === "contact") {
+    return (
+      <div style={shellStyle}>
+        <GlobalStyles />
+        <LegalPage title="Contact Us" content={CONTACT_CONTENT} />
+      </div>
+    );
+  }
   if (path === "refund-policy") {
     return (
       <div style={shellStyle}>
@@ -175,7 +183,7 @@ function LegalPage({ title, content }) {
     <div style={{ maxWidth: "720px", margin: "0 auto", padding: "28px 20px 60px" }}>
       <a href="/" style={{ fontSize: "12.5px", color: "#8B8576", textDecoration: "none", display: "inline-block", marginBottom: "14px" }}>← Home par jaayein</a>
       <div style={{ fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: "24px", color: "#1A1A1A", marginBottom: "4px" }}>{title}</div>
-      <div style={{ fontSize: "12px", color: "#8B8576", marginBottom: "24px" }}>{PLATFORM_NAME} · Last updated: {new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}</div>
+      <div style={{ fontSize: "12px", color: "#8B8576", marginBottom: "24px" }}>{PLATFORM_NAME} · by {OPERATOR_NAME} · Last updated: {LAST_UPDATED}</div>
       {content.map((section, i) => (
         <div key={i} style={{ marginBottom: "22px" }}>
           <div style={{ fontWeight: 700, fontSize: "14.5px", color: "#1B4332", marginBottom: "8px" }}>{section.heading}</div>
@@ -197,7 +205,7 @@ function LegalPage({ title, content }) {
 // ============================================================
 // DEMO LANDING PAGE (/demo) — sab business-type demo dukaanon ki ek
 // jagah list, taaki alag-alag links yaad na rakhne padein. Prospective
-// dukandaar ko sirf ek link do (dukaan-order-system.vercel.app/demo),
+// dukandaar ko sirf ek link do (dukaan-order-system.pages.dev/demo),
 // wahan se apni type ki dukaan chun lega.
 // ============================================================
 const DEMO_STORES = [

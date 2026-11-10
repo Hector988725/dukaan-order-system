@@ -23,7 +23,7 @@ describe("VeriloManager page states", () => {
   it("live: LIVE badge + View on Verilo link with city & state params", () => {
     const h = html(base);
     expect(h).toContain("LIVE");
-    expect(h).toContain('href="https://verilo-seven.vercel.app/city/Anuppur/shops?state=Madhya%20Pradesh"');
+    expect(h).toContain('href="https://verilo.officialhector365.workers.dev/city/Anuppur/shops?state=Madhya%20Pradesh"');
     expect(h).toContain("View on Verilo");
     expect(h).not.toContain("Paused kyun hai");
     expect(h).toContain("484224"); // location fields prefilled

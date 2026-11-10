@@ -8,19 +8,27 @@
 // kharcha hai lekin galat/adhoori legal terms se bahut bada risk bach
 // jaata hai.
 //
-// Neeche jahan bhi [ ] mein likha hai, use apni real details se
-// badal dena (business naam, email, phone, address, company type).
+// Business details neeche constants me hain (ek jagah). Badalna ho to sirf yahin badlein.
 // ============================================================
 
-export const PLATFORM_NAME = "[Apni Online Dukaan]";
-export const SUPPORT_EMAIL = "[officialhector365@gmail.com]";
-export const SUPPORT_PHONE = "[+91 8959992195]";
-export const BUSINESS_ADDRESS = "[110/4 Chachai Abad, Amlai Road, Ward No. 03, PinCode 484116, Dist Anuppur, Madhya Pradesh]";
+export const PLATFORM_NAME = "Dukaan Order System";
+export const OPERATOR_NAME = "Hector365";
+export const SUPPORT_EMAIL = "officialhector365@gmail.com";
+export const SUPPORT_PHONE = "+91 89599 92195";
+export const BUSINESS_ADDRESS = "110/4 Chachai Abad, Amlai Road, Ward No. 03, Anuppur, Madhya Pradesh - 484116, India";
+export const GRIEVANCE_OFFICER = {
+  name: "Yuvraj Singh",
+  email: "officialhector365@gmail.com",
+  phone: "+91 89599 92195",
+  address: "110/4, Ward 3, Chachai, Anuppur, M.P. - 484116",
+};
+const GRIEVANCE_TEXT = `Grievance Officer: ${GRIEVANCE_OFFICER.name}\nEmail: ${GRIEVANCE_OFFICER.email}\nMobile: ${GRIEVANCE_OFFICER.phone}\nAddress: ${GRIEVANCE_OFFICER.address}`;
+export const LAST_UPDATED = "10 November 2026";
 
 export const TERMS_CONTENT = [
   {
     heading: "1. Introduction",
-    body: `Welcome to ${PLATFORM_NAME} ("we", "us", "our", "Platform"). We provide a software-as-a-service platform that allows shop owners ("Merchant", "you") to create an online storefront, manage products and orders, track customer credit ("Khata"), accept walk-in billing (Quick Bill/POS), and related tools.
+    body: `Welcome to ${PLATFORM_NAME} ("we", "us", "our", "Platform"), operated by ${OPERATOR_NAME}. We provide a software-as-a-service platform that allows shop owners ("Merchant", "you") to create an online storefront, manage products and orders, track customer credit ("Khata"), accept walk-in billing (Quick Bill/POS), and related tools.
 
 By creating an account or using the Platform, you agree to these Terms of Service. If you do not agree, please do not use the Platform.`,
   },
@@ -38,7 +46,16 @@ By creating an account or using the Platform, you agree to these Terms of Servic
     ],
   },
   {
-    heading: "4. Merchant Responsibilities",
+    heading: "4. AutoPay (Recurring Payments)",
+    body: [
+      "You may choose to pay by one-time payment, or to set up AutoPay (a recurring UPI/e-mandate via Razorpay). AutoPay is optional.",
+      "If you set up AutoPay, you authorise us, through Razorpay, to debit the subscription amount shown at setup automatically at the start of each billing cycle until you cancel.",
+      "You can cancel AutoPay at any time from your account's subscription section, or by contacting us. Cancelling stops future debits; your store stays active until the end of the period you have already paid for.",
+      "If an AutoPay debit fails, we may retry per the payment partner's rules, and your store may be suspended until payment is completed.",
+    ],
+  },
+  {
+    heading: "5. Merchant Responsibilities",
     body: [
       "You are solely responsible for the accuracy of product listings, prices, stock levels, and descriptions you upload.",
       "You are responsible for fulfilling orders placed by your customers through the Platform, and for any disputes, refunds, or quality issues relating to the products/services you sell.",
@@ -47,21 +64,21 @@ By creating an account or using the Platform, you agree to these Terms of Servic
     ],
   },
   {
-    heading: "5. Our Role — Technology Provider Only",
+    heading: "6. Our Role — Technology Provider Only",
     body: `${PLATFORM_NAME} provides the technology (software, hosting, order management) that enables you to run your own online and offline retail business. We are not a party to the sale contract between you and your customers, and we do not take ownership of, inspect, or guarantee any product or service sold through your store. Any dispute regarding product quality, delivery, or pricing is strictly between you and your customer.`,
   },
   {
-    heading: "6. Khata (Customer Credit Ledger) Feature",
+    heading: "7. Khata (Customer Credit Ledger) Feature",
     body: `The Khata feature is a bookkeeping/record-keeping tool that allows you to track amounts owed to you by your customers ("credit" or "udhaar"). It is provided purely as a convenience for record-keeping.
 
 ${PLATFORM_NAME} is NOT a lender, NBFC, or financial institution, does not extend credit to any party, does not guarantee collection of any amount recorded in Khata, and is not responsible for disputes between you and your customer regarding Khata balances. You are responsible for the accuracy of entries you make and for recovering amounts owed to you through lawful means.`,
   },
   {
-    heading: "7. Payments Collected Through the Platform",
+    heading: "8. Payments Collected Through the Platform",
     body: `Where the Platform facilitates payment collection (UPI/online payment display for your own customers, or your own subscription payment to us), such payments are processed through third-party payment gateways (e.g., Razorpay). We do not store your customers' full payment card or banking credentials. You are responsible for maintaining a valid UPI ID/payment details for receiving payments from your customers — ${PLATFORM_NAME} is not liable for misdirected payments due to incorrect details entered by you.`,
   },
   {
-    heading: "8. Prohibited Use",
+    heading: "9. Prohibited Use",
     body: [
       "Using the Platform to sell illegal, counterfeit, or prohibited goods.",
       "Attempting to interfere with, hack, or disrupt the Platform's systems.",
@@ -70,23 +87,23 @@ ${PLATFORM_NAME} is NOT a lender, NBFC, or financial institution, does not exten
     ],
   },
   {
-    heading: "9. Suspension & Termination",
+    heading: "10. Suspension & Termination",
     body: `We may suspend or terminate your account if you breach these Terms, engage in fraudulent activity, or fail to pay subscription fees. You may stop using the Platform and request account closure at any time by contacting us — see our Refund & Cancellation Policy for billing implications.`,
   },
   {
-    heading: "10. Limitation of Liability",
+    heading: "11. Limitation of Liability",
     body: `To the maximum extent permitted by law, ${PLATFORM_NAME} shall not be liable for any indirect, incidental, or consequential damages (including loss of business, revenue, or data) arising from your use of the Platform. Our total liability for any claim shall not exceed the subscription fees paid by you in the three (3) months preceding the claim.`,
   },
   {
-    heading: "11. Changes to These Terms",
+    heading: "12. Changes to These Terms",
     body: `We may update these Terms from time to time. Material changes will be notified through the Platform or via the contact details on your account. Continued use after changes take effect constitutes acceptance of the updated Terms.`,
   },
   {
-    heading: "12. Governing Law",
-    body: `These Terms are governed by the laws of India. Any disputes shall be subject to the exclusive jurisdiction of the courts at [Aapka Shahar, Madhya Pradesh].`,
+    heading: "13. Governing Law",
+    body: `These Terms are governed by the laws of India. Any disputes shall be subject to the exclusive jurisdiction of the courts at Anuppur, Madhya Pradesh.`,
   },
   {
-    heading: "13. Contact Us",
+    heading: "14. Contact Us",
     body: `For any questions about these Terms, contact us at:\n${SUPPORT_EMAIL} | ${SUPPORT_PHONE}\n${BUSINESS_ADDRESS}`,
   },
 ];
@@ -103,6 +120,8 @@ export const PRIVACY_CONTENT = [
       "Customer order information (collected on behalf of Merchants): name, phone number, delivery address, and order details, provided by customers when placing an order on a Merchant's storefront.",
       "Khata records: credit/payment entries a Merchant records against a customer's phone number.",
       "Payment information: processed by our payment partner (Razorpay) for subscription billing. We do not store full card numbers or banking credentials on our own servers.",
+      "Delivery/staff accounts: if you add delivery boys or staff, their name, phone number and the orders assigned to them are stored so the Platform can work.",
+      "Notification data: if you allow push notifications, a device notification token is stored so we can send order and account alerts. You can turn this off in your device or browser settings.",
       "Usage data: basic technical information such as device type and general usage patterns, used to maintain and improve the Platform.",
     ],
   },
@@ -118,7 +137,7 @@ export const PRIVACY_CONTENT = [
   },
   {
     heading: "4. Data Storage & Third-Party Processors",
-    body: `Data is stored using third-party cloud infrastructure providers (including Supabase for database/storage and Vercel for hosting), and payment processing is handled by Razorpay. These providers may store data on servers located in India or other jurisdictions in accordance with their own security and compliance standards. We take reasonable steps to work with providers that maintain industry-standard security practices.`,
+    body: `Data is stored using third-party cloud infrastructure providers (including Supabase for database/storage and Cloudflare for hosting), and payment processing is handled by Razorpay. These providers may store data on servers located in India or other jurisdictions in accordance with their own security and compliance standards. We take reasonable steps to work with providers that maintain industry-standard security practices.`,
   },
   {
     heading: "5. Sharing of Information",
@@ -137,15 +156,23 @@ export const PRIVACY_CONTENT = [
     body: `You may request access to, correction of, or deletion of your personal information by contacting us at the details below. Merchants are responsible for handling similar requests from their own end customers regarding order/Khata data recorded against them, and may contact us for assistance in doing so.`,
   },
   {
-    heading: "9. Children's Privacy",
+    heading: "9. Cookies & Local Storage",
+    body: `We use your browser's local storage and similar technology only to keep you logged in, remember language and basic preferences, and make the app work offline-friendly (PWA). We do not use this to show third-party advertising.`,
+  },
+  {
+    heading: "10. Children's Privacy",
     body: `The Platform is intended for use by adults (18+) operating or transacting with a retail business. We do not knowingly collect personal information from children.`,
   },
   {
-    heading: "10. Changes to This Policy",
+    heading: "11. Changes to This Policy",
     body: `We may update this Privacy Policy from time to time. Material changes will be notified through the Platform. Continued use after changes take effect constitutes acceptance of the updated Policy.`,
   },
   {
-    heading: "11. Contact Us",
+    heading: "12. Grievance Contact",
+    body: `If you have a complaint about how your data is handled, contact our Grievance Officer:\n${GRIEVANCE_TEXT}\n\nWe acknowledge complaints within 48 hours and aim to resolve them within 30 days.`,
+  },
+  {
+    heading: "13. Contact Us",
     body: `For privacy-related questions or requests, contact us at:\n${SUPPORT_EMAIL} | ${SUPPORT_PHONE}\n${BUSINESS_ADDRESS}`,
   },
 ];
@@ -160,7 +187,15 @@ export const REFUND_CONTENT = [
     body: `You may cancel your subscription at any time from your account settings or by contacting us. Cancellation stops future billing but does not entitle you to a refund for the current, already-paid billing period — you will continue to have access until the end of the period you have already paid for.`,
   },
   {
-    heading: "3. Exceptions — When a Refund May Be Considered",
+    heading: "3. AutoPay",
+    body: [
+      "If you chose AutoPay, the subscription amount is debited automatically each billing cycle through Razorpay until you cancel.",
+      "Cancel AutoPay anytime from your account's subscription section or by contacting us. Cancelling stops the next debit; the period already paid for is not refunded (see section 2).",
+      "If you were debited after cancelling AutoPay (or debited by mistake), contact us within 7 days and we will refund it to the original payment method within 7-10 business days after verification.",
+    ],
+  },
+  {
+    heading: "4. Exceptions — When a Refund May Be Considered",
     body: [
       "A duplicate/accidental payment was charged for the same billing period.",
       "A technical failure on our part prevented you from accessing the Platform for a significant continuous period, and we were unable to resolve it in a reasonable time.",
@@ -168,15 +203,37 @@ export const REFUND_CONTENT = [
     ],
   },
   {
-    heading: "4. Orders Placed on a Merchant's Storefront",
+    heading: "5. Orders Placed on a Merchant's Storefront",
     body: `${PLATFORM_NAME} is a technology platform and is not the seller of products/services listed on a Merchant's storefront. Refunds, cancellations, or quality disputes for an order (e.g., wrong item, damaged goods, non-delivery) must be resolved directly with the Merchant from whom the order was placed. We encourage Merchants to clearly communicate their own refund/cancellation terms to their customers.`,
   },
   {
-    heading: "5. Promotional / Special Pricing",
+    heading: "6. Promotional / Special Pricing",
     body: `Where a promotional or special price has been offered (e.g., a discounted monthly rate), this pricing applies only while your subscription remains continuously active. It does not itself entitle you to any refund of the difference between promotional and standard pricing under any circumstance.`,
   },
   {
-    heading: "6. How to Request a Refund",
+    heading: "7. How to Request a Refund",
     body: `To request a refund under the exceptions listed above, contact us with your account details and reason for the request:\n${SUPPORT_EMAIL} | ${SUPPORT_PHONE}`,
+  },
+];
+
+export const CONTACT_CONTENT = [
+  {
+    heading: "Business Details",
+    body: `${PLATFORM_NAME}\nOperated by ${OPERATOR_NAME}\n${BUSINESS_ADDRESS}`,
+  },
+  {
+    heading: "Support",
+    body: [
+      `Email: ${SUPPORT_EMAIL}`,
+      `Phone / WhatsApp: ${SUPPORT_PHONE}`,
+    ],
+  },
+  {
+    heading: "Billing & Refund Queries",
+    body: `For payment, AutoPay or refund questions, email us with your registered mobile number, store name and payment date. See our Refund & Cancellation Policy at /refund-policy.`,
+  },
+  {
+    heading: "Grievance Officer",
+    body: `${GRIEVANCE_TEXT}\n\nWe acknowledge complaints within 48 hours and aim to resolve them within 30 days.`,
   },
 ];

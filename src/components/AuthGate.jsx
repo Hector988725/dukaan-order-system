@@ -58,6 +58,8 @@ export function AuthGate({ onAuthed }) {
         <a href="/privacy" style={{ color: "#8B8576", textDecoration: "underline" }}>Privacy Policy</a>
         {" · "}
         <a href="/refund-policy" style={{ color: "#8B8576", textDecoration: "underline" }}>Refund Policy</a>
+        {" · "}
+        <a href="/contact" style={{ color: "#8B8576", textDecoration: "underline" }}>Contact</a>
       </div>
     </div>
   );

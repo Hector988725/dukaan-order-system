@@ -151,7 +151,7 @@ export default function AdsLanding() {
         <h2 style={{ ...h2, margin: "8px 0 6px" }}>Aaj hi apni dukaan online karein</h2>
         <a href={start} style={{ ...btn, background: G, color: "white" }}>Apni Dukaan Banayein <ArrowRight size={17} /></a>
         <div style={{ fontSize: 11.5, color: "#8B8576", marginTop: 18 }}>
-          <a href="/terms" style={{ color: "#8B8576" }}>Terms</a> · <a href="/privacy" style={{ color: "#8B8576" }}>Privacy</a> · <a href="/refund-policy" style={{ color: "#8B8576" }}>Refund Policy</a>
+          <a href="/terms" style={{ color: "#8B8576" }}>Terms</a> · <a href="/privacy" style={{ color: "#8B8576" }}>Privacy</a> · <a href="/refund-policy" style={{ color: "#8B8576" }}>Refund Policy</a> · <a href="/contact" style={{ color: "#8B8576" }}>Contact</a>
         </div>
       </div>
     </div>
