@@ -10,7 +10,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <PoweredBy variant="header" />
     <ErrorBoundary><App /></ErrorBoundary>
-    <PoweredBy variant="footer" />
+    <PoweredBy variant="footer" links />
     <BrandSplash letter="D" name="Dukaan Order System" />
   </React.StrictMode>
 );

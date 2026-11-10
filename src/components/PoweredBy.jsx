@@ -18,7 +18,7 @@ function Mark({ size }) {
   );
 }
 
-export default function PoweredBy({ variant = "footer" }) {
+export default function PoweredBy({ variant = "footer", links = false }) {
   const css = "@media print{.hc-powered{display:none!important}}";
   if (variant === "header") {
     return (
@@ -34,7 +34,7 @@ export default function PoweredBy({ variant = "footer" }) {
     );
   }
   return (
-    <div className="hc-powered" role="note" style={{ display: "flex", justifyContent: "center", padding: "18px 12px 26px", fontFamily: FONT, userSelect: "none" }}>
+    <div className="hc-powered" role="note" style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "18px 12px 26px", fontFamily: FONT, userSelect: "none" }}>
       <style>{css}</style>
       <div style={{
         display: "inline-flex", alignItems: "center", gap: 9, padding: "6px 16px 6px 7px", borderRadius: 999,
@@ -46,6 +46,14 @@ export default function PoweredBy({ variant = "footer" }) {
           <span style={{ fontSize: 16, fontWeight: 800, color: NAVY, letterSpacing: -0.2, textShadow: "0 1px 0 #fff, 0 2px 3px rgba(27,42,92,.22)" }}>Hector<span style={{ color: ORANGE }}>365</span></span>
         </span>
       </div>
+      {links && (
+        <div style={{ marginTop: 14, display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "center", fontSize: 11, color: "#8B8576" }}>
+          <a href="/terms" style={{ color: "#8B8576" }}>Terms</a><span>·</span>
+          <a href="/privacy" style={{ color: "#8B8576" }}>Privacy Policy</a><span>·</span>
+          <a href="/refund-policy" style={{ color: "#8B8576" }}>Refund Policy</a><span>·</span>
+          <a href="/contact" style={{ color: "#8B8576" }}>Contact Us</a>
+        </div>
+      )}
     </div>
   );
 }
