@@ -4,6 +4,7 @@ import { createOrder, fetchCustomerByPhone, createKhataCustomer, addKhataTransac
 import { getVariantPricing, getQuantityDealPrice } from "../lib/theme";
 
 import { friendlyError } from "../lib/errors";
+import RateCalculator from "./RateCalculator";
 // ============================================================
 // QUICK BILL (POS / Walk-in Billing)
 // ============================================================
@@ -19,6 +20,7 @@ import { friendlyError } from "../lib/errors";
 export default function QuickBill({ store, products, onOrderPlaced }) {
   const [stage, setStage] = useState("billing"); // billing | payment | receipt
   const [search, setSearch] = useState("");
+  const [showCalc, setShowCalc] = useState(false);
   const [cart, setCart] = useState({}); // variantId -> qty
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
@@ -225,6 +227,13 @@ export default function QuickBill({ store, products, onOrderPlaced }) {
               <Field label="Table Number (zaroori)" value={tableNo} onChange={setTableNo} placeholder="jaise 5" />
             </div>
           )}
+          <div style={{ marginBottom: "10px" }}>
+            <button type="button" onClick={() => setShowCalc((v) => !v)} aria-expanded={showCalc}
+              style={{ border: "1.5px solid #1B4332", background: showCalc ? "#1B4332" : "#fff", color: showCalc ? "#fff" : "#1B4332", borderRadius: 999, padding: "7px 12px", fontSize: 12, fontWeight: 800, cursor: "pointer", fontFamily: "inherit" }}>
+              🧮 Calculator {showCalc ? "▲" : "▼"}
+            </button>
+            {showCalc && <div style={{ marginTop: 8 }}><RateCalculator /></div>}
+          </div>
           {error && stage === "billing" && <div style={{ color: "#B3261E", fontSize: "12px", marginBottom: "8px" }}>{error}</div>}
           <div style={{ position: "relative", marginBottom: "10px" }}>
             <Search size={15} color="#8B8576" style={{ position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)" }} />

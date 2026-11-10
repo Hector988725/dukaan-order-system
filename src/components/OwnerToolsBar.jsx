@@ -1,9 +1,11 @@
 import React, { useState } from "react";
 import ShareAppButton from "./ShareAppButton";
+import RateCalculator from "./RateCalculator";
 
 // ============================================================
 // Orders page ke upar EK patti: 3 chhote buttons. Dabane par hi neeche ka card khulta hai,
 // warna sirf ek patti dikhti hai, taaki orders turant dikhein.
+//  0. Calculator (10 gram ka rate, jod, chhoot, GST)
 //  1. Dukaan ka link (apne customers ko bhejne ke liye)
 //  2. Ye app dusre dukaandar ko bhejein
 //  3. Staff ko app dein
@@ -31,10 +33,12 @@ export default function OwnerToolsBar({ store, onGoStaff }) {
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "10px 18px 0" }}>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        {chip("calc", "🧮 Calculator")}
         {chip("store", "🔗 Dukaan link")}
         {chip("app", "📣 App share")}
         {chip("staff", "👥 Staff app")}
       </div>
+      {open === "calc" && <div style={{ marginTop: 10 }}><RateCalculator /></div>}
       {open === "store" && <div style={{ marginTop: 10 }}><ShareAppButton audience="store" store={store} bare /></div>}
       {open === "app" && <div style={{ marginTop: 10 }}><ShareAppButton audience="owner" bare /></div>}
       {open === "staff" && (
