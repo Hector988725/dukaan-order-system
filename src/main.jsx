@@ -3,14 +3,15 @@ import ReactDOM from "react-dom/client";
 import App from "./App.jsx";
 import ErrorBoundary from "./components/ErrorBoundary.jsx";
 import BrandSplash from "./components/BrandSplash.jsx";
-import MascotGuide from "./components/MascotGuide.jsx";
+import PoweredBy from "./components/PoweredBy.jsx";
 import "./index.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
+    <PoweredBy variant="header" />
     <ErrorBoundary><App /></ErrorBoundary>
+    <PoweredBy variant="footer" />
     <BrandSplash letter="D" name="Dukaan Order System" />
-    <MascotGuide name="Dukaan Saathi" brand="Dukaan" accent="#F28A1E" />
   </React.StrictMode>
 );
 
