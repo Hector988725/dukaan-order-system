@@ -112,58 +112,6 @@ function useWeather() {
   return w;
 }
 
-const DROPS = Array.from({ length: 38 }, (_, i) => ({ l: (i * 97) % 100, d: ((i * 37) % 100) / 100 * 1.4, t: 0.8 + ((i * 53) % 60) / 100 }));
-
-function Cloud({ top, dur, delay, size, tone }) {
-  return (
-    <svg className="mg-cloud" width={size} height={size * 0.6} viewBox="0 0 60 36" style={{ top, animationDuration: `${dur}s`, animationDelay: `${delay}s` }}>
-      <path d="M14 30 Q3 30 4 21 Q5 13 14 14 Q16 4 28 5 Q38 5 40 14 Q52 12 54 22 Q55 30 46 30Z" fill={tone} />
-    </svg>
-  );
-}
-
-function WeatherSky({ kind, day, spot }) {
-  const sp = spot || { x: Math.max(0, (typeof window !== "undefined" ? window.innerWidth : 360) - 42), y: 8 };
-  const rain = kind === "rain";
-  const cloudy = kind !== "clear";
-  const tone = day ? (rain ? "#B9C3D6" : "#FFFFFF") : "#8E97B5";
-  return (
-    <div data-mascot="1" aria-hidden="true" style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 5, overflow: "hidden" }}>
-      <style>{`
-        .mg-cloud{position:absolute;left:-80px;opacity:.9;animation:mgDrift linear infinite}
-        @keyframes mgDrift{to{transform:translateX(calc(100vw + 160px))}}
-        .mg-drop{position:absolute;top:-20px;width:1.5px;height:15px;border-radius:1px;background:linear-gradient(rgba(110,150,220,0),rgba(90,130,210,.65));animation:mgFall linear infinite}
-        @keyframes mgFall{from{transform:translateY(-20px) rotate(9deg)}to{transform:translateY(108vh) rotate(9deg)}}
-        .mg-rays{transform-origin:15px 15px;animation:mgSpin 26s linear infinite}
-        @keyframes mgSpin{to{transform:rotate(360deg)}}
-        .mg-star{animation:mgTw 2.2s ease-in-out infinite}
-        @keyframes mgTw{0%,100%{opacity:.2}50%{opacity:1}}
-        @media (prefers-reduced-motion: reduce){.mg-cloud,.mg-drop,.mg-rays,.mg-star{animation:none!important}.mg-cloud{left:20px}}
-      `}</style>
-      {!rain && day && (
-        <svg className="mg-sun" width="30" height="30" viewBox="0 0 30 30" style={{ position: "absolute", top: sp.y, left: sp.x, transition: "top .6s, left .6s" }}>
-          <g className="mg-rays" stroke="#F5B731" strokeWidth="2" strokeLinecap="round">
-            {Array.from({ length: 8 }).map((_, i) => <line key={i} x1="15" y1="2" x2="15" y2="5.5" transform={`rotate(${i * 45} 15 15)`} />)}
-          </g>
-          <circle cx="15" cy="15" r="6.5" fill="#FFD54A" stroke="#F5B731" strokeWidth="1" />
-        </svg>
-      )}
-      {!day && (
-        <svg width="30" height="30" viewBox="0 0 30 30" style={{ position: "absolute", top: sp.y, left: sp.x, transition: "top .6s, left .6s" }}>
-          <path d="M20 4 A11 11 0 1 0 26 20 A9 9 0 1 1 20 4Z" fill="#F4E6A6" stroke="#E2CE78" strokeWidth=".8" />
-          <circle className="mg-star" cx="5" cy="7" r="1.1" fill="#F4E6A6" /><circle className="mg-star" style={{ animationDelay: ".7s" }} cx="11" cy="24" r="1" fill="#F4E6A6" />
-        </svg>
-      )}
-      {cloudy && <Cloud top={10} dur={70} delay={0} size={56} tone={tone} />}
-      {(kind === "cloud" || rain) && <Cloud top={34} dur={95} delay={-40} size={44} tone={tone} />}
-      {rain && <Cloud top={4} dur={80} delay={-20} size={62} tone={tone} />}
-      {rain && DROPS.map((d, i) => (
-        <span key={i} className="mg-drop" style={{ left: `${d.l}%`, animationDelay: `-${d.d}s`, animationDuration: `${d.t}s` }} />
-      ))}
-    </div>
-  );
-}
-
 const COLORS = ["#F28A1E", "#F6C21B", "#3D7FD9", "#E4572E", "#2FA36B", "#9B5DE5"];
 const CONFETTI = Array.from({ length: 18 }, (_, i) => ({
   dx: Math.round(Math.cos((i / 18) * Math.PI * 2) * (24 + (i % 4) * 9)),
@@ -374,36 +322,10 @@ export default function MascotGuide({ name = "Hector", brand = "Dukaan" }) {
   const [box, setBox] = useState(null); // { x, y, w, h, line }
   const [c, setC] = useState(-16); // % jitna hissa saaf ho chuka
   const [fadeText, setFadeText] = useState(false);
-  const [skySpot, setSkySpot] = useState(null);
-  const skyRef = useRef(null);
   const busy = useRef(false);
   const wx = useWeather();
   const reduce = typeof window !== "undefined" && window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const rainy = wx.kind === "rain";
-
-  // sooraj / chand: hamesha khali jagah par
-  useEffect(() => {
-    function sky() {
-      if (document.visibilityState !== "visible") return;
-      const vw = window.innerWidth, vh = window.innerHeight;
-      const cur = skyRef.current;
-      if (cur && busyScore(cur.x, cur.y, 32, 32) <= 2) return;
-      let best = null;
-      for (const y of [8, Math.round(vh * 0.5), vh - 48]) for (const x of [vw - 44, 10]) {
-        const sc = busyScore(x, y, 32, 32);
-        if (!best || sc < best.sc) best = { c: { x, y }, sc };
-        if (sc === 0) { skyRef.current = { x, y }; setSkySpot({ x, y }); return; }
-      }
-      skyRef.current = best.c; setSkySpot(best.c);
-    }
-    let t = 0;
-    const onScroll = () => { if (t) return; t = setTimeout(() => { t = 0; sky(); }, 250); };
-    const first = setTimeout(sky, 4000);
-    const id = setInterval(sky, 3000);
-    window.addEventListener("scroll", onScroll, true);
-    window.addEventListener("resize", sky);
-    return () => { clearTimeout(first); clearTimeout(t); clearInterval(id); window.removeEventListener("scroll", onScroll, true); window.removeEventListener("resize", sky); };
-  }, []);
 
   // har ghante ek visit
   useEffect(() => {
@@ -426,7 +348,7 @@ export default function MascotGuide({ name = "Hector", brand = "Dukaan" }) {
         if (!best || sc < best.sc) best = { x, y, w, h, sc };
         if (sc === 0) break;
       }
-      return best && best.sc <= 2 ? best : null;
+      return best && best.sc <= 1 ? best : null;
     }
 
     async function visit() {
@@ -464,8 +386,8 @@ export default function MascotGuide({ name = "Hector", brand = "Dukaan" }) {
       setPose("cheer"); await later(1700);
       setPose("idle"); await later(3500);
       setFadeText(true);
-      setLeft(false); setPose("walk"); setMoveMs(reduce ? 0 : 2400); setPos({ x: vw + 20, y: standY });
-      await later(reduce ? 50 : 2500);
+      setLeft(true); setPose("walk"); setMoveMs(reduce ? 0 : 2000); setPos({ x: -W - 20, y: standY });
+      await later(reduce ? 50 : 2100);
       setOn(false); setBox(null); setC(-16);
       try { localStorage.setItem(LAST_CLEAN, String(Date.now())); } catch (e) { /* ignore */ }
       busy.current = false;
@@ -488,7 +410,6 @@ export default function MascotGuide({ name = "Hector", brand = "Dukaan" }) {
   const fogMask = `linear-gradient(90deg, transparent ${c}%, #000 ${c + 16}%)`;
   return (
     <>
-      <WeatherSky kind={wx.kind} day={wx.day} spot={skySpot} />
       <style>{MASCOT_CSS}</style>
       {box && (
         <div aria-hidden="true" style={{ position: "fixed", left: box.x, top: box.y, width: box.w, height: box.h, zIndex: 8999, pointerEvents: "none", opacity: fadeText ? 0 : 1, transition: "opacity 1.2s" }}>
